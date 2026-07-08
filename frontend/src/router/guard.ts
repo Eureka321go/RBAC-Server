@@ -29,8 +29,10 @@ export function setupRouterGuard(router: Router) {
         await useUserStore().fetchCurrentUser()
         const routes = await permissionStore.generateRoutes()
         routes.forEach((route) => router.addRoute(ROOT_ROUTE_NAME, route))
-        // 重新进入目标路由，确保新注册的动态路由被匹配
-        return { ...to, replace: true }
+        // 按 path 重新解析：刷新深层路由时 to 匹配的是 404 catch-all，
+        // 直接 { ...to } 会带上 name='not-found' 导致再次落到 404，
+        // 用 fullPath 让 router 针对新注册的动态路由重新匹配。
+        return { path: to.fullPath, replace: true }
       } catch {
         useAuthStore().clearAuth()
         return { path: '/login', query: { redirect: to.fullPath } }

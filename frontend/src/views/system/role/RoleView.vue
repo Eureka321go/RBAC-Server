@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type TreeInstance } from 'element-plus'
 import PageContainer from '@/components/PageContainer.vue'
 import {
   createRole,
   deleteRole,
+  getRoleDeptIds,
   getRoleMenuIds,
+  grantRoleDepts,
   grantRoleMenus,
   listRoles,
   updateRole,
@@ -16,6 +18,7 @@ import {
   type RoleQuery,
 } from '@/api/system/role'
 import { getMenuTree } from '@/api/system/menu'
+import { getDeptTree, type DeptItem } from '@/api/system/dept'
 import type { MenuItem } from '@/types/menu'
 
 const loading = ref(false)
@@ -136,6 +139,16 @@ const grantRoleName = ref('')
 const menuTree = ref<MenuItem[]>([])
 const treeRef = ref<TreeInstance>()
 
+/**
+ * 只勾选叶子节点，父节点的半选/全选状态交给 el-tree 自动推算。
+ * 后端保存的 id 里包含父目录节点，若直接 setCheckedKeys 会级联勾选整棵子树，
+ * 导致已取消的子节点被重新勾上。
+ */
+function setLeafChecked(tree: TreeInstance, ids: number[]) {
+  const leafIds = ids.filter((id) => tree.getNode(id)?.isLeaf)
+  tree.setCheckedKeys(leafIds, false)
+}
+
 async function openGrant(row: RoleItem) {
   grantRoleId.value = row.id
   grantRoleName.value = row.roleName
@@ -144,8 +157,8 @@ async function openGrant(row: RoleItem) {
     menuTree.value = await getMenuTree()
   }
   const checked = await getRoleMenuIds(row.id)
-  await Promise.resolve()
-  treeRef.value?.setCheckedKeys(checked, false)
+  await nextTick()
+  if (treeRef.value) setLeafChecked(treeRef.value, checked)
 }
 
 async function handleGrantSubmit() {
@@ -153,8 +166,38 @@ async function handleGrantSubmit() {
   const checked = treeRef.value.getCheckedKeys(false) as number[]
   const halfChecked = treeRef.value.getHalfCheckedKeys() as number[]
   await grantRoleMenus(grantRoleId.value, [...halfChecked, ...checked])
-  ElMessage.success('权限已保存')
+  ElMessage.success('菜单权限已保存')
   grantVisible.value = false
+}
+
+// ------- 分配数据权限（部门） -------
+const deptDialogVisible = ref(false)
+const deptRoleId = ref<number | null>(null)
+const deptRoleName = ref('')
+const deptRoleScope = ref<DataScope>('SELF')
+const deptTree = ref<DeptItem[]>([])
+const deptTreeRef = ref<TreeInstance>()
+
+async function openGrantDept(row: RoleItem) {
+  deptRoleId.value = row.id
+  deptRoleName.value = row.roleName
+  deptRoleScope.value = row.dataScope
+  deptDialogVisible.value = true
+  if (deptTree.value.length === 0) {
+    deptTree.value = await getDeptTree()
+  }
+  const checked = await getRoleDeptIds(row.id)
+  await nextTick()
+  if (deptTreeRef.value) setLeafChecked(deptTreeRef.value, checked)
+}
+
+async function handleGrantDeptSubmit() {
+  if (deptRoleId.value == null || !deptTreeRef.value) return
+  const checked = deptTreeRef.value.getCheckedKeys(false) as number[]
+  const halfChecked = deptTreeRef.value.getHalfCheckedKeys() as number[]
+  await grantRoleDepts(deptRoleId.value, [...halfChecked, ...checked])
+  ElMessage.success('数据权限已保存')
+  deptDialogVisible.value = false
 }
 
 onMounted(loadData)
@@ -193,10 +236,11 @@ onMounted(loadData)
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="360" fixed="right" class-name="op-col">
+      <el-table-column label="操作" width="440" fixed="right" class-name="op-col">
         <template #default="{ row }">
           <el-button v-permission="'system:role:edit'" link type="primary" icon="Edit" @click="openEdit(row)">编辑</el-button>
-          <el-button v-permission="'system:role:menu'" link type="primary" icon="Key" @click="openGrant(row)">分配权限</el-button>
+          <el-button v-permission="'system:role:grant-menu'" link type="primary" icon="Key" @click="openGrant(row)">分配菜单</el-button>
+          <el-button v-permission="'system:role:grant-data'" link type="primary" icon="Share" @click="openGrantDept(row)">数据权限</el-button>
           <el-button v-permission="'system:role:edit'" link icon="SwitchButton" @click="handleToggleStatus(row)">
             {{ row.status === 'ENABLED' ? '禁用' : '启用' }}
           </el-button>
@@ -259,10 +303,11 @@ onMounted(loadData)
       </template>
     </el-dialog>
 
-    <!-- 分配权限 -->
-    <el-dialog v-model="grantVisible" :title="`分配权限 - ${grantRoleName}`" width="420px">
+    <!-- 分配菜单 -->
+    <el-dialog v-model="grantVisible" :title="`分配菜单 - ${grantRoleName}`" width="420px">
       <el-tree
         ref="treeRef"
+        class="max-h-[60vh] overflow-y-auto"
         :data="menuTree"
         show-checkbox
         node-key="id"
@@ -272,6 +317,31 @@ onMounted(loadData)
       <template #footer>
         <el-button @click="grantVisible = false">取消</el-button>
         <el-button type="primary" @click="handleGrantSubmit">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 分配数据权限（部门） -->
+    <el-dialog v-model="deptDialogVisible" :title="`数据权限 - ${deptRoleName}`" width="420px">
+      <el-alert
+        v-if="deptRoleScope !== 'CUSTOM_DEPT'"
+        type="info"
+        :closable="false"
+        show-icon
+        class="mb-3"
+        title="当前数据范围非「自定义部门」，此处勾选仅在数据范围设为「自定义部门」时生效。"
+      />
+      <el-tree
+        ref="deptTreeRef"
+        class="max-h-[60vh] overflow-y-auto"
+        :data="deptTree"
+        show-checkbox
+        node-key="id"
+        :props="{ label: 'deptName', children: 'children' }"
+        default-expand-all
+      />
+      <template #footer>
+        <el-button @click="deptDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleGrantDeptSubmit">保存</el-button>
       </template>
     </el-dialog>
   </PageContainer>

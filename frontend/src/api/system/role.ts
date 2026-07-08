@@ -60,3 +60,11 @@ export function getRoleMenuIds(id: number) {
 export function grantRoleMenus(id: number, menuIds: number[]) {
   return request.put<void>(`/system/roles/${id}/menus`, { menuIds })
 }
+
+export function getRoleDeptIds(id: number) {
+  return request.get<number[]>(`/system/roles/${id}/depts`)
+}
+
+export function grantRoleDepts(id: number, deptIds: number[]) {
+  return request.put<void>(`/system/roles/${id}/depts`, { deptIds })
+}

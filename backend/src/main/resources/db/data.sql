@@ -23,6 +23,11 @@ INSERT IGNORE INTO `sys_user_role` (`id`, `user_id`, `role_id`) VALUES
   (1, 1, 1),
   (2, 2, 2);
 
+-- 用户岗位
+INSERT IGNORE INTO `sys_user_post` (`id`, `user_id`, `post_id`) VALUES
+  (1, 1, 1),
+  (2, 2, 3);
+
 -- 菜单：目录 + 菜单 + 按钮
 INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_type`, `menu_name`, `path`, `component`, `permission_code`, `icon`, `sort_order`, `visible`, `keep_alive`, `status`, `created_at`) VALUES
   (1,  0,  'DIR',    '系统管理', '/system', 'Layout',                 NULL,                          'Setting',  1, 1, 0, 'ENABLED', NOW()),

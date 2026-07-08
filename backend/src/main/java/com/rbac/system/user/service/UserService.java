@@ -10,14 +10,18 @@ import com.rbac.common.exception.BusinessException;
 import com.rbac.common.util.SecurityUtils;
 import com.rbac.system.dept.entity.SysDept;
 import com.rbac.system.dept.mapper.SysDeptMapper;
+import com.rbac.system.post.entity.SysPost;
+import com.rbac.system.post.mapper.SysPostMapper;
 import com.rbac.system.role.entity.SysRole;
 import com.rbac.system.role.mapper.SysRoleMapper;
 import com.rbac.system.user.dto.UserCreateRequest;
 import com.rbac.system.user.dto.UserQuery;
 import com.rbac.system.user.dto.UserUpdateRequest;
 import com.rbac.system.user.entity.SysUser;
+import com.rbac.system.user.entity.SysUserPost;
 import com.rbac.system.user.entity.SysUserRole;
 import com.rbac.system.user.mapper.SysUserMapper;
+import com.rbac.system.user.mapper.SysUserPostMapper;
 import com.rbac.system.user.mapper.SysUserRoleMapper;
 import com.rbac.system.user.vo.UserVO;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,19 +46,24 @@ public class UserService {
 
     private final SysUserMapper userMapper;
     private final SysUserRoleMapper userRoleMapper;
+    private final SysUserPostMapper userPostMapper;
     private final SysRoleMapper roleMapper;
     private final SysDeptMapper deptMapper;
+    private final SysPostMapper postMapper;
     private final PasswordEncoder passwordEncoder;
     private final DataScopeService dataScopeService;
     private final String defaultPassword;
 
-    public UserService(SysUserMapper userMapper, SysUserRoleMapper userRoleMapper, SysRoleMapper roleMapper,
-                       SysDeptMapper deptMapper, PasswordEncoder passwordEncoder, DataScopeService dataScopeService,
+    public UserService(SysUserMapper userMapper, SysUserRoleMapper userRoleMapper, SysUserPostMapper userPostMapper,
+                       SysRoleMapper roleMapper, SysDeptMapper deptMapper, SysPostMapper postMapper,
+                       PasswordEncoder passwordEncoder, DataScopeService dataScopeService,
                        @Value("${rbac.security.default-password:123456}") String defaultPassword) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
+        this.userPostMapper = userPostMapper;
         this.roleMapper = roleMapper;
         this.deptMapper = deptMapper;
+        this.postMapper = postMapper;
         this.passwordEncoder = passwordEncoder;
         this.dataScopeService = dataScopeService;
         this.defaultPassword = defaultPassword;
@@ -117,6 +126,7 @@ public class UserService {
         user.setRemark(req.getRemark());
         userMapper.insert(user);
         replaceRoles(user.getId(), req.getRoleIds());
+        replacePosts(user.getId(), req.getPostIds());
         return user.getId();
     }
 
@@ -140,6 +150,7 @@ public class UserService {
         if (!isSuperAdmin(id)) {
             replaceRoles(id, req.getRoleIds());
         }
+        replacePosts(id, req.getPostIds());
     }
 
     public void delete(Long id) {
@@ -152,6 +163,7 @@ public class UserService {
         }
         userMapper.deleteById(id);
         userRoleMapper.delete(Wrappers.<SysUserRole>lambdaQuery().eq(SysUserRole::getUserId, id));
+        userPostMapper.delete(Wrappers.<SysUserPost>lambdaQuery().eq(SysUserPost::getUserId, id));
     }
 
     public void updateStatus(Long id, String status) {
@@ -218,12 +230,23 @@ public class UserService {
         }
     }
 
+    private void replacePosts(Long userId, List<Long> postIds) {
+        userPostMapper.delete(Wrappers.<SysUserPost>lambdaQuery().eq(SysUserPost::getUserId, userId));
+        if (postIds != null) {
+            for (Long postId : postIds) {
+                userPostMapper.insert(new SysUserPost(userId, postId));
+            }
+        }
+    }
+
     private void fillDeptAndRoles(List<UserVO> vos) {
         if (vos.isEmpty()) {
             return;
         }
         Map<Long, String> deptNames = deptMapper.selectList(null).stream()
                 .collect(Collectors.toMap(SysDept::getId, SysDept::getDeptName, (a, b) -> a));
+        Map<Long, String> postNames = postMapper.selectList(null).stream()
+                .collect(Collectors.toMap(SysPost::getId, SysPost::getPostName, (a, b) -> a));
         for (UserVO vo : vos) {
             if (vo.getDeptId() != null) {
                 vo.setDeptName(deptNames.get(vo.getDeptId()));
@@ -231,6 +254,10 @@ public class UserService {
             List<SysRole> roles = roleMapper.selectRolesByUserId(vo.getId());
             vo.setRoleIds(roles.stream().map(SysRole::getId).collect(Collectors.toList()));
             vo.setRoleNames(roles.stream().map(SysRole::getRoleName).collect(Collectors.toList()));
+            List<Long> postIds = userPostMapper.selectPostIdsByUserId(vo.getId());
+            vo.setPostIds(postIds);
+            vo.setPostNames(postIds.stream().map(postNames::get)
+                    .filter(java.util.Objects::nonNull).collect(Collectors.toList()));
         }
     }
 }

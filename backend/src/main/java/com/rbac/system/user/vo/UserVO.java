@@ -24,6 +24,8 @@ public class UserVO {
     private LocalDateTime createdAt;
     private List<Long> roleIds = new ArrayList<>();
     private List<String> roleNames = new ArrayList<>();
+    private List<Long> postIds = new ArrayList<>();
+    private List<String> postNames = new ArrayList<>();
 
     public static UserVO from(SysUser u) {
         UserVO vo = new UserVO();

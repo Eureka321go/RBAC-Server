@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getDashboardStats, type DashboardStats } from '@/api/system/dashboard'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -24,12 +25,24 @@ const today = computed(() =>
   }),
 )
 
-const stats = [
-  { label: '系统用户', value: '—', hint: '在管账户', icon: 'user', tone: 'blue', to: '/system/user' },
-  { label: '角色数量', value: '—', hint: '权限分组', icon: 'role', tone: 'violet', to: '/system/role' },
-  { label: '菜单资源', value: '—', hint: '可控功能点', icon: 'menu', tone: 'emerald', to: '/system/menu' },
-  { label: '部门机构', value: '—', hint: '组织架构', icon: 'dept', tone: 'amber', to: '/system/dept' },
-] as const
+const counts = reactive<DashboardStats>({ userCount: 0, roleCount: 0, menuCount: 0, deptCount: 0 })
+const loaded = ref(false)
+
+const stats = computed(() => [
+  { label: '系统用户', value: counts.userCount, hint: '在管账户', tone: 'blue', to: '/system/user' },
+  { label: '角色数量', value: counts.roleCount, hint: '权限分组', tone: 'violet', to: '/system/role' },
+  { label: '菜单资源', value: counts.menuCount, hint: '可控功能点', tone: 'emerald', to: '/system/menu' },
+  { label: '部门机构', value: counts.deptCount, hint: '组织架构', tone: 'amber', to: '/system/dept' },
+])
+
+onMounted(async () => {
+  try {
+    const data = (await getDashboardStats()) as unknown as DashboardStats
+    Object.assign(counts, data)
+  } finally {
+    loaded.value = true
+  }
+})
 
 const quickLinks = [
   { title: '用户管理', desc: '新增账户、分配角色与部门', to: '/system/user' },
@@ -80,7 +93,7 @@ function go(to: string) {
           {{ s.label.slice(0, 1) }}
         </span>
         <div class="min-w-0">
-          <div class="text-2xl font-semibold leading-none text-slate-900">{{ s.value }}</div>
+          <div class="text-2xl font-semibold leading-none text-slate-900">{{ loaded ? s.value : '—' }}</div>
           <div class="mt-1.5 text-sm font-medium text-slate-600">{{ s.label }}</div>
           <div class="text-xs text-slate-400">{{ s.hint }}</div>
         </div>

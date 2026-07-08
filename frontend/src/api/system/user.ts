@@ -16,6 +16,8 @@ export interface UserItem {
   createdAt?: string
   roleIds: number[]
   roleNames: string[]
+  postIds: number[]
+  postNames: string[]
 }
 
 export interface UserQuery extends PageQuery {
@@ -36,6 +38,7 @@ export interface UserForm {
   status?: EnableStatus
   remark?: string
   roleIds: number[]
+  postIds: number[]
 }
 
 export function listUsers(params: UserQuery) {

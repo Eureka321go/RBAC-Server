@@ -23,4 +23,5 @@ public class UserUpdateRequest {
 
     private String remark;
     private List<Long> roleIds = new ArrayList<>();
+    private List<Long> postIds = new ArrayList<>();
 }
