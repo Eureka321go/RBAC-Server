@@ -8,7 +8,9 @@ import com.rbac.common.exception.BusinessException;
 import com.rbac.system.role.dto.RoleQuery;
 import com.rbac.system.role.dto.RoleSaveRequest;
 import com.rbac.system.role.entity.SysRole;
+import com.rbac.system.role.entity.SysRoleDept;
 import com.rbac.system.role.entity.SysRoleMenu;
+import com.rbac.system.role.mapper.SysRoleDeptMapper;
 import com.rbac.system.role.mapper.SysRoleMapper;
 import com.rbac.system.role.mapper.SysRoleMenuMapper;
 import com.rbac.system.role.vo.RoleVO;
@@ -28,11 +30,14 @@ public class RoleService {
 
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final SysRoleDeptMapper roleDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
 
-    public RoleService(SysRoleMapper roleMapper, SysRoleMenuMapper roleMenuMapper, SysUserRoleMapper userRoleMapper) {
+    public RoleService(SysRoleMapper roleMapper, SysRoleMenuMapper roleMenuMapper,
+                       SysRoleDeptMapper roleDeptMapper, SysUserRoleMapper userRoleMapper) {
         this.roleMapper = roleMapper;
         this.roleMenuMapper = roleMenuMapper;
+        this.roleDeptMapper = roleDeptMapper;
         this.userRoleMapper = userRoleMapper;
     }
 
@@ -130,6 +135,34 @@ public class RoleService {
                 roleMenuMapper.insert(new SysRoleMenu(roleId, menuId));
             }
         }
+    }
+
+    public List<Long> getDeptIds(Long roleId) {
+        getById(roleId);
+        return roleDeptMapper.selectList(Wrappers.<SysRoleDept>lambdaQuery().eq(SysRoleDept::getRoleId, roleId))
+                .stream().map(SysRoleDept::getDeptId).toList();
+    }
+
+    /**
+     * 整体替换角色自定义数据范围部门，并将角色数据范围置为 CUSTOM_DEPT。
+     */
+    @Transactional
+    public void grantDepts(Long roleId, List<Long> deptIds) {
+        getById(roleId);
+        roleDeptMapper.delete(Wrappers.<SysRoleDept>lambdaQuery().eq(SysRoleDept::getRoleId, roleId));
+        if (deptIds != null) {
+            for (Long deptId : deptIds) {
+                SysRoleDept rd = new SysRoleDept();
+                rd.setRoleId(roleId);
+                rd.setDeptId(deptId);
+                rd.setIncludeChildren(1);
+                roleDeptMapper.insert(rd);
+            }
+        }
+        SysRole update = new SysRole();
+        update.setId(roleId);
+        update.setDataScope("CUSTOM_DEPT");
+        roleMapper.updateById(update);
     }
 
     private void ensureCodeUnique(String roleCode, Long excludeId) {

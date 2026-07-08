@@ -1,15 +1,46 @@
 import request from '../request'
-import type { PageResult, SystemQuery } from '@/types/system'
+import type { PageQuery, PageResult } from '@/types/system'
 
-export interface LogListItem {
-  id: number | string
+export interface LoginLogItem {
+  id: number
   username: string
-  action: string
-  ip: string
   status: string
-  createdAt: string
+  message?: string
+  ip?: string
+  userAgent?: string
+  loginAt?: string
 }
 
-export function listOperationLogs(params: SystemQuery) {
-  return request.get<PageResult<LogListItem>>('/system/logs/operation', { params })
+export interface LoginLogQuery extends PageQuery {
+  username?: string
+}
+
+export interface OperationLogItem {
+  id: number
+  title: string
+  businessType: string
+  method?: string
+  requestUri?: string
+  requestMethod?: string
+  operator?: string
+  deptId?: number
+  params?: string
+  status: string
+  errorMsg?: string
+  costMs?: number
+  ip?: string
+  operateAt?: string
+}
+
+export interface OperationLogQuery extends PageQuery {
+  title?: string
+  operator?: string
+}
+
+export function listLoginLogs(params: LoginLogQuery) {
+  return request.get<PageResult<LoginLogItem>>('/system/login-logs', { params })
+}
+
+export function listOperationLogs(params: OperationLogQuery) {
+  return request.get<PageResult<OperationLogItem>>('/system/operation-logs', { params })
 }

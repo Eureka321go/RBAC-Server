@@ -32,7 +32,8 @@ public class AuthController {
 
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-        return Result.success(authService.login(request, clientIp(servletRequest)));
+        String userAgent = servletRequest.getHeader("User-Agent");
+        return Result.success(authService.login(request, clientIp(servletRequest), userAgent));
     }
 
     @PostMapping("/logout")

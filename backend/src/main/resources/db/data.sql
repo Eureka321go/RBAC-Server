@@ -49,10 +49,53 @@ INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_type`, `menu_name`, `pat
   -- 部门按钮
   (41, 40, 'BUTTON', '新增部门', NULL, NULL, 'system:dept:add',    NULL, 1, 1, 0, 'ENABLED', NOW()),
   (42, 40, 'BUTTON', '编辑部门', NULL, NULL, 'system:dept:edit',   NULL, 2, 1, 0, 'ENABLED', NOW()),
-  (43, 40, 'BUTTON', '删除部门', NULL, NULL, 'system:dept:delete', NULL, 3, 1, 0, 'ENABLED', NOW());
+  (43, 40, 'BUTTON', '删除部门', NULL, NULL, 'system:dept:delete', NULL, 3, 1, 0, 'ENABLED', NOW()),
+  -- 岗位管理
+  (50, 1,  'MENU',   '岗位管理', 'post',   'system/post/PostView',   'system:post:list',   'Postcard', 5, 1, 1, 'ENABLED', NOW()),
+  (51, 50, 'BUTTON', '新增岗位', NULL, NULL, 'system:post:add',    NULL, 1, 1, 0, 'ENABLED', NOW()),
+  (52, 50, 'BUTTON', '编辑岗位', NULL, NULL, 'system:post:edit',   NULL, 2, 1, 0, 'ENABLED', NOW()),
+  (53, 50, 'BUTTON', '删除岗位', NULL, NULL, 'system:post:delete', NULL, 3, 1, 0, 'ENABLED', NOW()),
+  -- 参数配置
+  (60, 1,  'MENU',   '参数配置', 'config', 'system/config/ConfigView', 'system:config:list', 'Tools', 6, 1, 1, 'ENABLED', NOW()),
+  (61, 60, 'BUTTON', '新增参数', NULL, NULL, 'system:config:add',    NULL, 1, 1, 0, 'ENABLED', NOW()),
+  (62, 60, 'BUTTON', '编辑参数', NULL, NULL, 'system:config:edit',   NULL, 2, 1, 0, 'ENABLED', NOW()),
+  (63, 60, 'BUTTON', '删除参数', NULL, NULL, 'system:config:delete', NULL, 3, 1, 0, 'ENABLED', NOW()),
+  -- 字典管理
+  (70, 1,  'MENU',   '字典管理', 'dict',   'system/dict/DictView',   'system:dict:list',   'Collection', 7, 1, 1, 'ENABLED', NOW()),
+  (71, 70, 'BUTTON', '新增字典', NULL, NULL, 'system:dict:add',    NULL, 1, 1, 0, 'ENABLED', NOW()),
+  (72, 70, 'BUTTON', '编辑字典', NULL, NULL, 'system:dict:edit',   NULL, 2, 1, 0, 'ENABLED', NOW()),
+  (73, 70, 'BUTTON', '删除字典', NULL, NULL, 'system:dict:delete', NULL, 3, 1, 0, 'ENABLED', NOW()),
+  -- 日志管理
+  (80, 1,  'DIR',    '日志管理', 'log',    NULL,                     NULL,                 'Document', 8, 1, 0, 'ENABLED', NOW()),
+  (81, 80, 'MENU',   '登录日志', 'login-log',     'system/log/LoginLogView',     'system:login-log:list',     'Key',       1, 1, 1, 'ENABLED', NOW()),
+  (82, 80, 'MENU',   '操作日志', 'operation-log', 'system/log/OperationLogView', 'system:operation-log:list', 'Tickets',   2, 1, 1, 'ENABLED', NOW());
 
 -- 角色菜单：超管绑定全部；系统管理员绑定同一批（示例）
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 SELECT 1, id FROM `sys_menu`;
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 SELECT 2, id FROM `sys_menu`;
+
+-- 岗位
+INSERT IGNORE INTO `sys_post` (`id`, `post_name`, `post_code`, `sort_order`, `status`, `remark`, `created_at`) VALUES
+  (1, '董事长',   'ceo', 1, 'ENABLED', '', NOW()),
+  (2, '项目经理', 'pm',  2, 'ENABLED', '', NOW()),
+  (3, '普通员工', 'staff', 3, 'ENABLED', '', NOW());
+
+-- 参数配置
+INSERT IGNORE INTO `sys_config` (`id`, `config_name`, `config_key`, `config_value`, `config_type`, `builtin`, `sensitive`, `remark`, `created_at`) VALUES
+  (1, '用户初始密码', 'sys.user.initPassword', '123456', 'STRING', 1, 0, '新增用户默认密码', NOW()),
+  (2, '账号自助注册', 'sys.account.registerEnabled', 'false', 'BOOLEAN', 1, 0, '是否开放注册', NOW());
+
+-- 字典类型
+INSERT IGNORE INTO `sys_dict_type` (`id`, `dict_name`, `dict_code`, `status`, `remark`, `created_at`) VALUES
+  (1, '用户性别', 'sys_user_gender', 'ENABLED', '用户性别列表', NOW()),
+  (2, '系统状态', 'sys_common_status', 'ENABLED', '启用禁用状态', NOW());
+
+-- 字典数据
+INSERT IGNORE INTO `sys_dict_data` (`id`, `dict_type_id`, `label`, `value`, `sort_order`, `default_flag`, `status`, `created_at`) VALUES
+  (1, 1, '男', 'MALE',    1, 1, 'ENABLED', NOW()),
+  (2, 1, '女', 'FEMALE',  2, 0, 'ENABLED', NOW()),
+  (3, 1, '未知', 'UNKNOWN', 3, 0, 'ENABLED', NOW()),
+  (4, 2, '启用', 'ENABLED',  1, 1, 'ENABLED', NOW()),
+  (5, 2, '禁用', 'DISABLED', 2, 0, 'ENABLED', NOW());

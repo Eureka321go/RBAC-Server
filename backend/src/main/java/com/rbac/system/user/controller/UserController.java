@@ -8,6 +8,7 @@ import com.rbac.system.user.dto.PasswordResetRequest;
 import com.rbac.system.user.dto.UserCreateRequest;
 import com.rbac.system.user.dto.UserQuery;
 import com.rbac.system.user.dto.UserUpdateRequest;
+import com.rbac.system.log.annotation.Log;
 import com.rbac.system.user.service.UserService;
 import com.rbac.system.user.vo.UserVO;
 import jakarta.validation.Valid;
@@ -52,6 +53,7 @@ public class UserController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('system:user:edit')")
+    @Log(title = "用户管理", businessType = "UPDATE")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody UserUpdateRequest request) {
         userService.update(id, request);
         return Result.success();
@@ -59,6 +61,7 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('system:user:delete')")
+    @Log(title = "用户管理", businessType = "DELETE")
     public Result<Void> delete(@PathVariable Long id) {
         userService.delete(id);
         return Result.success();
@@ -80,6 +83,7 @@ public class UserController {
 
     @PutMapping("/{id}/roles")
     @PreAuthorize("hasAuthority('system:user:assign-role')")
+    @Log(title = "用户管理", businessType = "GRANT")
     public Result<Void> assignRoles(@PathVariable Long id, @RequestBody AssignRolesRequest request) {
         userService.assignRoles(id, request.getRoleIds());
         return Result.success();

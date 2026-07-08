@@ -3,6 +3,8 @@ package com.rbac.system.user.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.rbac.common.datascope.DataScopeQuery;
+import com.rbac.common.datascope.DataScopeService;
 import com.rbac.common.domain.PageResult;
 import com.rbac.common.exception.BusinessException;
 import com.rbac.common.util.SecurityUtils;
@@ -43,29 +45,47 @@ public class UserService {
     private final SysRoleMapper roleMapper;
     private final SysDeptMapper deptMapper;
     private final PasswordEncoder passwordEncoder;
+    private final DataScopeService dataScopeService;
     private final String defaultPassword;
 
     public UserService(SysUserMapper userMapper, SysUserRoleMapper userRoleMapper, SysRoleMapper roleMapper,
-                       SysDeptMapper deptMapper, PasswordEncoder passwordEncoder,
+                       SysDeptMapper deptMapper, PasswordEncoder passwordEncoder, DataScopeService dataScopeService,
                        @Value("${rbac.security.default-password:123456}") String defaultPassword) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
         this.roleMapper = roleMapper;
         this.deptMapper = deptMapper;
         this.passwordEncoder = passwordEncoder;
+        this.dataScopeService = dataScopeService;
         this.defaultPassword = defaultPassword;
     }
 
     public PageResult<UserVO> page(UserQuery query) {
-        IPage<SysUser> page = userMapper.selectPage(
-                Page.of(query.current(), query.size()),
-                Wrappers.<SysUser>lambdaQuery()
-                        .like(StringUtils.hasText(query.getUsername()), SysUser::getUsername, query.getUsername())
-                        .like(StringUtils.hasText(query.getNickname()), SysUser::getNickname, query.getNickname())
-                        .like(StringUtils.hasText(query.getPhone()), SysUser::getPhone, query.getPhone())
-                        .eq(query.getDeptId() != null, SysUser::getDeptId, query.getDeptId())
-                        .eq(StringUtils.hasText(query.getStatus()), SysUser::getStatus, query.getStatus())
-                        .orderByDesc(SysUser::getId));
+        DataScopeQuery scope = dataScopeService.calculate();
+        var wrapper = Wrappers.<SysUser>lambdaQuery()
+                .like(StringUtils.hasText(query.getUsername()), SysUser::getUsername, query.getUsername())
+                .like(StringUtils.hasText(query.getNickname()), SysUser::getNickname, query.getNickname())
+                .like(StringUtils.hasText(query.getPhone()), SysUser::getPhone, query.getPhone())
+                .eq(query.getDeptId() != null, SysUser::getDeptId, query.getDeptId())
+                .eq(StringUtils.hasText(query.getStatus()), SysUser::getStatus, query.getStatus());
+
+        // 数据权限过滤：非全部范围时，按可见部门集合 OR 本人创建 收敛
+        if (!scope.isAll()) {
+            if (scope.hasDeptScope() && scope.hasSelfScope()) {
+                wrapper.and(w -> w.in(SysUser::getDeptId, scope.getDeptIds())
+                        .or().eq(SysUser::getCreatedBy, scope.getSelfUserId()));
+            } else if (scope.hasDeptScope()) {
+                wrapper.in(SysUser::getDeptId, scope.getDeptIds());
+            } else if (scope.hasSelfScope()) {
+                wrapper.eq(SysUser::getCreatedBy, scope.getSelfUserId());
+            } else {
+                // 无任何可见范围：返回空结果
+                wrapper.apply("1 = 0");
+            }
+        }
+
+        IPage<SysUser> page = userMapper.selectPage(Page.of(query.current(), query.size()),
+                wrapper.orderByDesc(SysUser::getId));
 
         List<UserVO> vos = page.getRecords().stream().map(UserVO::from).collect(Collectors.toList());
         fillDeptAndRoles(vos);

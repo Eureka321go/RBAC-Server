@@ -3,6 +3,7 @@ package com.rbac.system.role.controller;
 import com.rbac.common.Result;
 import com.rbac.common.domain.PageResult;
 import com.rbac.common.domain.StatusUpdateRequest;
+import com.rbac.system.role.dto.GrantDeptRequest;
 import com.rbac.system.role.dto.GrantMenuRequest;
 import com.rbac.system.role.dto.RoleQuery;
 import com.rbac.system.role.dto.RoleSaveRequest;
@@ -88,6 +89,19 @@ public class RoleController {
     @PreAuthorize("hasAuthority('system:role:grant-menu')")
     public Result<Void> grantMenus(@PathVariable Long id, @RequestBody GrantMenuRequest request) {
         roleService.grantMenus(id, request.getMenuIds());
+        return Result.success();
+    }
+
+    @GetMapping("/{id}/depts")
+    @PreAuthorize("hasAuthority('system:role:grant-data')")
+    public Result<List<Long>> deptIds(@PathVariable Long id) {
+        return Result.success(roleService.getDeptIds(id));
+    }
+
+    @PutMapping("/{id}/depts")
+    @PreAuthorize("hasAuthority('system:role:grant-data')")
+    public Result<Void> grantDepts(@PathVariable Long id, @RequestBody GrantDeptRequest request) {
+        roleService.grantDepts(id, request.getDeptIds());
         return Result.success();
     }
 }

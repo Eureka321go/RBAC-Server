@@ -10,6 +10,7 @@ import com.rbac.security.JwtTokenProvider;
 import com.rbac.security.LoginUserAssembler;
 import com.rbac.security.TokenSessionService;
 import com.rbac.security.model.LoginUser;
+import com.rbac.system.log.service.LogService;
 import com.rbac.system.menu.mapper.SysMenuMapper;
 import com.rbac.system.menu.vo.MenuVO;
 import com.rbac.system.role.entity.SysRole;
@@ -37,10 +38,12 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final TokenSessionService sessionService;
     private final LoginUserAssembler loginUserAssembler;
+    private final LogService logService;
 
     public AuthService(SysUserMapper userMapper, SysRoleMapper roleMapper, SysMenuMapper menuMapper,
                        PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider,
-                       TokenSessionService sessionService, LoginUserAssembler loginUserAssembler) {
+                       TokenSessionService sessionService, LoginUserAssembler loginUserAssembler,
+                       LogService logService) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
@@ -48,28 +51,36 @@ public class AuthService {
         this.tokenProvider = tokenProvider;
         this.sessionService = sessionService;
         this.loginUserAssembler = loginUserAssembler;
+        this.logService = logService;
     }
 
-    public LoginVO login(LoginRequest request, String loginIp) {
-        SysUser user = userMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
-                .eq(SysUser::getUsername, request.getUsername()));
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new BusinessException("账号或密码错误");
-        }
-        if (!"ENABLED".equals(user.getStatus())) {
-            throw new BusinessException("账号已被禁用");
-        }
+    public LoginVO login(LoginRequest request, String loginIp, String userAgent) {
+        try {
+            SysUser user = userMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
+                    .eq(SysUser::getUsername, request.getUsername()));
+            if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                throw new BusinessException("账号或密码错误");
+            }
+            if (!"ENABLED".equals(user.getStatus())) {
+                throw new BusinessException("账号已被禁用");
+            }
 
-        LoginUser loginUser = loginUserAssembler.assemble(user);
-        LoginVO loginVO = issueTokens(loginUser);
+            LoginUser loginUser = loginUserAssembler.assemble(user);
+            LoginVO loginVO = issueTokens(loginUser);
 
-        // 记录登录信息
-        SysUser update = new SysUser();
-        update.setId(user.getId());
-        update.setLastLoginAt(LocalDateTime.now());
-        update.setLastLoginIp(loginIp);
-        userMapper.updateById(update);
-        return loginVO;
+            // 记录登录信息
+            SysUser update = new SysUser();
+            update.setId(user.getId());
+            update.setLastLoginAt(LocalDateTime.now());
+            update.setLastLoginIp(loginIp);
+            userMapper.updateById(update);
+
+            logService.recordLogin(request.getUsername(), true, "登录成功", loginIp, userAgent);
+            return loginVO;
+        } catch (BusinessException e) {
+            logService.recordLogin(request.getUsername(), false, e.getMessage(), loginIp, userAgent);
+            throw e;
+        }
     }
 
     /** 生成并保存 access/refresh 会话。 */
