@@ -1,0 +1,23 @@
+# 中间件凭据（含密码，勿入库）
+deploy/.env
+
+# 后端构建产物
+backend/target/
+*.class
+
+# 前端构建产物 / 依赖（frontend/ 内另有自带 .gitignore）
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.claude/
+.idea/
+*.iml
+.vscode/
+
+# 日志
+*.log
+logs/
+
+# macOS
+.DS_Store
