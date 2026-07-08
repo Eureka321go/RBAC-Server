@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import type { RouteRecordRaw } from 'vue-router'
+import { getAuthMenus, getAuthPermissions } from '@/api/auth'
+import { buildDynamicRoutes } from '@/router/dynamic-routes'
 import type { MenuItem } from '@/types/menu'
 
 export const usePermissionStore = defineStore('permission', {
@@ -10,12 +12,17 @@ export const usePermissionStore = defineStore('permission', {
     routesLoaded: false,
   }),
   actions: {
+    /** 拉取菜单+权限，构建动态路由并返回，供导航守卫注册。 */
+    async generateRoutes(): Promise<RouteRecordRaw[]> {
+      const [menus, permissions] = await Promise.all([getAuthMenus(), getAuthPermissions()])
+      this.menus = menus
+      this.permissionCodes = permissions
+      this.routes = buildDynamicRoutes(menus)
+      this.routesLoaded = true
+      return this.routes
+    },
     setMenus(menus: MenuItem[]) {
       this.menus = menus
-    },
-    setRoutes(routes: RouteRecordRaw[]) {
-      this.routes = routes
-      this.routesLoaded = true
     },
     setPermissionCodes(codes: string[]) {
       this.permissionCodes = codes
@@ -30,7 +37,9 @@ export const usePermissionStore = defineStore('permission', {
       return codes.every((code) => this.hasPermission(code))
     },
     resetRoutes() {
+      this.menus = []
       this.routes = []
+      this.permissionCodes = []
       this.routesLoaded = false
     },
   },

@@ -1,3 +1,5 @@
+export type EnableStatus = 'ENABLED' | 'DISABLED'
+
 export interface PageParams {
   page: number
   pageSize: number
@@ -10,7 +12,11 @@ export interface PageResult<T> {
   pageSize: number
 }
 
-export interface SystemQuery extends Partial<PageParams> {
+export interface PageQuery extends Partial<PageParams> {
+  status?: EnableStatus
+}
+
+/** 通用后台分页查询别名（关键字 + 分页） */
+export interface SystemQuery extends PageQuery {
   keyword?: string
-  status?: 'ENABLED' | 'DISABLED'
 }
