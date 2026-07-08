@@ -7,13 +7,13 @@ import lombok.Data;
 @Data
 public class DictTypeSaveRequest {
 
-    @NotBlank(message = "字典名称不能为空")
+    @NotBlank(message = "{valid.dict.name.notBlank}")
     private String dictName;
 
-    @NotBlank(message = "字典编码不能为空")
+    @NotBlank(message = "{valid.dict.code.notBlank}")
     private String dictCode;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 
     private String remark;

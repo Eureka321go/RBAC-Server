@@ -1,5 +1,6 @@
 package com.rbac.security.handler;
 
+import com.rbac.common.util.MessageUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,6 +16,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
-        RestAuthErrorWriter.write(response, HttpServletResponse.SC_FORBIDDEN, 403, "无权限访问");
+        RestAuthErrorWriter.write(response, HttpServletResponse.SC_FORBIDDEN, 403,
+                MessageUtils.get(request.getLocale(), "error.accessDenied"));
     }
 }

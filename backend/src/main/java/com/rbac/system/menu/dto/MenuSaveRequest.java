@@ -9,11 +9,11 @@ public class MenuSaveRequest {
 
     private Long parentId;
 
-    @Pattern(regexp = "DIR|MENU|BUTTON", message = "菜单类型非法")
-    @NotBlank(message = "菜单类型不能为空")
+    @Pattern(regexp = "DIR|MENU|BUTTON", message = "{valid.menu.type.pattern}")
+    @NotBlank(message = "{valid.menu.type.notBlank}")
     private String menuType;
 
-    @NotBlank(message = "菜单名称不能为空")
+    @NotBlank(message = "{valid.menu.name.notBlank}")
     private String menuName;
 
     private String path;
@@ -25,6 +25,6 @@ public class MenuSaveRequest {
     private Boolean keepAlive;
     private String externalLink;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 }

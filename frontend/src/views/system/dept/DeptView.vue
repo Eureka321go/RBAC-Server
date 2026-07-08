@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import PageContainer from '@/components/PageContainer.vue'
 import {
   createDept,
@@ -11,6 +12,8 @@ import {
   type DeptForm,
   type DeptItem,
 } from '@/api/system/dept'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const treeData = ref<DeptItem[]>([])
@@ -28,7 +31,7 @@ const form = reactive<DeptForm>({
   status: 'ENABLED',
 })
 const rules: FormRules = {
-  deptName: [{ required: true, message: '请输入部门名称', trigger: 'blur' }],
+  deptName: [{ required: true, message: t('dept.ruleName'), trigger: 'blur' }],
 }
 
 async function loadData() {
@@ -41,7 +44,7 @@ async function loadData() {
 }
 
 function openCreate(parent?: DeptItem) {
-  dialogTitle.value = '新增部门'
+  dialogTitle.value = t('dept.create')
   editingId.value = null
   Object.assign(form, {
     parentId: parent ? parent.id : null,
@@ -55,7 +58,7 @@ function openCreate(parent?: DeptItem) {
 }
 
 function openEdit(row: DeptItem) {
-  dialogTitle.value = '编辑部门'
+  dialogTitle.value = t('dept.edit')
   editingId.value = row.id
   Object.assign(form, {
     parentId: row.parentId ?? null,
@@ -74,26 +77,26 @@ async function handleSubmit() {
   if (!valid) return
   if (editingId.value) {
     await updateDept(editingId.value, { ...form })
-    ElMessage.success('已更新')
+    ElMessage.success(t('common.updated'))
   } else {
     await createDept({ ...form })
-    ElMessage.success('已创建')
+    ElMessage.success(t('common.created'))
   }
   dialogVisible.value = false
   loadData()
 }
 
 async function handleDelete(row: DeptItem) {
-  await ElMessageBox.confirm(`确认删除部门「${row.deptName}」？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(t('dept.confirmDelete', { name: row.deptName }), t('common.tip'), { type: 'warning' })
   await deleteDept(row.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('common.deleted'))
   loadData()
 }
 
 async function handleToggleStatus(row: DeptItem) {
   const next = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   await updateDeptStatus(row.id, next)
-  ElMessage.success('状态已更新')
+  ElMessage.success(t('common.statusUpdated'))
   loadData()
 }
 
@@ -101,9 +104,9 @@ onMounted(loadData)
 </script>
 
 <template>
-  <PageContainer title="部门管理" description="维护部门树、状态与层级结构。">
+  <PageContainer :title="t('dept.title')" :description="t('dept.description')">
     <div class="mb-4">
-      <el-button v-permission="'system:dept:add'" type="primary" icon="Plus" @click="openCreate()">新增顶级部门</el-button>
+      <el-button v-permission="'system:dept:add'" type="primary" icon="Plus" @click="openCreate()">{{ t('dept.addTop') }}</el-button>
     </div>
 
     <el-table
@@ -114,63 +117,63 @@ onMounted(loadData)
       default-expand-all
       border
     >
-      <el-table-column prop="deptName" label="部门名称" min-width="200" />
-      <el-table-column prop="phone" label="联系电话" width="140" />
-      <el-table-column prop="sortOrder" label="排序" width="80" />
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="deptName" :label="t('dept.deptName')" min-width="200" />
+      <el-table-column prop="phone" :label="t('dept.phone')" width="140" />
+      <el-table-column prop="sortOrder" :label="t('common.sortOrder')" width="80" />
+      <el-table-column :label="t('common.status')" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'">
-            {{ row.status === 'ENABLED' ? '启用' : '禁用' }}
+            {{ row.status === 'ENABLED' ? t('status.ENABLED') : t('status.DISABLED') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="360" fixed="right" class-name="op-col">
+      <el-table-column :label="t('common.operation')" width="360" fixed="right" class-name="op-col">
         <template #default="{ row }">
-          <el-button v-permission="'system:dept:add'" link type="primary" icon="Plus" @click="openCreate(row)">新增子级</el-button>
-          <el-button v-permission="'system:dept:edit'" link type="primary" icon="Edit" @click="openEdit(row)">编辑</el-button>
+          <el-button v-permission="'system:dept:add'" link type="primary" icon="Plus" @click="openCreate(row)">{{ t('dept.addChild') }}</el-button>
+          <el-button v-permission="'system:dept:edit'" link type="primary" icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
           <el-button v-permission="'system:dept:edit'" link icon="SwitchButton" @click="handleToggleStatus(row)">
-            {{ row.status === 'ENABLED' ? '禁用' : '启用' }}
+            {{ row.status === 'ENABLED' ? t('status.DISABLED') : t('status.ENABLED') }}
           </el-button>
-          <el-button v-permission="'system:dept:delete'" link type="danger" icon="Delete" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="'system:dept:delete'" link type="danger" icon="Delete" @click="handleDelete(row)">{{ t('common.delete') }}</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="480px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="上级部门">
+        <el-form-item :label="t('dept.parent')">
           <el-tree-select
             v-model="form.parentId"
             :data="treeData"
             :props="{ label: 'deptName', value: 'id', children: 'children' }"
             check-strictly
             clearable
-            placeholder="不选则为顶级部门"
+            :placeholder="t('dept.parentPlaceholder')"
             class="w-full"
           />
         </el-form-item>
-        <el-form-item label="部门名称" prop="deptName">
+        <el-form-item :label="t('dept.deptName')" prop="deptName">
           <el-input v-model="form.deptName" />
         </el-form-item>
-        <el-form-item label="联系电话">
+        <el-form-item :label="t('dept.phone')">
           <el-input v-model="form.phone" />
         </el-form-item>
-        <el-form-item label="邮箱">
+        <el-form-item :label="t('dept.email')">
           <el-input v-model="form.email" />
         </el-form-item>
-        <el-form-item label="排序">
+        <el-form-item :label="t('common.sortOrder')">
           <el-input-number v-model="form.sortOrder" :min="0" />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('common.status')">
           <el-radio-group v-model="form.status">
-            <el-radio value="ENABLED">启用</el-radio>
-            <el-radio value="DISABLED">禁用</el-radio>
+            <el-radio value="ENABLED">{{ t('status.ENABLED') }}</el-radio>
+            <el-radio value="DISABLED">{{ t('status.DISABLED') }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ t('common.ok') }}</el-button>
       </template>
     </el-dialog>
   </PageContainer>

@@ -35,7 +35,7 @@ public class DeptService {
     public SysDept getById(Long id) {
         SysDept dept = deptMapper.selectById(id);
         if (dept == null) {
-            throw new BusinessException("部门不存在");
+            throw new BusinessException("dept.notFound");
         }
         return dept;
     }
@@ -50,7 +50,7 @@ public class DeptService {
     public void update(Long id, DeptSaveRequest req) {
         getById(id);
         if (req.getParentId() != null && req.getParentId().equals(id)) {
-            throw new BusinessException("上级部门不能是自身");
+            throw new BusinessException("dept.parentSelf");
         }
         SysDept dept = new SysDept();
         apply(dept, req);
@@ -62,11 +62,11 @@ public class DeptService {
         getById(id);
         long children = deptMapper.selectCount(Wrappers.<SysDept>lambdaQuery().eq(SysDept::getParentId, id));
         if (children > 0) {
-            throw new BusinessException("存在子部门，无法删除");
+            throw new BusinessException("dept.hasChildren");
         }
         long users = userMapper.selectCount(Wrappers.<SysUser>lambdaQuery().eq(SysUser::getDeptId, id));
         if (users > 0) {
-            throw new BusinessException("部门下存在用户，无法删除");
+            throw new BusinessException("dept.hasUsers");
         }
         deptMapper.deleteById(id);
     }

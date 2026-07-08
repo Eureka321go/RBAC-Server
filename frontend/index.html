@@ -4,7 +4,22 @@
     <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vite App</title>
+    <title>RBAC Admin</title>
+    <script>
+      // 首屏防闪烁：应用挂载前根据本地偏好预置 <html class="dark">
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('app-settings') || '{}')
+          var mode = s.mode || 'auto'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

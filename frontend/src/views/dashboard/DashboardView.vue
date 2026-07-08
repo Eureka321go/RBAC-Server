@@ -1,23 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
+import { useLocaleStore } from '@/stores/locale'
 import { getDashboardStats, type DashboardStats } from '@/api/system/dashboard'
 
 const router = useRouter()
 const userStore = useUserStore()
+const localeStore = useLocaleStore()
+const { t } = useI18n()
 
-const nickname = computed(() => userStore.currentUser?.nickname ?? '管理员')
+const nickname = computed(() => userStore.currentUser?.nickname ?? t('dashboard.defaultName'))
 const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '凌晨好'
-  if (h < 12) return '上午好'
-  if (h < 14) return '中午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
+  if (h < 6) return t('dashboard.greetDawn')
+  if (h < 12) return t('dashboard.greetMorning')
+  if (h < 14) return t('dashboard.greetNoon')
+  if (h < 18) return t('dashboard.greetAfternoon')
+  return t('dashboard.greetEvening')
 })
 const today = computed(() =>
-  new Date().toLocaleDateString('zh-CN', {
+  new Date().toLocaleDateString(localeStore.current, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -29,10 +33,10 @@ const counts = reactive<DashboardStats>({ userCount: 0, roleCount: 0, menuCount:
 const loaded = ref(false)
 
 const stats = computed(() => [
-  { label: '系统用户', value: counts.userCount, hint: '在管账户', tone: 'blue', to: '/system/user' },
-  { label: '角色数量', value: counts.roleCount, hint: '权限分组', tone: 'violet', to: '/system/role' },
-  { label: '菜单资源', value: counts.menuCount, hint: '可控功能点', tone: 'emerald', to: '/system/menu' },
-  { label: '部门机构', value: counts.deptCount, hint: '组织架构', tone: 'amber', to: '/system/dept' },
+  { label: t('dashboard.statUsers'), value: counts.userCount, hint: t('dashboard.statUsersHint'), tone: 'blue', to: '/system/user' },
+  { label: t('dashboard.statRoles'), value: counts.roleCount, hint: t('dashboard.statRolesHint'), tone: 'violet', to: '/system/role' },
+  { label: t('dashboard.statMenus'), value: counts.menuCount, hint: t('dashboard.statMenusHint'), tone: 'emerald', to: '/system/menu' },
+  { label: t('dashboard.statDepts'), value: counts.deptCount, hint: t('dashboard.statDeptsHint'), tone: 'amber', to: '/system/dept' },
 ])
 
 onMounted(async () => {
@@ -44,12 +48,12 @@ onMounted(async () => {
   }
 })
 
-const quickLinks = [
-  { title: '用户管理', desc: '新增账户、分配角色与部门', to: '/system/user' },
-  { title: '角色管理', desc: '配置数据范围与菜单权限', to: '/system/role' },
-  { title: '菜单管理', desc: '维护目录、菜单与按钮权限', to: '/system/menu' },
-  { title: '部门管理', desc: '维护组织树与层级结构', to: '/system/dept' },
-]
+const quickLinks = computed(() => [
+  { title: t('dashboard.quickUser'), desc: t('dashboard.quickUserDesc'), to: '/system/user' },
+  { title: t('dashboard.quickRole'), desc: t('dashboard.quickRoleDesc'), to: '/system/role' },
+  { title: t('dashboard.quickMenu'), desc: t('dashboard.quickMenuDesc'), to: '/system/menu' },
+  { title: t('dashboard.quickDept'), desc: t('dashboard.quickDeptDesc'), to: '/system/dept' },
+])
 
 const toneMap: Record<string, string> = {
   blue: 'bg-blue-50 text-blue-600',
@@ -70,8 +74,8 @@ function go(to: string) {
       class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-7 py-6 text-white shadow-sm"
     >
       <div class="relative z-10">
-        <h1 class="text-2xl font-semibold">{{ greeting }}，{{ nickname }} 👋</h1>
-        <p class="mt-1.5 text-sm text-blue-100">{{ today }}，欢迎回到 RBAC 权限管理系统。</p>
+        <h1 class="text-2xl font-semibold">{{ greeting }}, {{ nickname }} 👋</h1>
+        <p class="mt-1.5 text-sm text-blue-100">{{ today }}{{ t('dashboard.welcomeSuffix') }}</p>
       </div>
       <div class="pointer-events-none absolute -right-8 -top-10 h-44 w-44 rounded-full bg-white/10"></div>
       <div class="pointer-events-none absolute -bottom-16 right-24 h-40 w-40 rounded-full bg-white/5"></div>
@@ -83,7 +87,7 @@ function go(to: string) {
         v-for="s in stats"
         :key="s.label"
         type="button"
-        class="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        class="group flex items-center gap-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
         @click="go(s.to)"
       >
         <span
@@ -93,29 +97,29 @@ function go(to: string) {
           {{ s.label.slice(0, 1) }}
         </span>
         <div class="min-w-0">
-          <div class="text-2xl font-semibold leading-none text-slate-900">{{ loaded ? s.value : '—' }}</div>
-          <div class="mt-1.5 text-sm font-medium text-slate-600">{{ s.label }}</div>
-          <div class="text-xs text-slate-400">{{ s.hint }}</div>
+          <div class="text-2xl font-semibold leading-none text-[var(--app-text)]">{{ loaded ? s.value : '—' }}</div>
+          <div class="mt-1.5 text-sm font-medium text-[var(--app-text-secondary)]">{{ s.label }}</div>
+          <div class="text-xs text-[var(--app-text-secondary)] opacity-70">{{ s.hint }}</div>
         </div>
       </button>
     </div>
 
     <!-- 快捷入口 -->
-    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 shadow-sm">
       <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-base font-semibold text-slate-900">快捷入口</h2>
-        <span class="text-xs text-slate-400">常用管理功能</span>
+        <h2 class="text-base font-semibold text-[var(--app-text)]">{{ t('dashboard.quickTitle') }}</h2>
+        <span class="text-xs text-[var(--app-text-secondary)]">{{ t('dashboard.quickSubtitle') }}</span>
       </div>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <button
           v-for="link in quickLinks"
           :key="link.to"
           type="button"
-          class="group flex flex-col rounded-lg border border-slate-200 bg-slate-50/60 p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/50"
+          class="group flex flex-col rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4 text-left transition hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-500/10"
           @click="go(link.to)"
         >
-          <span class="text-sm font-semibold text-slate-800 group-hover:text-blue-600">{{ link.title }}</span>
-          <span class="mt-1 text-xs leading-relaxed text-slate-500">{{ link.desc }}</span>
+          <span class="text-sm font-semibold text-[var(--app-text)] group-hover:text-blue-500">{{ link.title }}</span>
+          <span class="mt-1 text-xs leading-relaxed text-[var(--app-text-secondary)]">{{ link.desc }}</span>
         </button>
       </div>
     </div>

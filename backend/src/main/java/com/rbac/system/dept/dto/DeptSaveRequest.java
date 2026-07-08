@@ -9,7 +9,7 @@ public class DeptSaveRequest {
 
     private Long parentId;
 
-    @NotBlank(message = "部门名称不能为空")
+    @NotBlank(message = "{valid.dept.name.notBlank}")
     private String deptName;
 
     private Long leaderUserId;
@@ -17,6 +17,6 @@ public class DeptSaveRequest {
     private String email;
     private Integer sortOrder;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 }

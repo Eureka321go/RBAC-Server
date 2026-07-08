@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* 让 Tailwind 的 dark: 变体基于 <html class="dark">，与 Element Plus 暗色开关统一 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================
    设计令牌（Design Tokens）
    ============================================================ */
@@ -45,6 +48,35 @@
   --app-header-height: 60px;
   --app-shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
   --app-shadow-raise: 0 4px 12px rgba(15, 23, 42, 0.08);
+
+  /* 应用级语义变量：布局背景/表面/文本，供自定义结构使用 */
+  --app-bg: #f1f5f9;
+  --app-surface: #ffffff;
+  --app-surface-2: #f8fafc;
+  --app-border: #e2e8f0;
+  --app-text: #1e293b;
+  --app-text-secondary: #64748b;
+}
+
+/* ============================================================
+   暗色主题：仅覆盖自定义/表格类令牌，其余 --el-* 由
+   element-plus/theme-chalk/dark/css-vars.css 提供
+   ============================================================ */
+.dark {
+  --el-table-header-bg-color: #1d1e1f;
+  --el-table-header-text-color: #cfd3dc;
+  --el-table-row-hover-bg-color: #262727;
+  --el-table-border-color: #363637;
+
+  --app-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --app-shadow-raise: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  --app-bg: #141414;
+  --app-surface: #1d1e1f;
+  --app-surface-2: #262727;
+  --app-border: #363637;
+  --app-text: #e5eaf3;
+  --app-text-secondary: #a3a6ad;
 }
 
 html {
@@ -57,8 +89,8 @@ html {
 
 body {
   min-height: 100vh;
-  color: #1e293b;
-  background: #f1f5f9;
+  color: var(--app-text);
+  background: var(--app-bg);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -111,22 +143,29 @@ body {
 /* 输入框：柔和边框 + 聚焦高亮 */
 .el-input__wrapper,
 .el-textarea__inner {
-  box-shadow: 0 0 0 1px #e2e8f0 inset;
+  box-shadow: 0 0 0 1px var(--el-border-color) inset;
   border-radius: 8px;
   transition: box-shadow 0.15s ease;
 }
 .el-input__wrapper:hover {
-  box-shadow: 0 0 0 1px #cbd5e1 inset;
+  box-shadow: 0 0 0 1px var(--el-border-color-hover) inset;
 }
 .el-input__wrapper.is-focus {
   box-shadow: 0 0 0 1px var(--el-color-primary) inset;
 }
 
-/* 卡片 */
+/* 卡片：背景绑定语义变量，明暗自适应 */
 .el-card {
   border-radius: 12px;
   border-color: var(--el-border-color-light);
   box-shadow: var(--app-shadow-card);
+  background-color: var(--app-surface);
+}
+
+/* 树：透明继承容器背景，避免暗色下白底 */
+.el-tree {
+  background: transparent;
+  color: var(--el-text-color-regular);
 }
 
 /* 表格：细边框、清爽表头、行悬浮 */
@@ -137,7 +176,7 @@ body {
 }
 .el-table th.el-table__cell {
   font-weight: 600;
-  color: #475569;
+  color: var(--el-table-header-text-color);
   background: var(--el-table-header-bg-color);
 }
 .el-table .cell {
@@ -181,7 +220,7 @@ body {
 .el-dialog__title {
   font-weight: 600;
   font-size: 16px;
-  color: #1e293b;
+  color: var(--el-text-color-primary);
 }
 .el-dialog__body {
   padding: 20px 24px;
@@ -201,11 +240,11 @@ body {
 
 /* 表单标签更沉稳 */
 .el-form-item__label {
-  color: #475569;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
 /* 空状态描述色 */
 .el-empty__description p {
-  color: #94a3b8;
+  color: var(--el-text-color-secondary);
 }

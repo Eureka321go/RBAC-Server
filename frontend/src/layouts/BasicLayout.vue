@@ -2,29 +2,50 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import SidebarMenu from '@/components/SidebarMenu.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
+import { useSettingsStore, type ThemeMode } from '@/stores/settings'
+import { useLocaleStore } from '@/stores/locale'
+import { SUPPORT_LOCALES, type LocaleKey } from '@/locales'
 
+const { t } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
+const settings = useSettingsStore()
+const localeStore = useLocaleStore()
 
 const activePath = computed(() => route.path)
 const menus = computed(() => permissionStore.menus)
-const nickname = computed(() => userStore.currentUser?.nickname ?? '未登录')
+const nickname = computed(() => userStore.currentUser?.nickname ?? t('layout.notLoggedIn'))
 const avatarText = computed(() => nickname.value.slice(0, 1) || 'U')
 const breadcrumbs = computed(() =>
   route.matched.filter((r) => r.meta?.title).map((r) => r.meta.title as string),
 )
 
+const themeModes: { value: ThemeMode; icon: string }[] = [
+  { value: 'light', icon: 'Sunny' },
+  { value: 'dark', icon: 'Moon' },
+  { value: 'auto', icon: 'Monitor' },
+]
+
+function handleLocale(locale: LocaleKey) {
+  localeStore.setLocale(locale)
+}
+
+function handleThemeMode(mode: ThemeMode) {
+  settings.setMode(mode)
+}
+
 async function handleLogout() {
   try {
-    await ElMessageBox.confirm('确认退出登录？', '提示', {
-      confirmButtonText: '退出',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('layout.logoutConfirm'), t('common.tip'), {
+      confirmButtonText: t('layout.logoutButton'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     })
   } catch {
@@ -37,10 +58,10 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-slate-100">
+  <div class="flex min-h-screen bg-[var(--app-bg)]">
     <!-- 侧边栏 -->
     <aside
-      class="fixed inset-y-0 left-0 z-20 flex flex-col border-r border-slate-200 bg-white"
+      class="fixed inset-y-0 left-0 z-20 flex flex-col border-r border-[var(--app-border)] bg-[var(--app-surface)]"
       :style="{ width: 'var(--app-sidebar-width)' }"
     >
       <div class="flex h-[60px] items-center gap-2.5 px-5">
@@ -50,16 +71,16 @@ async function handleLogout() {
           R
         </div>
         <div class="leading-tight">
-          <div class="text-[15px] font-semibold text-slate-900">RBAC Admin</div>
-          <div class="text-[11px] text-slate-400">权限管理系统</div>
+          <div class="text-[15px] font-semibold text-[var(--app-text)]">{{ t('common.appName') }}</div>
+          <div class="text-[11px] text-[var(--app-text-secondary)]">{{ t('common.appSubtitle') }}</div>
         </div>
       </div>
 
-      <el-scrollbar class="flex-1 border-t border-slate-100">
+      <el-scrollbar class="flex-1 border-t border-[var(--app-border)]">
         <el-menu :default-active="activePath" router unique-opened class="app-menu">
           <el-menu-item index="/dashboard">
             <el-icon><HomeFilled /></el-icon>
-            <template #title>控制台</template>
+            <template #title>{{ t('common.dashboard') }}</template>
           </el-menu-item>
           <SidebarMenu :items="menus" />
         </el-menu>
@@ -69,7 +90,7 @@ async function handleLogout() {
     <!-- 主区域 -->
     <div class="flex min-h-screen flex-1 flex-col" :style="{ marginLeft: 'var(--app-sidebar-width)' }">
       <header
-        class="sticky top-0 z-10 flex h-[60px] items-center justify-between border-b border-slate-200 bg-white/90 px-6 backdrop-blur"
+        class="sticky top-0 z-10 flex h-[60px] items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-surface)] px-6 backdrop-blur"
       >
         <el-breadcrumb separator="/" class="app-breadcrumb">
           <el-breadcrumb-item v-for="(title, idx) in breadcrumbs" :key="idx">
@@ -77,24 +98,69 @@ async function handleLogout() {
           </el-breadcrumb-item>
         </el-breadcrumb>
 
-        <el-dropdown>
-          <span
-            class="flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition hover:bg-slate-100"
-          >
-            <span
-              class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white"
-            >
-              {{ avatarText }}
+        <div class="flex items-center gap-1">
+          <!-- 主题切换 -->
+          <el-dropdown trigger="click" @command="handleThemeMode">
+            <span class="header-action" :title="t('theme.title')">
+              <el-icon :size="18">
+                <Moon v-if="settings.isDark" />
+                <Sunny v-else />
+              </el-icon>
             </span>
-            <span class="text-sm font-medium text-slate-700">{{ nickname }}</span>
-            <span class="text-xs text-slate-400">▾</span>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="m in themeModes"
+                  :key="m.value"
+                  :command="m.value"
+                  :class="{ 'is-active-choice': settings.mode === m.value }"
+                >
+                  <el-icon><component :is="m.icon" /></el-icon>
+                  <span class="ml-1.5">{{ t(`theme.${m.value}`) }}</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <!-- 语言切换 -->
+          <el-dropdown trigger="click" @command="handleLocale">
+            <span class="header-action" :title="t('locale.title')">
+              <el-icon :size="18"><Operation /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="l in SUPPORT_LOCALES"
+                  :key="l.value"
+                  :command="l.value"
+                  :class="{ 'is-active-choice': localeStore.current === l.value }"
+                >
+                  {{ l.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <!-- 用户 -->
+          <el-dropdown>
+            <span
+              class="ml-1 flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition hover:bg-[var(--app-surface-2)]"
+            >
+              <span
+                class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white"
+              >
+                {{ avatarText }}
+              </span>
+              <span class="text-sm font-medium text-[var(--app-text)]">{{ nickname }}</span>
+              <span class="text-xs text-[var(--app-text-secondary)]">▾</span>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleLogout">{{ t('layout.logout') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </header>
 
       <main class="flex-1 px-6 py-5">
@@ -105,13 +171,34 @@ async function handleLogout() {
 </template>
 
 <style scoped>
+/* 顶栏图标按钮 */
+.header-action {
+  display: flex;
+  height: 34px;
+  width: 34px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--el-text-color-regular);
+  transition: background 0.15s ease;
+}
+.header-action:hover {
+  background: var(--app-surface-2);
+  color: var(--el-color-primary);
+}
+.is-active-choice {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
 /* 侧边菜单：胶囊态、激活高亮 */
 .app-menu {
   border-right: none;
   padding: 10px;
-  --el-menu-bg-color: #ffffff;
-  --el-menu-text-color: #475569;
-  --el-menu-hover-bg-color: #f1f5f9;
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--el-text-color-regular);
+  --el-menu-hover-bg-color: var(--app-surface-2);
   --el-menu-active-color: var(--el-color-primary);
 }
 .app-menu :deep(.el-menu-item),
@@ -131,7 +218,7 @@ async function handleLogout() {
 }
 .app-menu :deep(.el-menu-item:hover),
 .app-menu :deep(.el-sub-menu__title:hover) {
-  background: #f1f5f9;
+  background: var(--app-surface-2);
 }
 .app-menu :deep(.el-menu-item.is-active) {
   background: var(--el-color-primary-light-9);
@@ -146,7 +233,7 @@ async function handleLogout() {
 }
 
 .app-breadcrumb :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
-  color: #1e293b;
+  color: var(--app-text);
   font-weight: 600;
 }
 </style>

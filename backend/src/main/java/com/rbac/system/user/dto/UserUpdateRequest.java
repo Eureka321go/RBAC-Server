@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 public class UserUpdateRequest {
 
-    @NotBlank(message = "昵称不能为空")
+    @NotBlank(message = "{valid.nickname.notBlank}")
     private String nickname;
 
     private Long deptId;
@@ -18,7 +18,7 @@ public class UserUpdateRequest {
     private String phone;
     private String gender;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 
     private String remark;

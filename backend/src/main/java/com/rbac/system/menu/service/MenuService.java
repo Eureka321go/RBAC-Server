@@ -32,7 +32,7 @@ public class MenuService {
     public SysMenu getById(Long id) {
         SysMenu menu = menuMapper.selectById(id);
         if (menu == null) {
-            throw new BusinessException("菜单不存在");
+            throw new BusinessException("menu.notFound");
         }
         return menu;
     }
@@ -47,7 +47,7 @@ public class MenuService {
     public void update(Long id, MenuSaveRequest req) {
         SysMenu menu = getById(id);
         if (req.getParentId() != null && req.getParentId().equals(id)) {
-            throw new BusinessException("父菜单不能是自身");
+            throw new BusinessException("menu.parentSelf");
         }
         apply(menu, req);
         menu.setId(id);
@@ -58,7 +58,7 @@ public class MenuService {
         getById(id);
         long children = menuMapper.selectCount(Wrappers.<SysMenu>lambdaQuery().eq(SysMenu::getParentId, id));
         if (children > 0) {
-            throw new BusinessException("存在子菜单，无法删除");
+            throw new BusinessException("menu.hasChildren");
         }
         menuMapper.deleteById(id);
     }

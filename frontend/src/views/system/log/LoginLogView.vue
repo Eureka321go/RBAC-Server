@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import PageContainer from '@/components/PageContainer.vue'
 import { listLoginLogs, type LoginLogItem, type LoginLogQuery } from '@/api/system/log'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const tableData = ref<LoginLogItem[]>([])
@@ -28,29 +31,29 @@ onMounted(loadData)
 </script>
 
 <template>
-  <PageContainer title="登录日志" description="查看登录成功与失败记录。">
+  <PageContainer :title="t('loginLog.title')" :description="t('loginLog.description')">
     <el-form :inline="true" :model="query" class="mb-2">
-      <el-form-item label="账号">
-        <el-input v-model="query.username" clearable placeholder="请输入" @keyup.enter="handleSearch" />
+      <el-form-item :label="t('loginLog.username')">
+        <el-input v-model="query.username" clearable :placeholder="t('common.inputPlaceholder')" @keyup.enter="handleSearch" />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button type="primary" @click="handleSearch">{{ t('common.search') }}</el-button>
       </el-form-item>
     </el-form>
 
     <el-table v-loading="loading" :data="tableData" border>
-      <el-table-column prop="username" label="账号" min-width="120" />
-      <el-table-column label="结果" width="100">
+      <el-table-column prop="username" :label="t('loginLog.username')" min-width="120" />
+      <el-table-column :label="t('loginLog.result')" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'">
-            {{ row.status === 'SUCCESS' ? '成功' : '失败' }}
+            {{ row.status === 'SUCCESS' ? t('loginLog.success') : t('loginLog.fail') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="message" label="提示信息" min-width="140" />
+      <el-table-column prop="message" :label="t('loginLog.message')" min-width="140" />
       <el-table-column prop="ip" label="IP" width="140" />
-      <el-table-column prop="userAgent" label="User-Agent" min-width="220" show-overflow-tooltip />
-      <el-table-column prop="loginAt" label="登录时间" width="180" />
+      <el-table-column prop="userAgent" :label="t('loginLog.userAgent')" min-width="220" show-overflow-tooltip />
+      <el-table-column prop="loginAt" :label="t('loginLog.loginTime')" width="180" />
     </el-table>
 
     <div class="mt-4 flex justify-end">

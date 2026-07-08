@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import PageContainer from '@/components/PageContainer.vue'
 import {
   createConfig,
@@ -11,6 +12,8 @@ import {
   type ConfigItem,
   type ConfigQuery,
 } from '@/api/system/config'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const tableData = ref<ConfigItem[]>([])
@@ -54,19 +57,19 @@ const defaultForm = (): ConfigForm => ({
 })
 const form = reactive<ConfigForm>(defaultForm())
 const rules: FormRules = {
-  configName: [{ required: true, message: '请输入参数名称', trigger: 'blur' }],
-  configKey: [{ required: true, message: '请输入参数键', trigger: 'blur' }],
+  configName: [{ required: true, message: t('config.ruleName'), trigger: 'blur' }],
+  configKey: [{ required: true, message: t('config.ruleKey'), trigger: 'blur' }],
 }
 
 function openCreate() {
-  dialogTitle.value = '新增参数'
+  dialogTitle.value = t('config.create')
   editingId.value = null
   Object.assign(form, defaultForm())
   dialogVisible.value = true
 }
 
 function openEdit(row: ConfigItem) {
-  dialogTitle.value = '编辑参数'
+  dialogTitle.value = t('config.edit')
   editingId.value = row.id
   Object.assign(form, {
     configName: row.configName,
@@ -85,19 +88,19 @@ async function handleSubmit() {
   if (!valid) return
   if (editingId.value) {
     await updateConfig(editingId.value, { ...form })
-    ElMessage.success('已更新')
+    ElMessage.success(t('common.updated'))
   } else {
     await createConfig({ ...form })
-    ElMessage.success('已创建')
+    ElMessage.success(t('common.created'))
   }
   dialogVisible.value = false
   loadData()
 }
 
 async function handleDelete(row: ConfigItem) {
-  await ElMessageBox.confirm(`确认删除参数「${row.configName}」？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(t('config.confirmDelete', { name: row.configName }), t('common.tip'), { type: 'warning' })
   await deleteConfig(row.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('common.deleted'))
   loadData()
 }
 
@@ -105,39 +108,39 @@ onMounted(loadData)
 </script>
 
 <template>
-  <PageContainer title="参数配置" description="维护系统参数，敏感参数值以脱敏方式展示。">
+  <PageContainer :title="t('config.title')" :description="t('config.description')">
     <el-form :inline="true" :model="query" class="mb-2">
-      <el-form-item label="参数名称">
-        <el-input v-model="query.configName" clearable placeholder="请输入" @keyup.enter="handleSearch" />
+      <el-form-item :label="t('config.configName')">
+        <el-input v-model="query.configName" clearable :placeholder="t('common.inputPlaceholder')" @keyup.enter="handleSearch" />
       </el-form-item>
-      <el-form-item label="参数键">
-        <el-input v-model="query.configKey" clearable placeholder="请输入" @keyup.enter="handleSearch" />
+      <el-form-item :label="t('config.configKey')">
+        <el-input v-model="query.configKey" clearable :placeholder="t('common.inputPlaceholder')" @keyup.enter="handleSearch" />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
+        <el-button type="primary" @click="handleSearch">{{ t('common.search') }}</el-button>
+        <el-button @click="handleReset">{{ t('common.reset') }}</el-button>
       </el-form-item>
     </el-form>
 
     <div class="mb-3">
-      <el-button v-permission="'system:config:add'" type="primary" @click="openCreate">新增参数</el-button>
+      <el-button v-permission="'system:config:add'" type="primary" @click="openCreate">{{ t('config.addConfig') }}</el-button>
     </div>
 
     <el-table v-loading="loading" :data="tableData" border>
-      <el-table-column prop="configName" label="参数名称" min-width="160" />
-      <el-table-column prop="configKey" label="参数键" min-width="200" />
-      <el-table-column prop="configValue" label="参数值" min-width="160" />
-      <el-table-column prop="configType" label="类型" width="100" />
-      <el-table-column label="内置" width="80">
+      <el-table-column prop="configName" :label="t('config.configName')" min-width="160" />
+      <el-table-column prop="configKey" :label="t('config.configKey')" min-width="200" />
+      <el-table-column prop="configValue" :label="t('config.configValue')" min-width="160" />
+      <el-table-column prop="configType" :label="t('config.type')" width="100" />
+      <el-table-column :label="t('config.builtin')" width="80">
         <template #default="{ row }">
-          <el-tag v-if="row.builtin" type="warning" size="small">内置</el-tag>
+          <el-tag v-if="row.builtin" type="warning" size="small">{{ t('config.builtin') }}</el-tag>
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="remark" label="备注" min-width="140" />
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column prop="remark" :label="t('common.remark')" min-width="140" />
+      <el-table-column :label="t('common.operation')" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button v-permission="'system:config:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button v-permission="'system:config:edit'" link type="primary" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
           <el-button
             v-permission="'system:config:delete'"
             link
@@ -145,7 +148,7 @@ onMounted(loadData)
             :disabled="row.builtin"
             @click="handleDelete(row)"
           >
-            删除
+            {{ t('common.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -165,32 +168,32 @@ onMounted(loadData)
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="参数名称" prop="configName">
+        <el-form-item :label="t('config.configName')" prop="configName">
           <el-input v-model="form.configName" />
         </el-form-item>
-        <el-form-item label="参数键" prop="configKey">
-          <el-input v-model="form.configKey" placeholder="如 sys.user.initPassword" />
+        <el-form-item :label="t('config.configKey')" prop="configKey">
+          <el-input v-model="form.configKey" :placeholder="t('config.keyPlaceholder')" />
         </el-form-item>
-        <el-form-item label="参数值">
-          <el-input v-model="form.configValue" :placeholder="form.sensitive ? '敏感值，留空则不修改' : ''" />
+        <el-form-item :label="t('config.configValue')">
+          <el-input v-model="form.configValue" :placeholder="form.sensitive ? t('config.sensitiveValuePlaceholder') : ''" />
         </el-form-item>
-        <el-form-item label="类型">
+        <el-form-item :label="t('config.type')">
           <el-select v-model="form.configType" class="w-full">
-            <el-option label="字符串" value="STRING" />
-            <el-option label="布尔" value="BOOLEAN" />
-            <el-option label="数字" value="NUMBER" />
+            <el-option :label="t('config.typeString')" value="STRING" />
+            <el-option :label="t('config.typeBoolean')" value="BOOLEAN" />
+            <el-option :label="t('config.typeNumber')" value="NUMBER" />
           </el-select>
         </el-form-item>
-        <el-form-item label="敏感参数">
+        <el-form-item :label="t('config.sensitive')">
           <el-switch v-model="form.sensitive" />
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('common.remark')">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ t('common.ok') }}</el-button>
       </template>
     </el-dialog>
   </PageContainer>

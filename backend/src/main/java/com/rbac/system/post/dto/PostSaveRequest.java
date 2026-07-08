@@ -7,15 +7,15 @@ import lombok.Data;
 @Data
 public class PostSaveRequest {
 
-    @NotBlank(message = "岗位名称不能为空")
+    @NotBlank(message = "{valid.post.name.notBlank}")
     private String postName;
 
-    @NotBlank(message = "岗位编码不能为空")
+    @NotBlank(message = "{valid.post.code.notBlank}")
     private String postCode;
 
     private Integer sortOrder;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 
     private String remark;

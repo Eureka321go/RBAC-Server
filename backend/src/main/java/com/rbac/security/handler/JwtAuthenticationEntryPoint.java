@@ -1,5 +1,6 @@
 package com.rbac.security.handler;
 
+import com.rbac.common.util.MessageUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.AuthenticationException;
@@ -15,6 +16,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
-        RestAuthErrorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED, 401, "未登录或登录已失效");
+        RestAuthErrorWriter.write(response, HttpServletResponse.SC_UNAUTHORIZED, 401,
+                MessageUtils.get(request.getLocale(), "auth.notLoggedIn"));
     }
 }

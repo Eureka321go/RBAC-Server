@@ -6,10 +6,10 @@ import lombok.Data;
 @Data
 public class ConfigSaveRequest {
 
-    @NotBlank(message = "参数名称不能为空")
+    @NotBlank(message = "{valid.config.name.notBlank}")
     private String configName;
 
-    @NotBlank(message = "参数键不能为空")
+    @NotBlank(message = "{valid.config.key.notBlank}")
     private String configKey;
 
     private String configValue;

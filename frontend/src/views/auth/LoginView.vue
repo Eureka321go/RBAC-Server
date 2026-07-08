@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -14,10 +16,10 @@ const form = reactive({
   password: 'admin123',
 })
 
-const rules: FormRules = {
-  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-}
+const rules = computed<FormRules>(() => ({
+  username: [{ required: true, message: t('login.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.passwordRequired'), trigger: 'blur' }],
+}))
 
 async function handleSubmit() {
   if (!formRef.value) return
@@ -26,7 +28,7 @@ async function handleSubmit() {
 
   try {
     await authStore.login({ username: form.username, password: form.password })
-    ElMessage.success('登录成功')
+    ElMessage.success(t('login.success'))
     const redirect = (route.query.redirect as string) || '/'
     await router.replace(redirect)
   } catch {
@@ -36,7 +38,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <section class="w-full rounded-2xl border border-white/10 bg-white/95 p-8 shadow-2xl backdrop-blur">
+  <section class="w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-8 shadow-2xl backdrop-blur">
     <div class="mb-6 flex items-center gap-3">
       <div
         class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-lg font-bold text-white shadow"
@@ -44,21 +46,21 @@ async function handleSubmit() {
         R
       </div>
       <div>
-        <h1 class="text-lg font-semibold text-slate-900">RBAC 系统登录</h1>
-        <p class="text-xs text-slate-500">权限管理系统 · 后台管理</p>
+        <h1 class="text-lg font-semibold text-[var(--app-text)]">{{ t('login.title') }}</h1>
+        <p class="text-xs text-[var(--app-text-secondary)]">{{ t('login.subtitle') }}</p>
       </div>
     </div>
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @keyup.enter="handleSubmit">
-      <el-form-item label="账号" prop="username">
-        <el-input v-model="form.username" autocomplete="username" placeholder="请输入账号" />
+      <el-form-item :label="t('login.username')" prop="username">
+        <el-input v-model="form.username" autocomplete="username" :placeholder="t('login.usernamePlaceholder')" />
       </el-form-item>
-      <el-form-item label="密码" prop="password">
+      <el-form-item :label="t('login.password')" prop="password">
         <el-input
           v-model="form.password"
           type="password"
           autocomplete="current-password"
           show-password
-          placeholder="请输入密码"
+          :placeholder="t('login.passwordPlaceholder')"
         />
       </el-form-item>
       <el-button
@@ -68,9 +70,9 @@ async function handleSubmit() {
         :loading="authStore.loginLoading"
         @click="handleSubmit"
       >
-        登 录
+        {{ t('login.submit') }}
       </el-button>
     </el-form>
-    <p class="mt-4 text-center text-xs text-slate-400">默认账号 admin / admin123</p>
+    <p class="mt-4 text-center text-xs text-[var(--app-text-secondary)]">{{ t('login.hint') }}</p>
   </section>
 </template>

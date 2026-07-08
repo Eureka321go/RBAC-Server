@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type TreeInstance } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import PageContainer from '@/components/PageContainer.vue'
 import {
   createRole,
@@ -21,6 +22,8 @@ import { getMenuTree } from '@/api/system/menu'
 import { getDeptTree, type DeptItem } from '@/api/system/dept'
 import type { MenuItem } from '@/types/menu'
 
+const { t } = useI18n()
+
 const loading = ref(false)
 const tableData = ref<RoleItem[]>([])
 const total = ref(0)
@@ -32,14 +35,14 @@ const query = reactive<RoleQuery>({
   roleCode: '',
 })
 
-const dataScopeOptions: { label: string; value: DataScope }[] = [
-  { label: '全部数据', value: 'ALL' },
-  { label: '自定义部门', value: 'CUSTOM_DEPT' },
-  { label: '本部门及子部门', value: 'OWN_DEPT_CHILD' },
-  { label: '本部门', value: 'OWN_DEPT' },
-  { label: '仅本人', value: 'SELF' },
-]
-const dataScopeLabel = (v: DataScope) => dataScopeOptions.find((o) => o.value === v)?.label ?? v
+const dataScopeOptions = computed<{ label: string; value: DataScope }[]>(() => [
+  { label: t('role.scopeAll'), value: 'ALL' },
+  { label: t('role.scopeCustomDept'), value: 'CUSTOM_DEPT' },
+  { label: t('role.scopeOwnDeptChild'), value: 'OWN_DEPT_CHILD' },
+  { label: t('role.scopeOwnDept'), value: 'OWN_DEPT' },
+  { label: t('role.scopeSelf'), value: 'SELF' },
+])
+const dataScopeLabel = (v: DataScope) => dataScopeOptions.value.find((o) => o.value === v)?.label ?? v
 
 async function loadData() {
   loading.value = true
@@ -78,19 +81,19 @@ const defaultForm = (): RoleForm => ({
 })
 const form = reactive<RoleForm>(defaultForm())
 const rules: FormRules = {
-  roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
-  roleCode: [{ required: true, message: '请输入角色标识', trigger: 'blur' }],
+  roleName: [{ required: true, message: t('role.ruleRoleName'), trigger: 'blur' }],
+  roleCode: [{ required: true, message: t('role.ruleRoleCode'), trigger: 'blur' }],
 }
 
 function openCreate() {
-  dialogTitle.value = '新增角色'
+  dialogTitle.value = t('role.create')
   editingId.value = null
   Object.assign(form, defaultForm())
   dialogVisible.value = true
 }
 
 function openEdit(row: RoleItem) {
-  dialogTitle.value = '编辑角色'
+  dialogTitle.value = t('role.edit')
   editingId.value = row.id
   Object.assign(form, {
     roleName: row.roleName,
@@ -109,26 +112,26 @@ async function handleSubmit() {
   if (!valid) return
   if (editingId.value) {
     await updateRole(editingId.value, { ...form })
-    ElMessage.success('已更新')
+    ElMessage.success(t('common.updated'))
   } else {
     await createRole({ ...form })
-    ElMessage.success('已创建')
+    ElMessage.success(t('common.created'))
   }
   dialogVisible.value = false
   loadData()
 }
 
 async function handleDelete(row: RoleItem) {
-  await ElMessageBox.confirm(`确认删除角色「${row.roleName}」？`, '提示', { type: 'warning' })
+  await ElMessageBox.confirm(t('role.confirmDelete', { name: row.roleName }), t('common.tip'), { type: 'warning' })
   await deleteRole(row.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('common.deleted'))
   loadData()
 }
 
 async function handleToggleStatus(row: RoleItem) {
   const next = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
   await updateRoleStatus(row.id, next)
-  ElMessage.success('状态已更新')
+  ElMessage.success(t('common.statusUpdated'))
   loadData()
 }
 
@@ -166,7 +169,7 @@ async function handleGrantSubmit() {
   const checked = treeRef.value.getCheckedKeys(false) as number[]
   const halfChecked = treeRef.value.getHalfCheckedKeys() as number[]
   await grantRoleMenus(grantRoleId.value, [...halfChecked, ...checked])
-  ElMessage.success('菜单权限已保存')
+  ElMessage.success(t('role.menuSaved'))
   grantVisible.value = false
 }
 
@@ -196,7 +199,7 @@ async function handleGrantDeptSubmit() {
   const checked = deptTreeRef.value.getCheckedKeys(false) as number[]
   const halfChecked = deptTreeRef.value.getHalfCheckedKeys() as number[]
   await grantRoleDepts(deptRoleId.value, [...halfChecked, ...checked])
-  ElMessage.success('数据权限已保存')
+  ElMessage.success(t('role.dataSaved'))
   deptDialogVisible.value = false
 }
 
@@ -204,45 +207,45 @@ onMounted(loadData)
 </script>
 
 <template>
-  <PageContainer title="角色管理" description="维护角色、数据范围与菜单权限。">
+  <PageContainer :title="t('role.title')" :description="t('role.description')">
     <el-form :inline="true" :model="query" class="mb-2">
-      <el-form-item label="角色名称">
-        <el-input v-model="query.roleName" clearable placeholder="请输入" @keyup.enter="handleSearch" />
+      <el-form-item :label="t('role.roleName')">
+        <el-input v-model="query.roleName" clearable :placeholder="t('common.inputPlaceholder')" @keyup.enter="handleSearch" />
       </el-form-item>
-      <el-form-item label="角色标识">
-        <el-input v-model="query.roleCode" clearable placeholder="请输入" @keyup.enter="handleSearch" />
+      <el-form-item :label="t('role.roleCode')">
+        <el-input v-model="query.roleCode" clearable :placeholder="t('common.inputPlaceholder')" @keyup.enter="handleSearch" />
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleSearch">查询</el-button>
-        <el-button icon="Refresh" @click="handleReset">重置</el-button>
+        <el-button type="primary" icon="Search" @click="handleSearch">{{ t('common.search') }}</el-button>
+        <el-button icon="Refresh" @click="handleReset">{{ t('common.reset') }}</el-button>
       </el-form-item>
     </el-form>
 
     <div class="mb-3">
-      <el-button v-permission="'system:role:add'" type="primary" icon="Plus" @click="openCreate">新增角色</el-button>
+      <el-button v-permission="'system:role:add'" type="primary" icon="Plus" @click="openCreate">{{ t('role.addRole') }}</el-button>
     </div>
 
     <el-table v-loading="loading" :data="tableData" border>
-      <el-table-column prop="roleName" label="角色名称" min-width="140" />
-      <el-table-column prop="roleCode" label="角色标识" min-width="160" />
-      <el-table-column label="数据范围" width="150">
+      <el-table-column prop="roleName" :label="t('role.roleName')" min-width="140" />
+      <el-table-column prop="roleCode" :label="t('role.roleCode')" min-width="160" />
+      <el-table-column :label="t('role.dataScope')" width="150">
         <template #default="{ row }">{{ dataScopeLabel(row.dataScope) }}</template>
       </el-table-column>
-      <el-table-column prop="sortOrder" label="排序" width="80" />
-      <el-table-column label="状态" width="90">
+      <el-table-column prop="sortOrder" :label="t('common.sortOrder')" width="80" />
+      <el-table-column :label="t('common.status')" width="90">
         <template #default="{ row }">
           <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'">
-            {{ row.status === 'ENABLED' ? '启用' : '禁用' }}
+            {{ row.status === 'ENABLED' ? t('status.ENABLED') : t('status.DISABLED') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="440" fixed="right" class-name="op-col">
+      <el-table-column :label="t('common.operation')" width="440" fixed="right" class-name="op-col">
         <template #default="{ row }">
-          <el-button v-permission="'system:role:edit'" link type="primary" icon="Edit" @click="openEdit(row)">编辑</el-button>
-          <el-button v-permission="'system:role:grant-menu'" link type="primary" icon="Key" @click="openGrant(row)">分配菜单</el-button>
-          <el-button v-permission="'system:role:grant-data'" link type="primary" icon="Share" @click="openGrantDept(row)">数据权限</el-button>
+          <el-button v-permission="'system:role:edit'" link type="primary" icon="Edit" @click="openEdit(row)">{{ t('common.edit') }}</el-button>
+          <el-button v-permission="'system:role:grant-menu'" link type="primary" icon="Key" @click="openGrant(row)">{{ t('role.grantMenu') }}</el-button>
+          <el-button v-permission="'system:role:grant-data'" link type="primary" icon="Share" @click="openGrantDept(row)">{{ t('role.grantData') }}</el-button>
           <el-button v-permission="'system:role:edit'" link icon="SwitchButton" @click="handleToggleStatus(row)">
-            {{ row.status === 'ENABLED' ? '禁用' : '启用' }}
+            {{ row.status === 'ENABLED' ? t('status.DISABLED') : t('status.ENABLED') }}
           </el-button>
           <el-button
             v-permission="'system:role:delete'"
@@ -252,7 +255,7 @@ onMounted(loadData)
             :disabled="row.builtin"
             @click="handleDelete(row)"
           >
-            删除
+            {{ t('common.delete') }}
           </el-button>
         </template>
       </el-table-column>
@@ -273,38 +276,38 @@ onMounted(loadData)
     <!-- 新增/编辑 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="角色名称" prop="roleName">
+        <el-form-item :label="t('role.roleName')" prop="roleName">
           <el-input v-model="form.roleName" />
         </el-form-item>
-        <el-form-item label="角色标识" prop="roleCode">
-          <el-input v-model="form.roleCode" placeholder="如 system_admin" />
+        <el-form-item :label="t('role.roleCode')" prop="roleCode">
+          <el-input v-model="form.roleCode" :placeholder="t('role.roleCodePlaceholder')" />
         </el-form-item>
-        <el-form-item label="数据范围">
+        <el-form-item :label="t('role.dataScope')">
           <el-select v-model="form.dataScope" class="w-full">
             <el-option v-for="o in dataScopeOptions" :key="o.value" :label="o.label" :value="o.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="排序">
+        <el-form-item :label="t('common.sortOrder')">
           <el-input-number v-model="form.sortOrder" :min="0" />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('common.status')">
           <el-radio-group v-model="form.status">
-            <el-radio value="ENABLED">启用</el-radio>
-            <el-radio value="DISABLED">禁用</el-radio>
+            <el-radio value="ENABLED">{{ t('status.ENABLED') }}</el-radio>
+            <el-radio value="DISABLED">{{ t('status.DISABLED') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注">
+        <el-form-item :label="t('common.remark')">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleSubmit">{{ t('common.ok') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 分配菜单 -->
-    <el-dialog v-model="grantVisible" :title="`分配菜单 - ${grantRoleName}`" width="420px">
+    <el-dialog v-model="grantVisible" :title="t('role.grantMenuTitle', { name: grantRoleName })" width="420px">
       <el-tree
         ref="treeRef"
         class="max-h-[60vh] overflow-y-auto"
@@ -315,20 +318,20 @@ onMounted(loadData)
         default-expand-all
       />
       <template #footer>
-        <el-button @click="grantVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleGrantSubmit">保存</el-button>
+        <el-button @click="grantVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleGrantSubmit">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 分配数据权限（部门） -->
-    <el-dialog v-model="deptDialogVisible" :title="`数据权限 - ${deptRoleName}`" width="420px">
+    <el-dialog v-model="deptDialogVisible" :title="t('role.grantDataTitle', { name: deptRoleName })" width="420px">
       <el-alert
         v-if="deptRoleScope !== 'CUSTOM_DEPT'"
         type="info"
         :closable="false"
         show-icon
         class="mb-3"
-        title="当前数据范围非「自定义部门」，此处勾选仅在数据范围设为「自定义部门」时生效。"
+        :title="t('role.dataScopeHint')"
       />
       <el-tree
         ref="deptTreeRef"
@@ -340,8 +343,8 @@ onMounted(loadData)
         default-expand-all
       />
       <template #footer>
-        <el-button @click="deptDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleGrantDeptSubmit">保存</el-button>
+        <el-button @click="deptDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="handleGrantDeptSubmit">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </PageContainer>

@@ -59,10 +59,10 @@ public class AuthService {
             SysUser user = userMapper.selectOne(Wrappers.<SysUser>lambdaQuery()
                     .eq(SysUser::getUsername, request.getUsername()));
             if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-                throw new BusinessException("账号或密码错误");
+                throw new BusinessException("auth.badCredentials");
             }
             if (!"ENABLED".equals(user.getStatus())) {
-                throw new BusinessException("账号已被禁用");
+                throw new BusinessException("auth.disabled");
             }
 
             LoginUser loginUser = loginUserAssembler.assemble(user);
@@ -111,18 +111,18 @@ public class AuthService {
         try {
             claims = tokenProvider.parse(refreshToken);
         } catch (Exception e) {
-            throw new BusinessException(401, "refreshToken 无效或已过期");
+            throw new BusinessException(401, "auth.refreshInvalid");
         }
         if (!JwtTokenProvider.TYPE_REFRESH.equals(claims.get("typ", String.class))) {
-            throw new BusinessException(401, "refreshToken 类型错误");
+            throw new BusinessException(401, "auth.refreshTypeError");
         }
         Long userId = sessionService.getRefreshUserId(claims.getId());
         if (userId == null) {
-            throw new BusinessException(401, "登录已失效，请重新登录");
+            throw new BusinessException(401, "auth.loginExpired");
         }
         SysUser user = userMapper.selectById(userId);
         if (user == null || !"ENABLED".equals(user.getStatus())) {
-            throw new BusinessException(401, "账号不可用，请重新登录");
+            throw new BusinessException(401, "auth.accountUnavailable");
         }
         // 轮换 refresh 会话，签发新的 access + refresh
         sessionService.removeRefreshSession(claims.getId());

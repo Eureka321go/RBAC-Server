@@ -7,6 +7,12 @@ spring:
   application:
     name: rbac-server
 
+  # ── 国际化（Accept-Language 决定语言，默认 zh-CN）──
+  messages:
+    basename: i18n/messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+
   # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

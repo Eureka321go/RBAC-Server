@@ -57,7 +57,7 @@ public class DictService {
     public SysDictType getType(Long id) {
         SysDictType type = typeMapper.selectById(id);
         if (type == null) {
-            throw new BusinessException("字典类型不存在");
+            throw new BusinessException("dict.typeNotFound");
         }
         return type;
     }
@@ -113,7 +113,7 @@ public class DictService {
     public SysDictData getData(Long id) {
         SysDictData data = dataMapper.selectById(id);
         if (data == null) {
-            throw new BusinessException("字典数据不存在");
+            throw new BusinessException("dict.dataNotFound");
         }
         return data;
     }
@@ -161,7 +161,7 @@ public class DictService {
                 .eq(SysDictType::getDictCode, dictCode)
                 .ne(excludeId != null, SysDictType::getId, excludeId));
         if (count > 0) {
-            throw new BusinessException("字典编码已存在");
+            throw new BusinessException("dict.codeExists");
         }
     }
 }

@@ -11,11 +11,11 @@ import java.util.List;
 @Data
 public class UserCreateRequest {
 
-    @NotBlank(message = "账号不能为空")
-    @Size(min = 2, max = 32, message = "账号长度 2-32")
+    @NotBlank(message = "{valid.username.notBlank}")
+    @Size(min = 2, max = 32, message = "{valid.username.size}")
     private String username;
 
-    @NotBlank(message = "昵称不能为空")
+    @NotBlank(message = "{valid.nickname.notBlank}")
     private String nickname;
 
     /** 初始密码，为空则使用系统默认密码。 */
@@ -26,7 +26,7 @@ public class UserCreateRequest {
     private String phone;
     private String gender;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 
     private String remark;

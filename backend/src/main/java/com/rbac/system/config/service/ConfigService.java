@@ -38,7 +38,7 @@ public class ConfigService {
     public SysConfig getById(Long id) {
         SysConfig config = configMapper.selectById(id);
         if (config == null) {
-            throw new BusinessException("参数不存在");
+            throw new BusinessException("config.notFound");
         }
         return config;
     }
@@ -63,7 +63,7 @@ public class ConfigService {
         SysConfig existing = getById(id);
         boolean builtin = existing.getBuiltin() != null && existing.getBuiltin() == 1;
         if (builtin && !existing.getConfigKey().equals(req.getConfigKey())) {
-            throw new BusinessException("内置参数键不允许修改");
+            throw new BusinessException("config.builtinKeyImmutable");
         }
         ensureKeyUnique(req.getConfigKey(), id);
         SysConfig config = new SysConfig();
@@ -75,7 +75,7 @@ public class ConfigService {
     public void delete(Long id) {
         SysConfig config = getById(id);
         if (config.getBuiltin() != null && config.getBuiltin() == 1) {
-            throw new BusinessException("内置参数不允许删除");
+            throw new BusinessException("config.builtinUndeletable");
         }
         configMapper.deleteById(id);
     }
@@ -94,7 +94,7 @@ public class ConfigService {
                 .eq(SysConfig::getConfigKey, key)
                 .ne(excludeId != null, SysConfig::getId, excludeId));
         if (count > 0) {
-            throw new BusinessException("参数键已存在");
+            throw new BusinessException("config.keyExists");
         }
     }
 }

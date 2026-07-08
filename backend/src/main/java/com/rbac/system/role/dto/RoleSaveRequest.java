@@ -7,18 +7,18 @@ import lombok.Data;
 @Data
 public class RoleSaveRequest {
 
-    @NotBlank(message = "角色名称不能为空")
+    @NotBlank(message = "{valid.role.name.notBlank}")
     private String roleName;
 
-    @NotBlank(message = "角色编码不能为空")
+    @NotBlank(message = "{valid.role.code.notBlank}")
     private String roleCode;
 
-    @Pattern(regexp = "ALL|CUSTOM_DEPT|OWN_DEPT|OWN_DEPT_CHILD|SELF", message = "数据范围非法")
+    @Pattern(regexp = "ALL|CUSTOM_DEPT|OWN_DEPT|OWN_DEPT_CHILD|SELF", message = "{valid.dataScope.pattern}")
     private String dataScope;
 
     private Integer sortOrder;
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 
     private String remark;

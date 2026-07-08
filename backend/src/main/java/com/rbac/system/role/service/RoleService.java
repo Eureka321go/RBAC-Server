@@ -61,7 +61,7 @@ public class RoleService {
     public SysRole getById(Long id) {
         SysRole role = roleMapper.selectById(id);
         if (role == null) {
-            throw new BusinessException("角色不存在");
+            throw new BusinessException("role.notFound");
         }
         return role;
     }
@@ -84,7 +84,7 @@ public class RoleService {
         SysRole existing = getById(id);
         boolean builtin = existing.getBuiltin() != null && existing.getBuiltin() == 1;
         if (builtin && !existing.getRoleCode().equals(req.getRoleCode())) {
-            throw new BusinessException("内置角色编码不允许修改");
+            throw new BusinessException("role.builtinCodeImmutable");
         }
         ensureCodeUnique(req.getRoleCode(), id);
         SysRole role = new SysRole();
@@ -101,10 +101,10 @@ public class RoleService {
     public void delete(Long id) {
         SysRole role = getById(id);
         if (role.getBuiltin() != null && role.getBuiltin() == 1) {
-            throw new BusinessException("内置角色不允许删除");
+            throw new BusinessException("role.builtinUndeletable");
         }
         if (userRoleMapper.countByRoleId(id) > 0) {
-            throw new BusinessException("该角色仍有用户绑定，无法删除");
+            throw new BusinessException("role.stillBound");
         }
         roleMapper.deleteById(id);
         roleMenuMapper.delete(Wrappers.<SysRoleMenu>lambdaQuery().eq(SysRoleMenu::getRoleId, id));
@@ -170,7 +170,7 @@ public class RoleService {
                 .eq(SysRole::getRoleCode, roleCode)
                 .ne(excludeId != null, SysRole::getId, excludeId));
         if (count > 0) {
-            throw new BusinessException("角色编码已存在");
+            throw new BusinessException("role.codeExists");
         }
     }
 }

@@ -111,7 +111,7 @@ public class UserService {
     @Transactional
     public Long create(UserCreateRequest req) {
         if (existsUsername(req.getUsername(), null)) {
-            throw new BusinessException("账号已存在");
+            throw new BusinessException("user.usernameExists");
         }
         SysUser user = new SysUser();
         user.setUsername(req.getUsername());
@@ -134,7 +134,7 @@ public class UserService {
     public void update(Long id, UserUpdateRequest req) {
         SysUser existing = requireUser(id);
         if (isSuperAdmin(id) && !SecurityUtils.isSuperAdmin()) {
-            throw new BusinessException("无权修改超级管理员");
+            throw new BusinessException("user.superAdminImmutable");
         }
         SysUser user = new SysUser();
         user.setId(id);
@@ -156,10 +156,10 @@ public class UserService {
     public void delete(Long id) {
         requireUser(id);
         if (id.equals(SecurityUtils.getUserId())) {
-            throw new BusinessException("不能删除当前登录用户");
+            throw new BusinessException("user.cannotDeleteSelf");
         }
         if (isSuperAdmin(id)) {
-            throw new BusinessException("超级管理员不允许删除");
+            throw new BusinessException("user.superAdminUndeletable");
         }
         userMapper.deleteById(id);
         userRoleMapper.delete(Wrappers.<SysUserRole>lambdaQuery().eq(SysUserRole::getUserId, id));
@@ -169,10 +169,10 @@ public class UserService {
     public void updateStatus(Long id, String status) {
         requireUser(id);
         if ("DISABLED".equals(status) && isSuperAdmin(id)) {
-            throw new BusinessException("超级管理员不允许禁用");
+            throw new BusinessException("user.superAdminUndisable");
         }
         if (id.equals(SecurityUtils.getUserId()) && "DISABLED".equals(status)) {
-            throw new BusinessException("不能禁用当前登录用户");
+            throw new BusinessException("user.cannotDisableSelf");
         }
         SysUser update = new SysUser();
         update.setId(id);
@@ -183,7 +183,7 @@ public class UserService {
     public void resetPassword(Long id, String newPassword) {
         requireUser(id);
         if (isSuperAdmin(id) && !SecurityUtils.isSuperAdmin()) {
-            throw new BusinessException("无权重置超级管理员密码");
+            throw new BusinessException("user.superAdminPwdImmutable");
         }
         SysUser update = new SysUser();
         update.setId(id);
@@ -195,7 +195,7 @@ public class UserService {
     public void assignRoles(Long id, List<Long> roleIds) {
         requireUser(id);
         if (isSuperAdmin(id)) {
-            throw new BusinessException("超级管理员角色不允许调整");
+            throw new BusinessException("user.superAdminRoleImmutable");
         }
         replaceRoles(id, roleIds);
     }
@@ -205,7 +205,7 @@ public class UserService {
     private SysUser requireUser(Long id) {
         SysUser user = userMapper.selectById(id);
         if (user == null) {
-            throw new BusinessException("用户不存在");
+            throw new BusinessException("user.notFound");
         }
         return user;
     }

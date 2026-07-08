@@ -2,6 +2,7 @@ package com.rbac.common.web;
 
 import com.rbac.common.Result;
 import com.rbac.common.exception.BusinessException;
+import com.rbac.common.util.MessageUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
@@ -28,20 +29,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public Result<Void> handleValidation(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
-        String message = fieldError != null ? fieldError.getDefaultMessage() : "参数校验失败";
+        String message = fieldError != null ? fieldError.getDefaultMessage() : MessageUtils.get("error.validation");
         return Result.error(400, message);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public Result<Void> handleAccessDenied(AccessDeniedException e) {
-        return Result.error(403, "无权限访问");
+        return Result.error(403, MessageUtils.get("error.accessDenied"));
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<Void> handleException(Exception e) {
         log.error("未处理异常", e);
-        return Result.error(500, "服务器内部错误");
+        return Result.error(500, MessageUtils.get("error.internal"));
     }
 }

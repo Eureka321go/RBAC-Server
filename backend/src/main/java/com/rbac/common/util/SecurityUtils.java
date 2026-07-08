@@ -26,7 +26,7 @@ public final class SecurityUtils {
     public static LoginUser getLoginUser() {
         LoginUser loginUser = getLoginUserOrNull();
         if (loginUser == null) {
-            throw new BusinessException(401, "未登录或登录已失效");
+            throw new BusinessException(401, "auth.notLoggedIn");
         }
         return loginUser;
     }

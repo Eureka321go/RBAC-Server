@@ -2,6 +2,9 @@ import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 
 import { ElMessage } from 'element-plus'
 import { clearTokens, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from '@/utils/token'
 import type { LoginResult } from '@/types/auth'
+import { i18n } from '@/locales'
+
+const t = (key: string, named?: Record<string, unknown>) => i18n.global.t(key, named ?? {})
 
 interface ApiResult<T> {
   code: number
@@ -15,12 +18,14 @@ const instance = axios.create({
   timeout: 10000,
 })
 
-// 请求拦截器：注入 Bearer Token。
+// 请求拦截器：注入 Bearer Token 与当前语言。
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // 语言直接读本地存储，避免在拦截器中引入 Pinia 依赖
+  config.headers['Accept-Language'] = localStorage.getItem('app-locale') || 'zh-CN'
   return config
 })
 
@@ -63,8 +68,8 @@ instance.interceptors.response.use(
       if (body.code === 200) {
         return body.data
       }
-      ElMessage.error(body.message || '请求失败')
-      return Promise.reject(new Error(body.message || '请求失败'))
+      ElMessage.error(body.message || t('http.requestFail'))
+      return Promise.reject(new Error(body.message || t('http.requestFail')))
     }
     return response.data
   },
@@ -72,7 +77,7 @@ instance.interceptors.response.use(
     const response = error.response
     const config = error.config as AxiosRequestConfig & { _retry?: boolean }
     if (!response) {
-      ElMessage.error('网络异常，请稍后重试')
+      ElMessage.error(t('http.networkError'))
       return Promise.reject(error)
     }
 
@@ -106,17 +111,17 @@ instance.interceptors.response.use(
         config.headers = { ...config.headers, Authorization: `Bearer ${newToken}` }
         return instance(config)
       }
-      ElMessage.error('登录已失效，请重新登录')
+      ElMessage.error(t('http.loginExpired'))
       redirectToLogin()
       return Promise.reject(error)
     }
 
     if (status === 403) {
-      ElMessage.error('无权限访问')
+      ElMessage.error(t('http.noPermission'))
       return Promise.reject(error)
     }
 
-    const message = (response.data as ApiResult<unknown>)?.message || `请求错误（${status}）`
+    const message = (response.data as ApiResult<unknown>)?.message || t('http.requestError', { status })
     ElMessage.error(message)
     return Promise.reject(error)
   },

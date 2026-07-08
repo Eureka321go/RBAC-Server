@@ -9,6 +9,6 @@ import lombok.Data;
 @Data
 public class StatusUpdateRequest {
 
-    @Pattern(regexp = "ENABLED|DISABLED", message = "状态取值非法")
+    @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
 }

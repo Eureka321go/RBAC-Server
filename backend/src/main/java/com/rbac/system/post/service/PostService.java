@@ -47,7 +47,7 @@ public class PostService {
     public SysPost getById(Long id) {
         SysPost post = postMapper.selectById(id);
         if (post == null) {
-            throw new BusinessException("岗位不存在");
+            throw new BusinessException("post.notFound");
         }
         return post;
     }
@@ -95,7 +95,7 @@ public class PostService {
                 .eq(SysPost::getPostCode, postCode)
                 .ne(excludeId != null, SysPost::getId, excludeId));
         if (count > 0) {
-            throw new BusinessException("岗位编码已存在");
+            throw new BusinessException("post.codeExists");
         }
     }
 }

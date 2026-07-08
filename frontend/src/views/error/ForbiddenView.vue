@@ -1,7 +1,12 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
+</script>
+
 <template>
-  <el-result icon="warning" title="403" sub-title="当前账号没有访问该页面的权限">
+  <el-result icon="warning" title="403" :sub-title="t('error.forbiddenSub')">
     <template #extra>
-      <el-button type="primary" @click="$router.push('/')">返回首页</el-button>
+      <el-button type="primary" @click="$router.push('/')">{{ t('error.backHome') }}</el-button>
     </template>
   </el-result>
 </template>
