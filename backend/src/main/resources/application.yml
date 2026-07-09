@@ -7,6 +7,12 @@ spring:
   application:
     name: rbac-server
 
+  # ── 国际化（Accept-Language 决定语言，默认 zh-CN）──
+  messages:
+    basename: i18n/messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+
   # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -33,6 +39,14 @@ spring:
           max-idle: 8
           min-idle: 2
 
+  # ── SQL 初始化（幂等：schema 用 IF NOT EXISTS，data 用 INSERT IGNORE）──
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+      continue-on-error: false
+
 # ── MyBatis-Plus ──
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -46,6 +60,16 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+# ── RBAC 自定义配置 ──
+rbac:
+  jwt:
+    # 生产环境务必用环境变量覆盖，勿使用默认值
+    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}
+    # Access Token 有效期（秒），默认 2 小时
+    access-ttl: 7200
+    # Refresh Token 有效期（秒），默认 7 天
+    refresh-ttl: 604800
 
 # ── 日志 ──
 logging:

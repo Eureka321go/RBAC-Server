@@ -1,5 +1,6 @@
 package com.rbac.common;
 
+import com.rbac.common.util.MessageUtils;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -19,7 +20,7 @@ public class Result<T> implements Serializable {
     public static <T> Result<T> success(T data) {
         Result<T> r = new Result<>();
         r.setCode(200);
-        r.setMessage("success");
+        r.setMessage(MessageUtils.get("result.success"));
         r.setData(data);
         return r;
     }

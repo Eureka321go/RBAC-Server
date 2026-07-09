@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import request from '@/api/request'
 
+const { t } = useI18n()
+
 // 一个最小的连通性验证：调用后端 /api/ping，业务页面后续再实现。
-const status = ref<string>('未检测')
+const status = ref<string>(t('home.notChecked'))
 const detail = ref<string>('')
 
 async function checkBackend() {
-  status.value = '检测中…'
+  status.value = t('home.checking')
   detail.value = ''
   try {
     const res: unknown = await request.get('/ping')
-    status.value = '后端连通 ✅'
+    status.value = t('home.connected')
     detail.value = JSON.stringify(res, null, 2)
   } catch (e: unknown) {
-    status.value = '后端未连通 ❌'
+    status.value = t('home.disconnected')
     detail.value = e instanceof Error ? e.message : String(e)
   }
 }
@@ -22,10 +25,10 @@ async function checkBackend() {
 
 <template>
   <main class="home">
-    <h1>RBAC 权限管理系统</h1>
-    <p class="sub">前端骨架已就绪，业务页面待开发。</p>
+    <h1>{{ t('home.title') }}</h1>
+    <p class="sub">{{ t('home.sub') }}</p>
 
-    <button @click="checkBackend">检测后端连通性</button>
+    <button @click="checkBackend">{{ t('home.check') }}</button>
     <p class="status">{{ status }}</p>
     <pre v-if="detail" class="detail">{{ detail }}</pre>
   </main>

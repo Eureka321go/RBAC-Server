@@ -18,6 +18,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     port: 5173,
     proxy: {
       // 前端 /api/** 的请求代理到后端 Spring Boot（context-path 也是 /api）

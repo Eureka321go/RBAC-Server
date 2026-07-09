@@ -8,15 +8,23 @@ export interface LoginParams {
 export interface LoginResult {
   accessToken: string
   refreshToken: string
-  expiresAt: number
+  tokenType: string
+  /** access token 有效期（秒） */
+  expiresIn: number
+}
+
+export interface RoleBrief {
+  roleId: number
+  roleCode: string
+  roleName: string
 }
 
 export interface CurrentUser {
-  id: number | string
+  id: number
   username: string
   nickname: string
   avatar?: string
-  deptId?: number | string
+  deptId?: number
   deptName?: string
-  roles: string[]
+  roles: RoleBrief[]
 }
