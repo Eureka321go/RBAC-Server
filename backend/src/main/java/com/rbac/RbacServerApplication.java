@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  */
 @SpringBootApplication
 @EnableAsync
-@MapperScan("com.rbac.**.mapper")
+@MapperScan("com.rbac.**.mapper") //告诉框架"数据层类在哪"
 public class RbacServerApplication {
 
     public static void main(String[] args) {
