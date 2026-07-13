@@ -16,7 +16,7 @@ public interface SysMenuMapper extends BaseMapper<SysMenu> {
             JOIN sys_role_menu rm ON rm.menu_id = m.id                      -- 菜单 ←→ 角色 的桥（按 menu_id 拼接）
             JOIN sys_user_role ur ON ur.role_id = rm.role_id               -- 角色 ←→ 用户 的桥（按 role_id 拼接）
             JOIN sys_role r ON r.id = ur.role_id                           -- 连角色表，仅为下面过滤"禁用角色"
-            WHERE ur.user_id = #{userId}                                   -- 入口：只看这个用户的角色（#{} 是占位符，防 SQL 注入）
+            WHERE ur.user_id = #{userId}                                   -- 入口：只看这个用户的角色（使用参数占位符，防 SQL 注入）
               AND m.deleted = 0 AND m.status = 'ENABLED'                   -- 菜单未被逻辑删除、且处于启用
               AND r.deleted = 0 AND r.status = 'ENABLED'                   -- 角色未被逻辑删除、且处于启用（禁用角色的权限不生效）
               AND m.permission_code IS NOT NULL AND m.permission_code <> ''  -- 权限码非 null 且非空串：只留按钮(BUTTON)，排除目录/菜单

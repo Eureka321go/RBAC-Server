@@ -217,3 +217,116 @@ CREATE TABLE IF NOT EXISTS `sys_operation_log` (
   KEY `idx_oper_log_operator` (`operator_id`),
   KEY `idx_oper_log_dept` (`dept_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '操作日志表';
+
+-- ===================== 工作流 / 审批（wf_*） =====================
+
+CREATE TABLE IF NOT EXISTS `wf_process_definition` (
+  `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `process_key` VARCHAR(64)  NOT NULL COMMENT '流程标识，如 leave',
+  `name`        VARCHAR(128) NOT NULL COMMENT '流程名称',
+  `category`    VARCHAR(64)  NULL COMMENT '分类（字典 wf_category）',
+  `form_key`    VARCHAR(64)  NULL COMMENT '关联业务表单标识',
+  `version`     INT          NOT NULL DEFAULT 1 COMMENT '版本号',
+  `status`      VARCHAR(16)  NOT NULL DEFAULT 'ENABLED' COMMENT '状态 ENABLED/DISABLED',
+  `remark`      VARCHAR(255) NULL COMMENT '说明',
+  `created_by`  BIGINT       NULL COMMENT '创建人',
+  `created_at`  DATETIME     NULL COMMENT '创建时间',
+  `updated_by`  BIGINT       NULL COMMENT '更新人',
+  `updated_at`  DATETIME     NULL COMMENT '更新时间',
+  `deleted`     TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_wf_def_key_ver` (`process_key`, `version`, `deleted`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流程定义表';
+
+CREATE TABLE IF NOT EXISTS `wf_process_node` (
+  `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `definition_id`   BIGINT       NOT NULL COMMENT '所属定义 ID',
+  `node_order`      INT          NOT NULL COMMENT '节点顺序（从 1 递增）',
+  `node_name`       VARCHAR(128) NOT NULL COMMENT '节点名称',
+  `assignee_type`   VARCHAR(32)  NOT NULL COMMENT '审批人来源 USER/ROLE/POST/DEPT_LEADER/INITIATOR_SELF/INITIATOR_LEADER',
+  `assignee_value`  VARCHAR(255) NULL COMMENT '来源取值（id，多个逗号分隔）',
+  `approve_mode`    VARCHAR(16)  NOT NULL DEFAULT 'ANY' COMMENT '会签策略 ANY/ALL/SEQUENTIAL',
+  `reject_strategy` VARCHAR(16)  NOT NULL DEFAULT 'TO_INITIATOR' COMMENT '驳回策略 TO_INITIATOR/TO_PREV',
+  `condition_expr`  VARCHAR(255) NULL COMMENT '分支条件（如 amount > 5000），空则必经',
+  `created_by`      BIGINT       NULL COMMENT '创建人',
+  `created_at`      DATETIME     NULL COMMENT '创建时间',
+  `updated_by`      BIGINT       NULL COMMENT '更新人',
+  `updated_at`      DATETIME     NULL COMMENT '更新时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_node_def` (`definition_id`, `node_order`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流程节点表';
+
+CREATE TABLE IF NOT EXISTS `wf_process_instance` (
+  `id`                 BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `definition_id`      BIGINT       NOT NULL COMMENT '流程定义 ID（锁定发起时版本）',
+  `process_key`        VARCHAR(64)  NOT NULL COMMENT '流程标识（冗余）',
+  `business_key`       VARCHAR(64)  NULL COMMENT '业务单据 ID',
+  `title`              VARCHAR(255) NOT NULL COMMENT '单据标题',
+  `initiator_id`       BIGINT       NOT NULL COMMENT '发起人 ID',
+  `initiator_dept_id`  BIGINT       NULL COMMENT '发起人部门 ID（冗余，数据权限）',
+  `current_node_order` INT          NULL COMMENT '当前节点顺序',
+  `instance_status`    VARCHAR(16)  NOT NULL DEFAULT 'RUNNING' COMMENT 'DRAFT/RUNNING/APPROVED/REJECTED/CANCELED',
+  `form_data`          JSON         NULL COMMENT '表单快照',
+  `submit_time`        DATETIME     NULL COMMENT '提交时间',
+  `end_time`           DATETIME     NULL COMMENT '结束时间',
+  `version`            INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
+  `created_by`         BIGINT       NULL COMMENT '创建人',
+  `created_at`         DATETIME     NULL COMMENT '创建时间',
+  `updated_by`         BIGINT       NULL COMMENT '更新人',
+  `updated_at`         DATETIME     NULL COMMENT '更新时间',
+  `deleted`            TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_inst_initiator` (`initiator_id`),
+  KEY `idx_wf_inst_dept` (`initiator_dept_id`),
+  KEY `idx_wf_inst_status` (`instance_status`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '流程实例表';
+
+CREATE TABLE IF NOT EXISTS `wf_process_task` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `instance_id`  BIGINT       NOT NULL COMMENT '流程实例 ID',
+  `node_order`   INT          NOT NULL COMMENT '所属节点顺序',
+  `node_name`    VARCHAR(128) NOT NULL COMMENT '节点名称快照',
+  `assignee_id`  BIGINT       NOT NULL COMMENT '审批人 ID',
+  `task_status`  VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/APPROVED/REJECTED/TRANSFERRED/CANCELED',
+  `approve_time` DATETIME     NULL COMMENT '处理时间',
+  `created_by`   BIGINT       NULL COMMENT '创建人',
+  `created_at`   DATETIME     NULL COMMENT '创建时间',
+  `updated_by`   BIGINT       NULL COMMENT '更新人',
+  `updated_at`   DATETIME     NULL COMMENT '更新时间',
+  `deleted`      TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_task_todo` (`assignee_id`, `task_status`),
+  KEY `idx_wf_task_instance` (`instance_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '审批任务表';
+
+CREATE TABLE IF NOT EXISTS `wf_process_record` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `instance_id`  BIGINT       NOT NULL COMMENT '流程实例 ID',
+  `node_order`   INT          NULL COMMENT '节点顺序',
+  `operator_id`  BIGINT       NOT NULL COMMENT '操作人 ID',
+  `action`       VARCHAR(16)  NOT NULL COMMENT 'SUBMIT/APPROVE/REJECT/TRANSFER/ADD_SIGN/WITHDRAW',
+  `comment`      VARCHAR(500) NULL COMMENT '审批意见（限长）',
+  `operate_time` DATETIME     NULL COMMENT '操作时间',
+  `created_by`   BIGINT       NULL COMMENT '创建人',
+  `created_at`   DATETIME     NULL COMMENT '创建时间',
+  `updated_by`   BIGINT       NULL COMMENT '更新人',
+  `updated_at`   DATETIME     NULL COMMENT '更新时间',
+  `deleted`      TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_record_instance` (`instance_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '审批记录表';
+
+CREATE TABLE IF NOT EXISTS `wf_process_cc` (
+  `id`          BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `instance_id` BIGINT   NOT NULL COMMENT '流程实例 ID',
+  `user_id`     BIGINT   NOT NULL COMMENT '抄送人 ID',
+  `read_flag`   TINYINT  NOT NULL DEFAULT 0 COMMENT '是否已读 0/1',
+  `created_by`  BIGINT   NULL COMMENT '创建人',
+  `created_at`  DATETIME NULL COMMENT '创建时间',
+  `updated_by`  BIGINT   NULL COMMENT '更新人',
+  `updated_at`  DATETIME NULL COMMENT '更新时间',
+  `deleted`     TINYINT  NOT NULL DEFAULT 0 COMMENT '逻辑删除 0/1',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_cc_user` (`user_id`, `read_flag`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '抄送表';

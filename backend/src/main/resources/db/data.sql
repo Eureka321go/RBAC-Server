@@ -104,3 +104,34 @@ INSERT IGNORE INTO `sys_dict_data` (`id`, `dict_type_id`, `label`, `value`, `sor
   (3, 1, '未知', 'UNKNOWN', 3, 0, 'ENABLED', NOW()),
   (4, 2, '启用', 'ENABLED',  1, 1, 'ENABLED', NOW()),
   (5, 2, '禁用', 'DISABLED', 2, 0, 'ENABLED', NOW());
+
+-- ===================== 工作流 / 审批 菜单与权限 =====================
+INSERT IGNORE INTO `sys_menu` (`id`, `parent_id`, `menu_type`, `menu_name`, `path`, `component`, `permission_code`, `icon`, `sort_order`, `visible`, `keep_alive`, `status`, `created_at`) VALUES
+  -- 管理端：工作流（挂系统层级之后）
+  (90,  0,  'DIR',    '工作流',   '/workflow', 'Layout',                             NULL,                          'Share',    9, 1, 0, 'ENABLED', NOW()),
+  (91,  90, 'MENU',   '流程定义', 'definition', 'workflow/definition/DefinitionView', 'workflow:definition:list',    'SetUp',    1, 1, 1, 'ENABLED', NOW()),
+  (911, 91, 'BUTTON', '新增定义', NULL, NULL, 'workflow:definition:add',    NULL, 1, 1, 0, 'ENABLED', NOW()),
+  (912, 91, 'BUTTON', '编辑定义', NULL, NULL, 'workflow:definition:edit',   NULL, 2, 1, 0, 'ENABLED', NOW()),
+  (913, 91, 'BUTTON', '删除定义', NULL, NULL, 'workflow:definition:remove', NULL, 3, 1, 0, 'ENABLED', NOW()),
+  (914, 91, 'BUTTON', '定义详情', NULL, NULL, 'workflow:definition:query',  NULL, 4, 1, 0, 'ENABLED', NOW()),
+  -- 业务端：我的审批（权限码留空，随菜单授权可见）
+  (100, 0,   'DIR',  '我的审批', '/approval', 'Layout',                        NULL, 'Tickets',  10, 1, 0, 'ENABLED', NOW()),
+  (101, 100, 'MENU', '我的待办', 'todo', 'workflow/task/TodoView',            NULL, 'Bell',      1, 1, 1, 'ENABLED', NOW()),
+  (102, 100, 'MENU', '我的已办', 'done', 'workflow/task/DoneView',            NULL, 'Finished',  2, 1, 1, 'ENABLED', NOW()),
+  (103, 100, 'MENU', '我发起的', 'mine', 'workflow/instance/MineView',        NULL, 'Promotion', 3, 1, 1, 'ENABLED', NOW()),
+  (1031,103, 'BUTTON','发起审批', NULL, NULL, 'workflow:instance:start',      NULL, 1, 1, 0, 'ENABLED', NOW()),
+  (104, 100, 'MENU', '抄送我的', 'cc',   'workflow/instance/CcView',          NULL, 'Message',   4, 1, 1, 'ENABLED', NOW());
+
+-- 将工作流菜单授权给超管(1)与系统管理员(2)
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+SELECT 1, id FROM `sys_menu` WHERE id IN (90,91,911,912,913,914,100,101,102,103,1031,104);
+INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
+SELECT 2, id FROM `sys_menu` WHERE id IN (90,91,911,912,913,914,100,101,102,103,1031,104);
+
+-- ===================== 内置示例：请假审批 =====================
+INSERT IGNORE INTO `wf_process_definition` (`id`, `process_key`, `name`, `category`, `form_key`, `version`, `status`, `remark`, `created_at`) VALUES
+  (1, 'leave', '请假审批', 'hr', 'leave', 1, 'ENABLED', '内置示例：部门经理审批；请假天数>3 需分管领导再审', NOW());
+
+INSERT IGNORE INTO `wf_process_node` (`id`, `definition_id`, `node_order`, `node_name`, `assignee_type`, `assignee_value`, `approve_mode`, `reject_strategy`, `condition_expr`, `created_at`) VALUES
+  (1, 1, 1, '部门经理审批', 'DEPT_LEADER',      NULL, 'ANY', 'TO_INITIATOR', NULL,       NOW()),
+  (2, 1, 2, '分管领导审批', 'INITIATOR_LEADER', NULL, 'ANY', 'TO_PREV',      'days > 3', NOW());
