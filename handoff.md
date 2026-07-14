@@ -10,8 +10,8 @@
 
 前后端 + 中间件已通过 Docker Compose 部署到阿里云轻量服务器，**admin 可正常登录**。
 
-- 访问地址：`http://106.15.89.180`
-- 四容器运行中：`rbac-mysql` / `rbac-redis` / `rbac-backend` / `rbac-frontend`
+- 访问地址：`https://www.eureka32.top`（Caddy 自动 HTTPS，http 自动跳 https）
+- 五容器运行中：`rbac-mysql` / `rbac-redis` / `rbac-backend` / `rbac-frontend` / `rbac-caddy`
 
 ---
 
@@ -24,10 +24,12 @@
 | SSH | `ssh root@106.15.89.180`（密码登录） |
 | 代码目录 | `/root/project/RBAC-Server` |
 | 部署分支 | `feat/rbac-mvp` |
-| 编排文件 | `deploy/docker-compose.yml`（起 mysql+redis+backend+frontend） |
+| 域名 | `www.eureka32.top`（已 ICP 备案，A 记录 → 106.15.89.180） |
+| 编排文件 | `deploy/docker-compose.yml`（起 mysql+redis+backend+frontend+caddy） |
 | 镜像加速器 | `/etc/docker/daemon.json` → `https://docker.m.daocloud.io` |
 | 代码来源 | GitHub 私有库 + 服务器 Deploy Key（只读）|
-| 对外端口 | 仅 80（防火墙放行 22/80，未开 3306/6379）|
+| 对外端口 | 80/443（防火墙放行 22/80/443，未开 3306/6379）|
+| HTTPS | Caddy 自动申请/续期 Let's Encrypt 证书，见 `docs/ops/02` |
 
 ---
 
@@ -74,7 +76,7 @@ cd deploy && docker compose up -d --build   # 有代码改动才加 --build
 1. **[安全] 换掉默认密码**（当前仍是 `rbac_123` / `rbac_redis_123` / 默认 JWT secret）。
    👉 完整步骤见 [`docs/ops/01-更换默认密码与密钥.md`](docs/ops/01-更换默认密码与密钥.md)（含原理、强密码生成、方案 A 清库重建 / 方案 B 保数据）。
    一句话：服务器 `deploy/` 下建 `.env` 填强密码，`docker compose down -v && up -d --build`。⚠️ MySQL 数据卷首次初始化后不再读 `MYSQL_PASSWORD`，需清卷或进容器 `ALTER USER`，注意别丢数据。
-2. **[访问] 配域名 + HTTPS**：域名解析到 IP，nginx 挂 Let's Encrypt 证书（或用 Caddy 自动签），改走 `https://`，防火墙加 443。
+2. ✅ **[访问] 配域名 + HTTPS（已完成 2026-07-14）**：`https://www.eureka32.top`，Caddy 自动证书。详见 [`docs/ops/02-域名与HTTPS配置.md`](docs/ops/02-域名与HTTPS配置.md)。
 3. **[稳定] 给 backend 加 healthcheck**，让编排能感知后端就绪/自愈。
 4. **[整理] 决定 5 个 Java WIP 去留**：由你判断是否单独成一次提交。
 5. **[进阶] CI/CD**：GitHub Actions 构建镜像推仓库，服务器只 `pull`，免每次现场编译（首次编译约 13 分钟）。
