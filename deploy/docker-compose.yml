@@ -1,4 +1,4 @@
-name: rbac-server
+name: rbac-server #定义 Compose 项目名
 
 # ─────────────────────────────────────────────────────────────
 # RBAC 中间件编排
@@ -16,27 +16,27 @@ name: rbac-server
 #   停止并清数据: docker compose down -v
 # ─────────────────────────────────────────────────────────────
 
-services:
+services: #定义需要运行的服务
   # ==================== 核心层 ====================
   mysql:
     image: mysql:8.4
-    container_name: rbac-mysql
+    container_name: rbac-mysql # 对应 --name
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "3306:3306" # 对应 -p 3306:3306
     environment:
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-rbac_root_123}"
       MYSQL_DATABASE: "${MYSQL_DATABASE:-rbac}"
       MYSQL_USER: "${MYSQL_USER:-rbac}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD:-rbac_123}"
       TZ: Asia/Shanghai
-    command:
+    command: #启动参数
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+08:00
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./config/mysql/init:/docker-entrypoint-initdb.d
+    volumes: #数据卷挂载（左=外部存储，右=容器内路径）
+      - mysql-data:/var/lib/mysql # 我们手动实验时"缺"的那块，持久化数据
+      - ./config/mysql/init:/docker-entrypoint-initdb.d # bind mount：注入你写的初始化 SQL
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rbac_root_123}"]
       interval: 10s
@@ -200,7 +200,7 @@ services:
     depends_on: [elasticsearch]
     networks: [rbac-net]
 
-volumes:
+volumes: #声明持久化数据卷
   mysql-data:
   redis-data:
   rabbitmq-data:
@@ -208,6 +208,6 @@ volumes:
   caddy-data:
   caddy-config:
 
-networks:
+networks: #声明服务通信网络
   rbac-net:
     driver: bridge

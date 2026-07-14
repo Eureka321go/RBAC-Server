@@ -1,6 +1,7 @@
 # ---- 构建阶段：用 Maven 打出可执行 jar ----
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
+# 把项目里的 settings.xml（配了阿里云 Maven 镜像源）拷进 Maven 的配置位置，这样下依赖走国内源，快得多
 # 阿里云 Maven 镜像，加速依赖下载
 COPY settings.xml /root/.m2/settings.xml
 COPY pom.xml .
