@@ -72,7 +72,8 @@ cd deploy && docker compose up -d --build   # 有代码改动才加 --build
 ## 六、下次可继续的待办（按优先级）
 
 1. **[安全] 换掉默认密码**（当前仍是 `rbac_123` / `rbac_redis_123` / 默认 JWT secret）。
-   做法：服务器 `deploy/` 下建 `.env` 填强密码（`MYSQL_PASSWORD` / `REDIS_PASSWORD` / `RBAC_JWT_SECRET`），`docker compose down && up -d`。⚠️ MySQL 改密码需先清旧数据卷或进容器改，注意别丢数据。
+   👉 完整步骤见 [`docs/ops/01-更换默认密码与密钥.md`](docs/ops/01-更换默认密码与密钥.md)（含原理、强密码生成、方案 A 清库重建 / 方案 B 保数据）。
+   一句话：服务器 `deploy/` 下建 `.env` 填强密码，`docker compose down -v && up -d --build`。⚠️ MySQL 数据卷首次初始化后不再读 `MYSQL_PASSWORD`，需清卷或进容器 `ALTER USER`，注意别丢数据。
 2. **[访问] 配域名 + HTTPS**：域名解析到 IP，nginx 挂 Let's Encrypt 证书（或用 Caddy 自动签），改走 `https://`，防火墙加 443。
 3. **[稳定] 给 backend 加 healthcheck**，让编排能感知后端就绪/自愈。
 4. **[整理] 决定 5 个 Java WIP 去留**：由你判断是否单独成一次提交。

@@ -86,17 +86,35 @@ services:
     networks: [rbac-net]
     # 不映射 8080 到宿主机，只让 frontend 容器走内网反代
 
-  # 前端 nginx：发 dist 静态文件 + 把 /api 反代给 backend；唯一对外入口
+  # 前端 nginx：发 dist 静态文件 + 把 /api 反代给 backend
+  # 不再直接对外，改由前面的 caddy 走 HTTPS 反代（只留内网 expose）
   frontend:
     build:
       context: ../frontend
     image: rbac-frontend
     container_name: rbac-frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - backend
+    networks: [rbac-net]
+
+  # Caddy：唯一对外入口，自动申请/续期 Let's Encrypt 证书 + HTTPS 终结
+  # 配置见 ./config/caddy/Caddyfile（把域名换成你已备案的真实域名）
+  caddy:
+    image: caddy:2.8
+    container_name: rbac-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data      # 证书持久化，重建容器不会重新申请（避免 LE 限流）
+      - caddy-config:/config
+    depends_on:
+      - frontend
     networks: [rbac-net]
 
   # ==================== 扩展层（--profile extra） ====================
@@ -187,6 +205,8 @@ volumes:
   redis-data:
   rabbitmq-data:
   es-data:
+  caddy-data:
+  caddy-config:
 
 networks:
   rbac-net:
