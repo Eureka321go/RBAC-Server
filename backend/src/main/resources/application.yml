@@ -16,9 +16,10 @@ spring:
   # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/rbac?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: rbac
-    password: rbac_123
+    # 地址/账号/密码优先读环境变量，读不到就用本地默认值（本地开发照常，服务器由 compose 注入）
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/rbac?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:rbac}
+    password: ${DB_PASSWORD:rbac_123}
     hikari:
       pool-name: RbacHikariPool
       minimum-idle: 5
@@ -28,9 +29,9 @@ spring:
   # ── Redis（对接 deploy 里的 Redis）──
   data:
     redis:
-      host: localhost
-      port: 6379
-      password: rbac_redis_123
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:rbac_redis_123}
       database: 0
       timeout: 5000ms
       lettuce:

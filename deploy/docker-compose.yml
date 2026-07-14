@@ -60,6 +60,45 @@ services:
       retries: 10
     networks: [rbac-net]
 
+  # ==================== 应用层（前后端，随核心层一起起） ====================
+  # 后端 Spring Boot：本地代码构建成 jar，连容器内的 mysql / redis
+  backend:
+    build:
+      context: ../backend
+    image: rbac-backend
+    container_name: rbac-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: "${MYSQL_USER:-rbac}"
+      DB_PASSWORD: "${MYSQL_PASSWORD:-rbac_123}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-rbac_redis_123}"
+      RBAC_JWT_SECRET: "${RBAC_JWT_SECRET:-rbac-server-default-secret-key-please-change-in-production-0123456789}"
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [rbac-net]
+    # 不映射 8080 到宿主机，只让 frontend 容器走内网反代
+
+  # 前端 nginx：发 dist 静态文件 + 把 /api 反代给 backend；唯一对外入口
+  frontend:
+    build:
+      context: ../frontend
+    image: rbac-frontend
+    container_name: rbac-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks: [rbac-net]
+
   # ==================== 扩展层（--profile extra） ====================
   nginx:
     image: nginx:1.27
