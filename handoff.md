@@ -1,4 +1,4 @@
-# RBAC 系统 —— 部署交接文档（工作状态快照）
+# RBAC 系统 —— 部署交接文档（handoff）
 
 > 更新时间：2026-07-14
 > 用途：记录部署当前进度、线上环境、待办与恢复方法，便于下次继续。
@@ -31,13 +31,13 @@
 
 ---
 
-## 三、代码提交状态（重要）
+## 三、代码提交状态
 
-- ✅ **已提交并 push**：`e47cd61 chore: 增加前后端 Docker 部署…`（Dockerfile / compose / nginx / application.yml 环境变量化 / docs/09 初版）——线上跑的就是这个。
-- ⏳ **本地未提交**（还没上线，下次决定是否提交）：
-  - `docs/09-部署上线指南.md`（新增第八、九节实战+踩坑）
-  - `docs/10-部署交接文档.md`（本文件）
-  - 5 个 Java config：`AuditMetaObjectHandler` / `LocaleConfig` / `MybatisPlusConfig` / `RedisConfig` / `LoginUser`（**你的独立 WIP，与部署无关，一直没动它**）
+- ✅ **已提交并 push（线上跑的就是这些）**
+  - `e47cd61` 部署文件：Dockerfile / compose / nginx / application.yml 环境变量化
+  - `6ede998` 文档：docs/09 实战+踩坑、本 handoff
+- ⏳ **本地未提交（与部署无关，一直没动）**
+  - 5 个 Java config：`AuditMetaObjectHandler` / `LocaleConfig` / `MybatisPlusConfig` / `RedisConfig` / `LoginUser`（**你的独立 WIP**）
   - `deploy/config/nginx/nginx.conf`（旧的 profile-extra 用，非线上必需）
   - `docs/learning/07-…学习路线.md`（未跟踪）
 
@@ -75,7 +75,7 @@ cd deploy && docker compose up -d --build   # 有代码改动才加 --build
    做法：服务器 `deploy/` 下建 `.env` 填强密码（`MYSQL_PASSWORD` / `REDIS_PASSWORD` / `RBAC_JWT_SECRET`），`docker compose down && up -d`。⚠️ MySQL 改密码需先清旧数据卷或进容器改，注意别丢数据。
 2. **[访问] 配域名 + HTTPS**：域名解析到 IP，nginx 挂 Let's Encrypt 证书（或用 Caddy 自动签），改走 `https://`，防火墙加 443。
 3. **[稳定] 给 backend 加 healthcheck**，让编排能感知后端就绪/自愈。
-4. **[整理] 决定未提交文件去留**：docs/09、docs/10 建议提交；5 个 Java WIP 由你判断是否单独成一次提交。
+4. **[整理] 决定 5 个 Java WIP 去留**：由你判断是否单独成一次提交。
 5. **[进阶] CI/CD**：GitHub Actions 构建镜像推仓库，服务器只 `pull`，免每次现场编译（首次编译约 13 分钟）。
 
 ---
