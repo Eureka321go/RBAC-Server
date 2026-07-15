@@ -68,7 +68,7 @@ services: #定义需要运行的服务
     image: rbac-backend
     container_name: rbac-backend
     restart: unless-stopped
-    environment:
+    environment: #在容器这个"操作系统环境"里设置环境变量,不是运行参数
       DB_HOST: mysql
       DB_PORT: "3306"
       DB_USER: "${MYSQL_USER:-rbac}"
