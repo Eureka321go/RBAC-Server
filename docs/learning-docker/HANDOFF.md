@@ -37,6 +37,7 @@
 5. 关键结论用 `> 🔑` 引用块突出。
 6. 末尾：动手练习 + 自检问题。
 7. 承上启下：预告下一节。
+8. 最后加 `## 附：答案与解析`，用 `<details>` 折叠逐题作答（避免滚动时剧透）。见 `03` 的示例。
 
 ---
 
@@ -47,10 +48,10 @@
 | `00-为什么需要Docker与Compose.md` | 全局地图、镜像/容器/仓库/compose 概念、`deploy/` 鸟瞰 | ✅ 已完成 |
 | `01-Docker基础-镜像容器仓库.md` | `docker pull/run/ps/logs/exec/rm`、端口映射、手动跑 mysql、数据丢失实验、+课堂答疑3条 | ✅ 已完成 |
 | `02-Dockerfile精读-把应用打成镜像.md` | 多阶段构建、逐行读 backend/frontend Dockerfile、构建缓存、`build:`↔`docker build` | ✅ 已完成 |
-| `03-Compose入门-第一个服务.md` | compose 是什么、`services`、`image/ports/environment`、`.env` 变量替换 `${VAR:-默认}` | ⬜ **下一节，从这里开始** |
-| `04-服务编排-网络依赖与健康检查.md` | 自定义 `networks`、服务名即 DNS、`depends_on`+`condition`、`healthcheck` | ⬜ 待写 |
-| `05-数据持久化-卷与配置挂载.md` | 命名卷 vs bind mount、持久化、初始化脚本、`:ro`、`down` vs `down -v` | ⬜ 待写（学习者已多次问到，素材足） |
-| `06-分层profile与生产反代HTTPS.md` | `profiles` 分层、应用层、Caddy 自动 HTTPS、`expose` vs `ports` | ⬜ 待写 |
+| `03-Compose入门-第一个服务.md` | compose 是什么、四个顶层键、逐字段对回 `docker run`、`restart`/`command`、`.env` 变量替换 `${VAR:-默认}`、`config`/`up`/`ps`/`logs`/`down` | ✅ 已完成 |
+| `04-服务编排-网络依赖与健康检查.md` | 自定义 `networks`、服务名即 DNS、`ports` vs 内网互通、`healthcheck` 四字段、`depends_on` 两种写法对比、启动时序 | ✅ 已完成 |
+| `05-数据持久化-卷与配置挂载.md` | 命名卷 vs bind mount、卷的真实位置、`initdb.d` 只在空目录时跑、"出厂设置 vs 运行时配置"、`:ro`、`down` vs `down -v` 实操实验 | ✅ 已完成（**前面欠的 4 个扣已全部还清**） |
+| `06-分层profile与生产反代HTTPS.md` | `profiles` 分层、应用层、Caddy 自动 HTTPS、`expose` vs `ports` | ⬜ **下一节，从这里开始** |
 | `07-运维实战与排错.md` | 常用命令、看日志、进容器、更新上线、常见坑 | ⬜ 待写 |
 | `附录-命令速查表.md` | docker/compose 命令一页速查 | ⬜ 待写 |
 
@@ -58,20 +59,19 @@
 
 ---
 
-## 五、下一步：写阶段 3
+## 五、下一步：写阶段 6
 
-**动笔前先 `Read`**：`deploy/docker-compose.yml`（`mysql`/`redis` 服务段）、`deploy/.env`。
+**动笔前先 `Read`**：`deploy/docker-compose.yml`（`nginx`/`rabbitmq` 的 `profiles: ["extra"]`、`kafka`/`elasticsearch`/`kibana` 的 `profiles: ["full"]`、`frontend` 的 `expose`、`caddy` 服务段）、`deploy/config/caddy/Caddyfile`、`frontend/nginx.conf`。
 
-**阶段 3 要讲透的点**：
-- Compose 文件骨架：顶层 `name`、`services`、`volumes`、`networks` 各是什么。
-- 以 `mysql` 服务为例，把 `image/container_name/ports/environment/command/volumes` 逐个对回阶段 1 的 `docker run` 参数（延续 `01`/`02` 已建立的"手动命令 ↔ compose 字段"对照主线）。
-- **`.env` 变量替换**：`${MYSQL_PASSWORD:-rbac_123}` 语法怎么读、`:-` 默认值的含义、`.env` 如何被 compose 自动加载、安全红线（密码勿带进生产，呼应 `docs/ops/01-更换默认密码与密钥.md`）。
-- `command:` 覆盖容器默认命令（mysql 的字符集/时区参数、redis 的 `--requirepass`）。
-- 常用命令：`docker compose up -d` / `ps` / `logs -f` / `down`。
+**阶段 6 要讲透的点**：
+- **`profiles` 分层**：核心层（无 profile，默认起）/ `extra` / `full` 三层；`--profile extra up -d` 的用法；为什么要分层（按需启动，别让开发机跑满 ES+Kafka）。注意 compose 文件头部第 6-16 行的注释已经把分层和命令写清楚了，可直接引用。
+- **`expose` vs `ports`**：`frontend` 只 `expose: "80"`（仅内网）、`caddy` 才 `ports: "80:80"/"443:443"`（唯一对外入口）。**`04` 已经把"`ports` 是对外开窗户、不是对内开门"讲透并明确预告了 `06` 深入**，这里要把它推到"纵深防护"的高度：backend 连 expose 都没有 → frontend 只 expose → caddy 才对外。
+- **Caddy 自动 HTTPS**：读 `Caddyfile`；`caddy-data:/data` 持久化证书避免 Let's Encrypt 限流（**`05` 第六节已经讲了这个卷和 LE 限流，这里承接展开**）。
+- 应用层三个服务（backend/frontend/caddy）为何不带 profile——它们跟核心层一起起。
 
-**给阶段 3 的练习埋点**：`cd deploy && docker compose up -d` 起默认栈，用 `docker compose ps` 看状态、`logs -f mysql` 看启动过程、`docker compose config` 看变量替换后的最终结果；改一次 `.env` 里的值再重启观察是否生效。
+**阶段 5 已还清的扣**：丢数据实验、卷的真实位置、`MYSQL_DATABASE` 不生效、`down` vs `down -v` 实验，四笔全部讲完，无遗留。
 
-**再往后（阶段 4）预留要点**：`rbac-net` 自定义 bridge 网络、服务名即 DNS（`DB_HOST: mysql` 为何不用写 IP）、`depends_on` + `condition: service_healthy` 与 `healthcheck`（`test`/`interval`/`timeout`/`retries`）的配合、区分"容器进程已启动"与"服务已可用"。
+**再往后（阶段 7）预留要点**：常用命令汇总、看日志、进容器、更新上线流程（呼应 `docs/09-部署上线指南.md`、`docs/ops/`）、常见坑排错。
 
 ---
 
@@ -83,7 +83,9 @@
   1. `port is already allocated` 端口冲突原因与解法。
   2. `mysql-data` 为何在项目目录找不到 → 命名卷 vs bind mount。
   3. 冒号右边 `/var/lib/mysql` 是容器内路径、挂载"左盖右"的语义。
-- 口头解答过（未存档，阶段 3/5 可自然带过）：**代码不会自动进镜像，全靠 `COPY` + 构建上下文（`build.context`）**。
+- 口头解答过（未存档，阶段 5 可自然带过）：**代码不会自动进镜像，全靠 `COPY` + 构建上下文（`build.context`）**。
+- 已存档在 `03` 答疑区的问题：
+  - Q1：`backend` 的 `environment` 是不是 `ENTRYPOINT ["java","-jar","app.jar"]` 的运行参数？→ 不是。环境变量 ≠ 命令行参数；`java -jar app.jar` 一字未变，是 Spring Boot 主动读环境变量（`application.yml` 里的 `${DB_HOST:localhost}`）。文档里画了 `.env` → compose 替换 → 容器 env → Spring 占位符解析的**三段接力图**，并对比了 Compose 的 `${VAR:-默认}` 与 Spring 的 `${VAR:默认}` 差一个 `-`。
 
 ---
 
