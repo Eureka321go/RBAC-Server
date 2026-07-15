@@ -3,7 +3,7 @@
 > 用途：记录这套 docker-compose 学习文档的进度、约定和下一步，方便**换一个新会话**时无缝继续。
 > 下次开新对话，把这份文档发给我（或让我读它）即可对齐上下文。
 
-最后更新：2026-07-14
+最后更新：2026-07-15
 
 ---
 
@@ -51,34 +51,43 @@
 | `03-Compose入门-第一个服务.md` | compose 是什么、四个顶层键、逐字段对回 `docker run`、`restart`/`command`、`.env` 变量替换 `${VAR:-默认}`、`config`/`up`/`ps`/`logs`/`down` | ✅ 已完成 |
 | `04-服务编排-网络依赖与健康检查.md` | 自定义 `networks`、服务名即 DNS、`ports` vs 内网互通、`healthcheck` 四字段、`depends_on` 两种写法对比、启动时序 | ✅ 已完成 |
 | `05-数据持久化-卷与配置挂载.md` | 命名卷 vs bind mount、卷的真实位置、`initdb.d` 只在空目录时跑、"出厂设置 vs 运行时配置"、`:ro`、`down` vs `down -v` 实操实验 | ✅ 已完成（**前面欠的 4 个扣已全部还清**） |
-| `06-分层profile与生产反代HTTPS.md` | `profiles` 分层、应用层、Caddy 自动 HTTPS、`expose` vs `ports` | ⬜ **下一节，从这里开始** |
-| `07-运维实战与排错.md` | 常用命令、看日志、进容器、更新上线、常见坑 | ⬜ 待写 |
-| `附录-命令速查表.md` | docker/compose 命令一页速查 | ⬜ 待写 |
+| `06-分层profile与生产反代HTTPS.md` | `profiles` 判定规则/三种激活方式、`config --services` 预演、nginx↔caddy 抢 80、`expose` 是纯声明、三级递减暴露面、Caddyfile 逐行、ACME HTTP-01 与 80 端口的两个用途、`caddy-data` 与 LE 限流、两个 nginx.conf 的考古 | ✅ 已完成（**compose 文件 214 行至此全部读完**） |
+| `07-运维实战与排错.md` | 按"想知道什么"反查命令、`logs`+`ps -a` 两步定位、Alpine 没 bash、`up -d` 增量比对、`--build` 判据、`system df` 与磁盘考古（**挖出 01 实验的孤儿匿名卷**）、症状→怎么查清单、收掉 mysql/redis ports 与防火墙两根弦 | ✅ 已完成（正文七节全部结束） |
+| `附录-命令速查表.md` | docker/compose 命令一页速查 | ⬜ **下一节，从这里开始** |
 
-> 可选提速：00+01 已分开写；若学习者想快，06+07 可考虑合并。默认按上表逐节推进。
+> 可选提速：00+01 已分开写；默认按上表逐节推进。
 
 ---
 
-## 五、下一步：写阶段 6
+## 五、下一步：写附录（命令速查表）
 
-**动笔前先 `Read`**：`deploy/docker-compose.yml`（`nginx`/`rabbitmq` 的 `profiles: ["extra"]`、`kafka`/`elasticsearch`/`kibana` 的 `profiles: ["full"]`、`frontend` 的 `expose`、`caddy` 服务段）、`deploy/config/caddy/Caddyfile`、`frontend/nginx.conf`。
+**正文七节已全部完成。** 只剩 `附录-命令速查表.md`。
 
-**阶段 6 要讲透的点**：
-- **`profiles` 分层**：核心层（无 profile，默认起）/ `extra` / `full` 三层；`--profile extra up -d` 的用法；为什么要分层（按需启动，别让开发机跑满 ES+Kafka）。注意 compose 文件头部第 6-16 行的注释已经把分层和命令写清楚了，可直接引用。
-- **`expose` vs `ports`**：`frontend` 只 `expose: "80"`（仅内网）、`caddy` 才 `ports: "80:80"/"443:443"`（唯一对外入口）。**`04` 已经把"`ports` 是对外开窗户、不是对内开门"讲透并明确预告了 `06` 深入**，这里要把它推到"纵深防护"的高度：backend 连 expose 都没有 → frontend 只 expose → caddy 才对外。
-- **Caddy 自动 HTTPS**：读 `Caddyfile`；`caddy-data:/data` 持久化证书避免 Let's Encrypt 限流（**`05` 第六节已经讲了这个卷和 LE 限流，这里承接展开**）。
-- 应用层三个服务（backend/frontend/caddy）为何不带 profile——它们跟核心层一起起。
+**附录的定位（和正文不同，务必区分）**：**不讲原理，只做一页能贴显示器边上的东西**。`07` 结尾已经这么预告了：「那是给未来的你用的，不是给现在的你学的」。
 
-**阶段 5 已还清的扣**：丢数据实验、卷的真实位置、`MYSQL_DATABASE` 不生效、`down` vs `down -v` 实验，四笔全部讲完，无遗留。
+- 按场景分组：看状态 / 看日志 / 进容器 / 起停 / 构建上线 / 清理磁盘 / 排错。
+- 每条：命令 + 一句话说明 + **回指哪节讲的**（方便忘了原理时跳回去）。
+- 危险命令（`down -v`、`system prune -a --volumes`）要显著标注。
+- 素材直接取自 `07` 第二节的"想知道什么→敲什么"索引表和第七节的"症状→怎么查"清单，**不要重新发明**。
+- 篇幅要克制，速查表一长就没人查了。
 
-**再往后（阶段 7）预留要点**：常用命令汇总、看日志、进容器、更新上线流程（呼应 `docs/09-部署上线指南.md`、`docs/ops/`）、常见坑排错。
+**⚠️ 一笔待办：`05` 有一处机制讲错了，`07` 已经修正，但 `05` 本身还没打补丁。**
+
+- **错在哪**：`05` 第二节 + 自检答案 2、9 说"`01` 实验的数据丢在**容器可写层**"。实际上 `mysql:8.4` / `redis:7.4` 镜像都声明了 `VOLUME`（`docker image inspect mysql:8.4 --format '{{json .Config.Volumes}}'` → `{"/var/lib/mysql":{}}`），所以数据其实进了**自动创建的匿名卷**；`docker rm` 后卷成了**孤儿**，数据没被删、还占着磁盘。
+- **结论不受影响**（重新 run 会新建另一个匿名卷 → 表现仍是"数据没了"），但机制和后果都更糟（永久垃圾）。
+- **证据在学习者本机**：`docker volume ls` 里那两个哈希卷（创建于 2026-07-14 07:37 和 07:43，正是做 `01` 实验的时间），里面是完整 MySQL 数据目录含 `rbac` 库，共约 205MB。
+- `07` 第 6.3-6.4 节已把这段写成"考古"高潮并明确指出 `05` 不准。**建议给 `05` 加一个指向 `07` 的勘误提示**（学习者已知悉此事，等他决定）。
+- 对照组：`caddy:2.8` 的 `Config.Volumes` 是 `null`，所以 `06` 讲的"不挂 `caddy-data` 证书就没了"才是真·可写层丢失。
+
+**已还清、无遗留**：`06` 留的两根弦（mysql/redis 的 `ports` 暴露面、防火墙这道 compose 之外的防线）已由 `07` 第八节收掉，并串起了 `handoff.md` 待办 #1（线上仍是默认密码 `rbac_123`）+ `docs/ops/01` 第 43 行（服务器没 `.env`，走 compose 兜底默认值）这条完整证据链。
 
 ---
 
 ## 六、学习者已实操到的状态 & 已解答的疑问
 
-- 环境：Mac mini，Docker Desktop 已装好可用。**项目的 `rbac-mysql`、`rbac-redis` 正在跑**（compose 已 up，占用宿主机 3306/6379）。
-- 已亲手做过阶段 1 的 `docker run mysql`，踩到并理解了**端口冲突**（3306 被项目占用 → 换 13306）。
+- 环境：Mac mini，Docker Desktop 已装好可用（`docker compose` 版本 v5.2.0）。**本地只跑着 `rbac-mysql`、`rbac-redis` 两个容器**（占用宿主机 3306/6379），backend/frontend/caddy **本地没跑**——虽然它们不带 profile、`config --services` 默认就列出 5 个。写练习时注意：**本地做不了 caddy 相关的实操**（`06` 因此把 caddy 练习都设计成思考题，实操只用 `config` 和 nginx）。
+- 已亲手做过阶段 1 的 `docker run mysql`（做了两次），踩到并理解了**端口冲突**（3306 被项目占用 → 换 13306）。**那两次实验留下的匿名卷仍在本机**，是 `07` 考古那一节的实物证据，学习者可能会问"要不要删"（可删，占 205MB，纯纪念品）。
+- 本机镜像现状（写 `07` 时实测）：`mysql:8.4`、`redis:7.4`、一个 1.12GB 的悬空镜像（`<untagged>`，`rbac-mysql` 正基于它跑），外加**写 `07` 时为验证 Alpine 无 bash 而 pull 的 `caddy:2.8`**（69MB，`07` 练习 4 会用到，留着有用）。
 - 已解答并存档在 `01` 答疑区的三个问题：
   1. `port is already allocated` 端口冲突原因与解法。
   2. `mysql-data` 为何在项目目录找不到 → 命名卷 vs bind mount。
