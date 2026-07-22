@@ -10,9 +10,10 @@
 定位：**学习 / 简历作品**。"50 万并发"不是真要买几十台机器扛住，而是作为**架构约束 + 压测演示目标**——方案在设计上必须能水平扩展到 50 万在线长连接，并能在单机/少量节点上跑通、压测演示到可讲清楚的量级。
 
 已确认方向：
-- **功能边界**：单聊 + 群聊 + 离线消息（含已读未读、多端同步）。音视频、@、文件网盘、消息撤回等**都不做**。
+- **功能边界**：单聊 + 群聊 + 离线消息（含已读未读、多端同步）；**消息类型**：文本、图片、音频（语音）、文件、链接（卡片）；**消息撤回**。**不做**：音视频实时通话、@提及、消息编辑、朋友圈等。
 - **接入层**：**Netty 独立网关**（专管长连接），业务逻辑在 Spring Boot 里。先跑单节点，集群路由作为设计方案 + 下一阶段。
-- **消息存储**：**引入 MongoDB** 存消息，会话/成员/位点等元数据用现有 MySQL。
+- **消息存储**：**引入 MongoDB** 存消息（含富媒体元数据与引用），会话/成员/位点等元数据用现有 MySQL。
+- **对象存储**：**引入 MinIO**（自托管、S3 协议）存图片/音频/文件二进制，消息体只存引用；生产可无缝切阿里云 OSS（同为 S3 兼容）。
 
 ### 大工程拆分（每个子项目独立 设计→计划→实现）
 - **子项目一（本方案）**：IM 后端 MVP。Netty 网关 + im-logic + MongoDB + Kafka + Redis 路由，跑通单聊/群聊/离线/已读/多端同步。用**轻量测试客户端**（Java 压测脚本 / CLI）验证，不依赖 Flutter。
@@ -66,7 +67,8 @@ flowchart LR
 |------|------|------|
 | Netty 网关 | **新增 Maven module `im-gateway`**，独立 `@SpringBootApplication` + Netty | 独立进程/容器，可起多实例。轻量：只依赖 Netty + Redis + Kafka 客户端 |
 | im-logic | 现有应用内新增包 `com.rbac.im`（entity/mapper/service/consumer/mongo） | 复用现有 MyBatis-Plus / Redis / 事务基建 |
-| MongoDB | compose 新增 `mongodb` 服务（新 profile `im`） | 存消息正文 |
+| MongoDB | compose 新增 `mongodb` 服务（新 profile `im`） | 存消息正文（含富媒体元数据） |
+| MinIO | compose 新增 `minio` 服务（profile `im`） | 图片/音频/文件二进制，S3 协议，生产可切阿里云 OSS |
 | Kafka | compose 已有（profile `full`）| inbound / outbound topic |
 | Redis | 已有 | 复用 access session；新增路由表、会话 seq |
 | MySQL | 已有 | 会话、成员、已读位点、群信息 |
@@ -103,6 +105,38 @@ flowchart LR
 
 ---
 
+## 消息类型与富媒体上传
+
+**消息类型 `type`**：`TEXT` / `IMAGE` / `AUDIO` / `FILE` / `LINK` / `RECALL`（控制消息）/ `SYSTEM`。所有类型走同一条 seq 时序链路，只是 `body` 结构不同：
+
+| 类型 | body 关键字段 |
+|------|--------------|
+| TEXT | `text` |
+| IMAGE | `objectKey, url, width, height, size, thumbKey` |
+| AUDIO | `objectKey, url, duration(秒), size` |
+| FILE | `objectKey, url, filename, size, mime` |
+| LINK | `link, title, desc, imageUrl`（服务端抓 OG 标签生成卡片，抓取失败降级为纯文本 URL） |
+| RECALL | `targetSeq`（被撤回消息的 seq） |
+
+**上传链路（图片/音频/文件）——预签名直传，服务端不中转字节**：
+1. 客户端请求 REST `POST /api/im/upload/presign`（携带 mime/size/用途）→ 服务端向 MinIO 生成**预签名 PUT URL** + `objectKey`，并做大小/类型白名单校验。
+2. 客户端用预签名 URL 直传 MinIO（不经过业务服务器，减负、可并发）。
+3. 客户端再发一条 IMAGE/AUDIO/FILE 消息，`body` 带 `objectKey` + 元数据。im-logic 校验 objectKey 归属，落库。
+4. 下行时消息带 `objectKey`；客户端拉取时服务端换成**预签名 GET URL**（带短 TTL）回显，避免公开桶。图片可服务端异步生成缩略图 `thumbKey`。
+
+**链接卡片**：发送 TEXT 时若命中 URL，im-logic 异步抓取目标页 OG 标签（title/desc/image）生成 LINK 卡片；抓取有超时与 SSRF 防护（禁止内网地址）。
+
+---
+
+## 消息撤回
+
+- 客户端发 `recall(cid, targetSeq)` → im-logic 校验：**只能撤回自己发的**（或群管理员），且在**撤回时间窗口**内（默认 2 分钟，配置项 `rbac.im.recall-window-seconds`）。
+- 通过则：把 MongoDB 原消息标记 `recalled=true`（保留占位，正文清空/打码），并**生成一条 RECALL 控制消息**（新 seq，`body.targetSeq=原seq`）走正常扇出。
+- 各端收到 RECALL → 本地把 `targetSeq` 那条渲染成"XXX 撤回了一条消息"。离线端上线 `pull` 时同样能收到 RECALL 事件，多端一致。
+- 已上传的富媒体对象暂不做即时删除（可留后续 GC 任务），仅逻辑撤回。
+
+---
+
 ## 上行 / 下行链路
 
 **上行（发消息）**：
@@ -130,8 +164,12 @@ flowchart LR
 - `im_group`(id, name, owner_id, ...) / `im_group_member`(group_id, user_id, role)
 
 **MongoDB**
-- 集合 `im_message`：`{_id, cid, seq, msgId, senderId, type, body, clientMsgId, ts}`；索引 `(cid, seq)`、`(senderId, clientMsgId)` 唯一。
+- 集合 `im_message`：`{_id, cid, seq, msgId, senderId, type, body, recalled, clientMsgId, ts}`；`type` 见「消息类型」，`body` 按类型异构，`recalled` 撤回标记。索引 `(cid, seq)`、`(senderId, clientMsgId)` 唯一。
 - 分片键 = cid 的水平扩展论证（本期单实例，方案里讲清）。
+
+**MinIO**
+- 桶 `im-media`（私有）；对象 key 约定 `im/{cid}/{yyyyMM}/{ulid}.{ext}`。
+- 全程预签名 URL（PUT 上传 / GET 回显，短 TTL），不开公开读；生产切阿里云 OSS 时仅换 endpoint/凭证。
 
 ---
 
@@ -146,13 +184,16 @@ flowchart LR
 
 ## 分阶段实施里程碑
 
-1. **基建**：compose 加 MongoDB(profile `im`)、起 Kafka；新建 `im-gateway` module 骨架；`com.rbac.im` 包骨架 + Flyway 建表迁移。
+1. **基建**：compose 加 MongoDB + MinIO(profile `im`)、起 Kafka；新建 `im-gateway` module 骨架；`com.rbac.im` 包骨架 + Flyway 建表迁移。
 2. **握手鉴权**：网关 WS 握手复用 JWT+Redis，连接建立/断开 → 路由表增删 + 心跳续期。
-3. **单聊闭环**：上行→Kafka→定序→MongoDB→下行→在线推达；ack + clientMsgId 幂等。
+3. **单聊文本闭环**：上行→Kafka→定序→MongoDB→下行→在线推达；ack + clientMsgId 幂等。
 4. **离线 + 多端同步**：`pull(cid, sinceSeq)` 增量拉取接口（REST 或 WS 指令）。
 5. **群聊**：群会话 + 成员扇出（读扩散）。
-6. **已读未读**：`last_read_seq` + 已读回执。
-7. **压测**：压测客户端模拟 N 万连接 + 消息 QPS，出观测报告。
+6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。
+7. **链接卡片**：URL 识别 + OG 抓取（超时 + SSRF 防护）→ LINK 卡片，降级纯文本。
+8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。
+9. **已读未读**：`last_read_seq` + 已读回执。
+10. **压测**：压测客户端模拟 N 万连接 + 消息 QPS，出观测报告。
 
 每个里程碑走一遍 编码→测试。测试沿用现有 `spring-boot-starter-test`；网关侧做 Netty EmbeddedChannel 单测 + 集成联调。
 
@@ -160,9 +201,11 @@ flowchart LR
 
 ## 验证方式（端到端）
 
-- 起中间件：`cd deploy && docker compose --profile im --profile full up -d`（MySQL/Redis/Kafka/MongoDB）。
+- 起中间件：`cd deploy && docker compose --profile im --profile full up -d`（MySQL/Redis/Kafka/MongoDB/MinIO）。
 - 起业务：`mvn -f backend/pom.xml spring-boot:run`；起网关：`mvn -f im-gateway/pom.xml spring-boot:run`。
 - 功能验证：压测/CLI 客户端两个用户握手 → A 发 B 收（在线）；B 下线后 A 发，B 重连 `pull` 收到离线消息；第二设备登录增量同步一致；已读回执生效。
+- 富媒体验证：预签名上传图片/音频/文件 → 直传 MinIO → 发消息 → 对端拉取用预签名 GET 回显；发含 URL 文本 → 收到 LINK 卡片。
+- 撤回验证：发消息后 2 分钟内撤回 → 双端渲染"撤回了一条消息"；超窗/非本人撤回被拒；离线端上线仍收到 RECALL。
 - 并发验证：压测客户端建 N 万连接，观测网关内存/FD/GC 与 Prometheus 指标；出报告。
 
 ---
