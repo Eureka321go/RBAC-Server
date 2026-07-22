@@ -10,7 +10,7 @@
 定位：**学习 / 简历作品**。"50 万并发"不是真要买几十台机器扛住，而是作为**架构约束 + 压测演示目标**——方案在设计上必须能水平扩展到 50 万在线长连接，并能在单机/少量节点上跑通、压测演示到可讲清楚的量级。
 
 已确认方向：
-- **功能边界**：单聊 + 群聊 + 离线消息（含已读未读、多端同步）；**消息类型**：文本、图片、音频（语音）、文件、链接（卡片）；**消息撤回**。**不做**：音视频实时通话、@提及、消息编辑、朋友圈等。
+- **功能边界**：单聊 + 群聊 + 离线消息（含已读未读、多端同步）；**消息类型**：文本、图片、音频（语音）、文件、链接（卡片）；**消息撤回**；**@提及**（@成员 / @所有人，含"有人@我"标记）。**不做**：音视频实时通话、消息编辑、朋友圈等。
 - **接入层**：**Netty 独立网关**（专管长连接），业务逻辑在 Spring Boot 里。先跑单节点，集群路由作为设计方案 + 下一阶段。
 - **消息存储**：**引入 MongoDB** 存消息（含富媒体元数据与引用），会话/成员/位点等元数据用现有 MySQL。
 - **对象存储**：**引入 MinIO**（自托管、S3 协议）存图片/音频/文件二进制，消息体只存引用；生产可无缝切阿里云 OSS（同为 S3 兼容）。
@@ -111,7 +111,7 @@ flowchart LR
 
 | 类型 | body 关键字段 |
 |------|--------------|
-| TEXT | `text` |
+| TEXT | `text`，可选 `mentions:[userId]`、`mentionAll:true`（@提及，见下节） |
 | IMAGE | `objectKey, url, width, height, size, thumbKey` |
 | AUDIO | `objectKey, url, duration(秒), size` |
 | FILE | `objectKey, url, filename, size, mime` |
@@ -137,7 +137,12 @@ flowchart LR
 
 ---
 
-## 上行 / 下行链路
+## @提及（群聊）
+
+- TEXT 消息 `body` 携带 `mentions:[userId...]`（@某些成员）或 `mentionAll:true`（@所有人）。服务端校验被 @ 的 userId 确为会话成员；**@所有人**限群主/管理员（可配 `rbac.im.mention-all-admin-only`，默认 true）。
+- im-logic 定序落库时，对每个被命中的成员（`mentionAll` = 全体除发送者）更新 `im_conversation_member.mention_seq = 该消息 seq`。
+- **"有人@我"标记**：客户端据 `mention_seq > last_read_seq` 展示独立于普通未读的强提醒；用户读到该消息后 `last_read_seq` 越过 `mention_seq`，标记自动消除。多端/离线一致（同样靠 seq 位点）。
+- @提及不改变扇出目标（仍是全体成员），只影响接收端的提醒强度与红点类型。
 
 **上行（发消息）**：
 1. 网关收到 WS 帧 → 校验会话成员身份 → 投递到 Kafka `im-inbound`（key = conversationId 保证分区内有序）。立即回客户端"服务器已接收 ack + clientMsgId 去重"。
@@ -160,7 +165,7 @@ flowchart LR
 
 **MySQL（新表，MyBatis-Plus，沿用 BaseEntity + Flyway 迁移）**
 - `im_conversation`(id, cid, type[SINGLE/GROUP], group_id, last_msg_seq, last_msg_preview, updated_at)
-- `im_conversation_member`(cid, user_id, last_read_seq, joined_at, muted)
+- `im_conversation_member`(cid, user_id, last_read_seq, mention_seq, joined_at, muted)
 - `im_group`(id, name, owner_id, ...) / `im_group_member`(group_id, user_id, role)
 
 **MongoDB**
@@ -192,8 +197,9 @@ flowchart LR
 6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。
 7. **链接卡片**：URL 识别 + OG 抓取（超时 + SSRF 防护）→ LINK 卡片，降级纯文本。
 8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。
-9. **已读未读**：`last_read_seq` + 已读回执。
-10. **压测**：压测客户端模拟 N 万连接 + 消息 QPS，出观测报告。
+9. **@提及**：`mentions`/`mentionAll` 解析校验 + `mention_seq` 维护 + "有人@我"标记。
+10. **已读未读**：`last_read_seq` + 已读回执。
+11. **压测**：压测客户端模拟 N 万连接 + 消息 QPS，出观测报告。
 
 每个里程碑走一遍 编码→测试。测试沿用现有 `spring-boot-starter-test`；网关侧做 Netty EmbeddedChannel 单测 + 集成联调。
 
@@ -206,6 +212,7 @@ flowchart LR
 - 功能验证：压测/CLI 客户端两个用户握手 → A 发 B 收（在线）；B 下线后 A 发，B 重连 `pull` 收到离线消息；第二设备登录增量同步一致；已读回执生效。
 - 富媒体验证：预签名上传图片/音频/文件 → 直传 MinIO → 发消息 → 对端拉取用预签名 GET 回显；发含 URL 文本 → 收到 LINK 卡片。
 - 撤回验证：发消息后 2 分钟内撤回 → 双端渲染"撤回了一条消息"；超窗/非本人撤回被拒；离线端上线仍收到 RECALL。
+- @提及验证：群里 @某成员 → 该成员出现"有人@我"标记且读后消除；非管理员 @所有人被拒；@非成员被拒。
 - 并发验证：压测客户端建 N 万连接，观测网关内存/FD/GC 与 Prometheus 指标；出报告。
 
 ---
