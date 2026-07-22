@@ -1,0 +1,49 @@
+# ══════════════════════════════════════════════════════════════════
+#  prod —— 生产环境
+#  设计原则：敏感/连接关键项【只读环境变量、不给默认值】→ 缺失即启动失败(fail-fast)，
+#  绝不让生产悄悄用上开发默认值或默认密钥。
+#  启动方式：SPRING_PROFILES_ACTIVE=prod（阿里云 deploy/.env 里备齐下列变量）
+#
+#  必须由环境注入（无默认，缺失即失败）：
+#    DB_HOST / DB_USER / DB_PASSWORD / REDIS_HOST / REDIS_PASSWORD / RBAC_JWT_SECRET
+#  结构性、低风险项给默认（可覆盖）：DB_PORT / DB_NAME / REDIS_PORT
+# ══════════════════════════════════════════════════════════════════
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:rbac}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      pool-name: RbacHikariPool
+      minimum-idle: 10
+      maximum-pool-size: 50
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 32
+          max-idle: 16
+          min-idle: 4
+
+  # ── schema 演进交给 Flyway（见公共 application.yml 的 spring.flyway）：
+  #    已上线的库有表但无 flyway 历史 → 首次启动 baseline 收编为 V1，不重跑建表，非破坏性。──
+
+# ── RBAC 自定义：密钥只读环境变量，无默认 → 配合 @NotBlank 缺失即 fail-fast ──
+rbac:
+  jwt:
+    secret: ${RBAC_JWT_SECRET}
+
+# ── 日志：生产收敛，不打 SQL ──
+logging:
+  level:
+    root: warn
+    com.rbac: info
+    org.springframework.security: warn

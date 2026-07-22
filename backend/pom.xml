@@ -93,6 +93,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Flyway 数据库迁移（版本化 DDL，取代 spring.sql.init）。
+             flyway-mysql 是 Flyway 10+ 支持 MySQL 的必需模块。 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

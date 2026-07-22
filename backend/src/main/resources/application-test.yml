@@ -1,0 +1,47 @@
+# ══════════════════════════════════════════════════════════════════
+#  test —— 集成测试 / QA 环境
+#  注意：本项目现有单元测试是纯 Mockito，不启动 Spring 容器，不会用到本 profile；
+#  它面向"需要真实库的集成测试 / QA 联调"，用独立库 rbac_test 与 dev 隔离。
+#  启动方式：--spring.profiles.active=test 或 SPRING_PROFILES_ACTIVE=test
+# ══════════════════════════════════════════════════════════════════
+spring:
+  # ── 独立测试库，避免污染开发库 ──
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/rbac_test?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:rbac}
+    password: ${DB_PASSWORD:rbac_123}
+    hikari:
+      pool-name: RbacHikariPool-Test
+      minimum-idle: 2
+      maximum-pool-size: 8
+      connection-timeout: 30000
+
+  # ── Redis：用独立 database(1)，与 dev 的 0 隔离 ──
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:rbac_redis_123}
+      database: 1
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+
+  # ── 建表 / 种子数据由 Flyway 管理（空的 rbac_test 库首次启动会跑 V1 + R__ 建好）──
+
+# ── RBAC 自定义：固定测试密钥（≥32B）；ttl 调短便于验证过期逻辑 ──
+rbac:
+  jwt:
+    secret: rbac-server-test-secret-key-0123456789-abcdefghij
+    access-ttl: 60      # 1 分钟
+    refresh-ttl: 300    # 5 分钟
+
+# ── 日志：比 dev 安静 ──
+logging:
+  level:
+    com.rbac: info
+    org.springframework.security: warn

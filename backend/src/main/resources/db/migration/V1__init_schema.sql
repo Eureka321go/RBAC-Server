@@ -1,4 +1,6 @@
--- RBAC 首期最小可用范围建表脚本（幂等：IF NOT EXISTS）
+-- Flyway V1 · 初始 schema 基线（对应 RBAC 首期建表脚本）
+-- 版本化迁移：本文件是数据库结构的 V1 基线，已上线的库通过 baseline-on-migrate 收编为 V1。
+-- 之后任何结构变更【不要改本文件】，新增 V2__xxx.sql / V3__xxx.sql 增量迁移。
 -- 数据库字段 snake_case；状态/类型枚举以 varchar 落库，API 层保持字符串。
 
 CREATE TABLE IF NOT EXISTS `sys_dept` (

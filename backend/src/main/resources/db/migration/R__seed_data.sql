@@ -1,4 +1,6 @@
--- RBAC 种子数据（幂等：INSERT IGNORE，显式主键）
+-- Flyway Repeatable(R__) · 种子数据（幂等：INSERT IGNORE，显式主键）
+-- Repeatable 迁移：内容(checksum)变化时才重新执行，且在所有 V 版本迁移之后运行。
+-- 配合 INSERT IGNORE，可安全地反复执行、增量补种子（新增菜单/字典等直接改本文件即可）。
 -- 默认账号：admin / admin123 、 test / admin123 （BCrypt 哈希，登录后请及时改密）
 
 -- 部门

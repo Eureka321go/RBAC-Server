@@ -7,54 +7,29 @@ spring:
   application:
     name: rbac-server
 
+  # ── 激活的环境：默认 dev，可用环境变量 SPRING_PROFILES_ACTIVE 覆盖（如 prod）──
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
   # ── 国际化（Accept-Language 决定语言，默认 zh-CN）──
   messages:
     basename: i18n/messages
     encoding: UTF-8
     fallback-to-system-locale: false
 
-  # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    # 地址/账号/密码优先读环境变量，读不到就用本地默认值（本地开发照常，服务器由 compose 注入）
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/rbac?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USER:rbac}
-    password: ${DB_PASSWORD:rbac_123}
-    hikari:
-      pool-name: RbacHikariPool
-      minimum-idle: 5
-      maximum-pool-size: 20
-      connection-timeout: 30000
+  # ── Flyway 数据库迁移（脚本目录 classpath:db/migration，取代 spring.sql.init）──
+  # 各环境启动时自动迁移；已有表的旧库首次迁移会被收编为 V1 基线、不重跑建表 DDL。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
 
-  # ── Redis（对接 deploy 里的 Redis）──
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:rbac_redis_123}
-      database: 0
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 8
-          min-idle: 2
-
-  # ── SQL 初始化（幂等：schema 用 IF NOT EXISTS，data 用 INSERT IGNORE）──
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:db/schema.sql
-      data-locations: classpath:db/data.sql
-      continue-on-error: false
-
-# ── MyBatis-Plus ──
+# ── MyBatis-Plus（与环境无关的公共配置；SQL 打印开关放各 profile）──
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
   type-aliases-package: com.rbac.**.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       # 逻辑删除（0 未删 / 1 已删），后续实体加 @TableLogic 生效
@@ -62,18 +37,14 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# ── RBAC 自定义配置 ──
+# ── RBAC 自定义配置：绑定到 com.rbac.common.config.RbacProperties ──
+# 这里放各环境一致的默认值；secret 由各 profile 覆盖，ttl 可被 profile 覆盖。
 rbac:
   jwt:
-    # 生产环境务必用环境变量覆盖，勿使用默认值
-    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}
     # Access Token 有效期（秒），默认 2 小时
     access-ttl: 7200
     # Refresh Token 有效期（秒），默认 7 天
     refresh-ttl: 604800
-
-# ── 日志 ──
-logging:
-  level:
-    com.rbac: debug
-    org.springframework.security: info
+  security:
+    # 新建用户默认密码（明文，落库前加密）
+    default-password: 123456

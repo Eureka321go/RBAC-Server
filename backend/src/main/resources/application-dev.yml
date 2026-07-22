@@ -1,0 +1,49 @@
+# ══════════════════════════════════════════════════════════════════
+#  dev —— 本地开发环境（默认激活）
+#  行为与拆分前的单一 application.yml 完全等价：
+#  地址/账号/密码优先读环境变量，读不到就用本地默认值。
+# ══════════════════════════════════════════════════════════════════
+spring:
+  # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/rbac?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USER:rbac}
+    password: ${DB_PASSWORD:rbac_123}
+    hikari:
+      pool-name: RbacHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+  # ── Redis ──
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:rbac_redis_123}
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+# ── 建表 / 种子数据由 Flyway 管理（见公共 application.yml 的 spring.flyway）──
+
+# ── 开发期打印 SQL，便于调试 ──
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# ── RBAC 自定义：本地允许用默认密钥（生产务必用环境变量覆盖）──
+rbac:
+  jwt:
+    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}
+
+# ── 日志 ──
+logging:
+  level:
+    com.rbac: debug
+    org.springframework.security: info
