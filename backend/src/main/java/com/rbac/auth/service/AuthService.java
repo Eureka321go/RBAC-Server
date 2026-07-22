@@ -5,6 +5,7 @@ import com.rbac.auth.dto.LoginRequest;
 import com.rbac.auth.vo.CurrentUserVO;
 import com.rbac.auth.vo.LoginVO;
 import com.rbac.common.exception.BusinessException;
+import com.rbac.common.observability.WorkflowMetrics;
 import com.rbac.common.util.SecurityUtils;
 import com.rbac.security.JwtTokenProvider;
 import com.rbac.security.LoginUserAssembler;
@@ -39,11 +40,12 @@ public class AuthService {
     private final TokenSessionService sessionService;
     private final LoginUserAssembler loginUserAssembler;
     private final LogService logService;
+    private final WorkflowMetrics metrics;
 
     public AuthService(SysUserMapper userMapper, SysRoleMapper roleMapper, SysMenuMapper menuMapper,
                        PasswordEncoder passwordEncoder, JwtTokenProvider tokenProvider,
                        TokenSessionService sessionService, LoginUserAssembler loginUserAssembler,
-                       LogService logService) {
+                       LogService logService, WorkflowMetrics metrics) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.menuMapper = menuMapper;
@@ -52,6 +54,7 @@ public class AuthService {
         this.sessionService = sessionService;
         this.loginUserAssembler = loginUserAssembler;
         this.logService = logService;
+        this.metrics = metrics;
     }
 
     public LoginVO login(LoginRequest request, String loginIp, String userAgent) {
@@ -76,9 +79,11 @@ public class AuthService {
             userMapper.updateById(update);
 
             logService.recordLogin(request.getUsername(), true, "登录成功", loginIp, userAgent);
+            metrics.recordLogin(true);
             return loginVO;
         } catch (BusinessException e) {
             logService.recordLogin(request.getUsername(), false, e.getMessage(), loginIp, userAgent);
+            metrics.recordLogin(false);
             throw e;
         }
     }

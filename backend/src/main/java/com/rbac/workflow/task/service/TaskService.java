@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.rbac.common.domain.PageResult;
+import com.rbac.common.observability.WorkflowMetrics;
 import com.rbac.common.util.SecurityUtils;
 import com.rbac.system.user.entity.SysUser;
 import com.rbac.system.user.mapper.SysUserMapper;
@@ -40,13 +41,15 @@ public class TaskService {
     private final WfProcessInstanceMapper instanceMapper;
     private final SysUserMapper userMapper;
     private final WorkflowEngine workflowEngine;
+    private final WorkflowMetrics metrics;
 
     public TaskService(WfProcessTaskMapper taskMapper, WfProcessInstanceMapper instanceMapper,
-                       SysUserMapper userMapper, WorkflowEngine workflowEngine) {
+                       SysUserMapper userMapper, WorkflowEngine workflowEngine, WorkflowMetrics metrics) {
         this.taskMapper = taskMapper;
         this.instanceMapper = instanceMapper;
         this.userMapper = userMapper;
         this.workflowEngine = workflowEngine;
+        this.metrics = metrics;
     }
 
     public PageResult<TaskVO> todo(TaskQuery query) {
@@ -58,7 +61,14 @@ public class TaskService {
     }
 
     public void approve(Long taskId, String comment) {
-        workflowEngine.approve(taskId, comment);
+        long start = System.currentTimeMillis();
+        boolean ok = false;
+        try {
+            workflowEngine.approve(taskId, comment);
+            ok = true;
+        } finally {
+            metrics.recordApprove(ok, System.currentTimeMillis() - start);
+        }
     }
 
     public void reject(Long taskId, String comment) {
