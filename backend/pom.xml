@@ -54,6 +54,12 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Spring Cache 抽象（配合 RedisCacheManager 做权限等只读集合缓存） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
         <!-- Actuator：健康检查/指标等可观测性端点 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
