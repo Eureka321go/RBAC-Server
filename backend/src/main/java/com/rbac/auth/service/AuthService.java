@@ -85,6 +85,9 @@ public class AuthService {
             logService.recordLogin(request.getUsername(), false, e.getMessage(), loginIp, userAgent);
             metrics.recordLogin(false);
             throw e;
+        } catch (RuntimeException e) {
+            metrics.recordLogin(false);
+            throw e;
         }
     }
 
