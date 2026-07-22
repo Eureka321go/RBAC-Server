@@ -118,6 +118,7 @@ export default {
     genderMale: '男',
     genderFemale: '女',
     genderUnknown: '未知',
+    profile: '个人简介',
     addUser: '新增用户',
     resetPwd: '重置密码',
     create: '新增用户',

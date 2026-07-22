@@ -124,6 +124,7 @@ public class UserService {
         user.setGender(req.getGender());
         user.setStatus(req.getStatus() == null ? "ENABLED" : req.getStatus());
         user.setRemark(req.getRemark());
+        user.setProfile(req.getProfile());
         userMapper.insert(user);
         replaceRoles(user.getId(), req.getRoleIds());
         replacePosts(user.getId(), req.getPostIds());
@@ -145,6 +146,7 @@ public class UserService {
         user.setGender(req.getGender());
         user.setStatus(req.getStatus());
         user.setRemark(req.getRemark());
+        user.setProfile(req.getProfile());
         userMapper.updateById(user);
         // 超管角色不允许被改动
         if (!isSuperAdmin(id)) {

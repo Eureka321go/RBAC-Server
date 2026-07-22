@@ -118,6 +118,7 @@ export default {
     genderMale: 'Male',
     genderFemale: 'Female',
     genderUnknown: 'Unknown',
+    profile: 'Profile',
     addUser: 'Add user',
     resetPwd: 'Reset password',
     create: 'Add user',

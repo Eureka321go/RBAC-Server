@@ -20,6 +20,7 @@ public class UserVO {
     private String gender;
     private String status;
     private String remark;
+    private  String profile;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private List<Long> roleIds = new ArrayList<>();
@@ -40,6 +41,7 @@ public class UserVO {
         vo.setRemark(u.getRemark());
         vo.setLastLoginAt(u.getLastLoginAt());
         vo.setCreatedAt(u.getCreatedAt());
+        vo.setProfile(u.getProfile());
         return vo;
     }
 }
