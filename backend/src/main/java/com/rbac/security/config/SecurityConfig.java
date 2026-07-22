@@ -51,6 +51,10 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(WHITELIST).permitAll()   // 白名单路径放行（登录/刷新/探活/错误页）
+                        // actuator 健康探针匿名可访问（供容器 liveness/readiness 探测）
+                        .requestMatchers("/actuator/health/**", "/actuator/health").permitAll()
+                        // 其余管理端点需要监控查看权限，避免泄露配置/指标
+                        .requestMatchers("/actuator/**").hasAuthority("monitor:view")
                         .anyRequest().authenticated())            // 其余所有请求：必须已认证（否则 → 401）
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(authenticationEntryPoint)  // 未认证（没登录/令牌无效）→ 401

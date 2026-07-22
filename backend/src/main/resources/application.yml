@@ -48,3 +48,22 @@ rbac:
   security:
     # 新建用户默认密码（明文，落库前加密）
     default-password: 123456
+
+# ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true          # 启用 liveness / readiness 探针组
+      show-details: when-authorized   # 详情仅对已认证用户可见
+  info:
+    env:
+      enabled: true
+info:
+  app:
+    name: ${spring.application.name}
+    description: RBAC 权限管理系统

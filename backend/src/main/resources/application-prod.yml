@@ -47,3 +47,10 @@ logging:
     root: warn
     com.rbac: info
     org.springframework.security: warn
+
+# ── Actuator：生产收敛暴露端点，不把 prometheus 明细暴露给公网 ──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
