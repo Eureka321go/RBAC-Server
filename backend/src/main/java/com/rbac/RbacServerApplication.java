@@ -3,13 +3,13 @@ package com.rbac;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * RBAC 权限管理系统 —— 后端服务启动类。
+ *
+ * <p>{@code @EnableAsync} 已下沉到 {@link com.rbac.common.config.AsyncConfig}。
  */
 @SpringBootApplication
-@EnableAsync
 @MapperScan("com.rbac.**.mapper") //告诉框架"数据层类在哪"
 public class RbacServerApplication {
 

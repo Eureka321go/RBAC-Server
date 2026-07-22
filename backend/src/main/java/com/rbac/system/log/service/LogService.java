@@ -10,6 +10,7 @@ import com.rbac.system.log.entity.SysLoginLog;
 import com.rbac.system.log.entity.SysOperationLog;
 import com.rbac.system.log.mapper.SysLoginLogMapper;
 import com.rbac.system.log.mapper.SysOperationLogMapper;
+import com.rbac.common.config.AsyncConfig;
 import com.rbac.system.log.vo.LoginLogVO;
 import com.rbac.system.log.vo.OperationLogVO;
 import org.springframework.scheduling.annotation.Async;
@@ -32,7 +33,7 @@ public class LogService {
         this.operationLogMapper = operationLogMapper;
     }
 
-    @Async
+    @Async(AsyncConfig.LOG_EXECUTOR)
     public void recordLogin(String username, boolean success, String message, String ip, String userAgent) {
         SysLoginLog log = new SysLoginLog();
         log.setUsername(username);
@@ -44,7 +45,7 @@ public class LogService {
         loginLogMapper.insert(log);
     }
 
-    @Async
+    @Async(AsyncConfig.LOG_EXECUTOR)
     public void recordOperation(SysOperationLog log) {
         log.setParams(truncate(log.getParams(), 2000));
         log.setErrorMsg(truncate(log.getErrorMsg(), 2000));
