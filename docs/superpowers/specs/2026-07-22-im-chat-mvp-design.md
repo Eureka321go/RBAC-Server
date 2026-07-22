@@ -217,7 +217,7 @@ flowchart LR
 
 ---
 
-## 风险 / 待办
+## 已决策
 
-- `im-gateway` 独立 module 需把 pom 改成 Maven 多模块（parent + backend + im-gateway），或 im-gateway 用最小独立 pom。是本方案唯一较大的结构改动。
-- 本期**不含 Flutter**（子项目二）。若希望本期直接带一个最小 Flutter demo，范围需上调。
+- **采用 Maven 多模块**：根 `pom.xml` 改为 parent（packaging=pom），现有后端拆为 `backend` 子模块，新增 `im-gateway` 子模块。这是本方案唯一较大的结构改动，第一个里程碑落地。
+- **本期不含 Flutter**（归子项目二）。本期用轻量压测/CLI 客户端验证后端闭环。
