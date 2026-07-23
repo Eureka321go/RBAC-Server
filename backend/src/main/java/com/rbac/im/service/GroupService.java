@@ -64,6 +64,31 @@ public class GroupService {
         return new CreateGroupResult(groupId, cid);
     }
 
+    @Transactional
+    public void addMembers(long operatorId, long groupId, List<Long> userIds) {
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireManage(op);
+        String cid = "g_" + groupId;
+
+        long current = memberCount(groupId);
+        List<Long> added = new ArrayList<>();
+        LinkedHashSet<Long> distinct = new LinkedHashSet<>(userIds == null ? List.of() : userIds);
+        for (Long uid : distinct) {
+            if (isGroupMember(groupId, uid)) {
+                continue;   // 幂等
+            }
+            if (current + added.size() >= maxMembers) {
+                throw new BusinessException(400, "im.group.memberLimit");
+            }
+            insertGroupMember(groupId, uid, "MEMBER");
+            conversationService.addConversationMember(cid, uid);
+            added.add(uid);
+        }
+        if (!added.isEmpty()) {
+            postSystem(cid, operatorId, "MEMBER_JOIN", added, null);
+        }
+    }
+
     // ---------- 共享私有助手（后续 Task 复用） ----------
 
     void insertGroupMember(long groupId, long userId, String role) {
