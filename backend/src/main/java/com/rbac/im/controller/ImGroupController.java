@@ -4,11 +4,16 @@ import com.rbac.common.Result;
 import com.rbac.common.util.SecurityUtils;
 import com.rbac.im.dto.AddMembersRequest;
 import com.rbac.im.dto.CreateGroupRequest;
+import com.rbac.im.dto.RenameRequest;
+import com.rbac.im.dto.SetRoleRequest;
+import com.rbac.im.dto.TransferRequest;
 import com.rbac.im.service.GroupService;
 import com.rbac.im.vo.CreateGroupResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +49,24 @@ public class ImGroupController {
     @DeleteMapping("/{groupId}/members/{userId}")
     public Result<Void> kick(@PathVariable Long groupId, @PathVariable Long userId) {
         groupService.removeMember(SecurityUtils.getUserId(), groupId, userId);
+        return Result.success();
+    }
+
+    @PatchMapping("/{groupId}")
+    public Result<Void> rename(@PathVariable Long groupId, @RequestBody RenameRequest req) {
+        groupService.rename(SecurityUtils.getUserId(), groupId, req.getName());
+        return Result.success();
+    }
+
+    @PostMapping("/{groupId}/owner")
+    public Result<Void> transfer(@PathVariable Long groupId, @RequestBody TransferRequest req) {
+        groupService.transferOwner(SecurityUtils.getUserId(), groupId, req.getNewOwnerId());
+        return Result.success();
+    }
+
+    @PutMapping("/{groupId}/members/{userId}/role")
+    public Result<Void> setRole(@PathVariable Long groupId, @PathVariable Long userId, @RequestBody SetRoleRequest req) {
+        groupService.setRole(SecurityUtils.getUserId(), groupId, userId, req.getRole());
         return Result.success();
     }
 }

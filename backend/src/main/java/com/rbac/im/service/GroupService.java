@@ -121,6 +121,51 @@ public class GroupService {
         postSystem(cid, userId, "MEMBER_LEAVE", List.of(userId), null);
     }
 
+    @Transactional
+    public void rename(long operatorId, long groupId, String name) {
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireManage(op);
+        ImGroup g = groupMapper.selectById(groupId);
+        if (g == null) {
+            throw new BusinessException(404, "im.group.notFound");
+        }
+        String oldName = g.getName();
+        g.setName(name);
+        groupMapper.updateById(g);
+        postSystem("g_" + groupId, operatorId, "GROUP_RENAME", null, Map.of("oldName", oldName, "newName", name));
+    }
+
+    @Transactional
+    public void transferOwner(long operatorId, long groupId, long newOwnerId) {
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireOwner(op);
+        ImGroupMember target = requireMember(groupId, newOwnerId);
+        op.setRole("MEMBER");
+        groupMemberMapper.updateById(op);
+        target.setRole("OWNER");
+        groupMemberMapper.updateById(target);
+        ImGroup g = groupMapper.selectById(groupId);
+        g.setOwnerId(newOwnerId);
+        groupMapper.updateById(g);
+        postSystem("g_" + groupId, operatorId, "OWNER_TRANSFER", List.of(newOwnerId), null);
+    }
+
+    @Transactional
+    public void setRole(long operatorId, long groupId, long targetId, String role) {
+        if (!"ADMIN".equals(role) && !"MEMBER".equals(role)) {
+            throw new BusinessException(400, "im.group.invalidRole");
+        }
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireOwner(op);
+        ImGroupMember target = requireMember(groupId, targetId);
+        if ("OWNER".equals(target.getRole())) {
+            throw new BusinessException(400, "im.group.invalidRole");
+        }
+        target.setRole(role);
+        groupMemberMapper.updateById(target);
+        postSystem("g_" + groupId, operatorId, "ADMIN_CHANGE", List.of(targetId), Map.of("role", role));
+    }
+
     // ---------- 共享私有助手（后续 Task 复用） ----------
 
     void insertGroupMember(long groupId, long userId, String role) {
