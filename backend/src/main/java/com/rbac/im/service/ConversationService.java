@@ -63,6 +63,53 @@ public class ConversationService {
         memberMapper.insert(m);
     }
 
+    /** 建群会话（幂等）：插入 GROUP 会话 + 各成员会话位点行，返回 cid。 */
+    @Transactional
+    public String ensureGroupConversation(long groupId, java.util.List<Long> memberIds) {
+        String cid = "g_" + groupId;
+        ImConversation existing = conversationMapper.selectOne(
+                new LambdaQueryWrapper<ImConversation>().eq(ImConversation::getCid, cid));
+        if (existing == null) {
+            ImConversation c = new ImConversation();
+            c.setCid(cid);
+            c.setType("GROUP");
+            c.setGroupId(groupId);
+            c.setLastMsgSeq(0L);
+            conversationMapper.insert(c);
+            for (Long uid : memberIds) {
+                insertMember(cid, uid);
+            }
+        }
+        return cid;
+    }
+
+    /** 加会话成员，last_read_seq 初始化为会话当前 last_msg_seq（新成员不背历史未读）。 */
+    public void addConversationMember(String cid, long userId) {
+        ImConversation c = conversationMapper.selectOne(
+                new LambdaQueryWrapper<ImConversation>().eq(ImConversation::getCid, cid));
+        long init = (c == null || c.getLastMsgSeq() == null) ? 0L : c.getLastMsgSeq();
+        ImConversationMember m = new ImConversationMember();
+        m.setCid(cid);
+        m.setUserId(userId);
+        m.setLastReadSeq(init);
+        m.setMentionSeq(0L);
+        m.setMuted(0);
+        memberMapper.insert(m);
+    }
+
+    public void removeConversationMember(String cid, long userId) {
+        memberMapper.delete(new LambdaQueryWrapper<ImConversationMember>()
+                .eq(ImConversationMember::getCid, cid)
+                .eq(ImConversationMember::getUserId, userId));
+    }
+
+    public void removeConversation(String cid) {
+        memberMapper.delete(new LambdaQueryWrapper<ImConversationMember>()
+                .eq(ImConversationMember::getCid, cid));
+        conversationMapper.delete(new LambdaQueryWrapper<ImConversation>()
+                .eq(ImConversation::getCid, cid));
+    }
+
     public List<Long> memberUserIds(String cid) {
         return memberMapper.selectList(
                         new LambdaQueryWrapper<ImConversationMember>().eq(ImConversationMember::getCid, cid))

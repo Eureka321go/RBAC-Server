@@ -69,6 +69,7 @@ rbac:
   im:
     recall-window-seconds: 120
     mention-all-admin-only: true
+    group-max-members: 500
 
 # ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
 management:
