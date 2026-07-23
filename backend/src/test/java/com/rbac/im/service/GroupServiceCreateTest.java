@@ -56,4 +56,12 @@ class GroupServiceCreateTest {
                 .eq(ImGroupMember::getGroupId, r.getGroupId()));
         assertThat(gms).hasSize(2);   // 2001(owner) + 2002
     }
+
+    @Test
+    void createGroup_blankName_rejected() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> groupService.createGroup(2401L, null, java.util.List.of(2402L)))
+                .isInstanceOf(com.rbac.common.exception.BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", 400);
+    }
 }

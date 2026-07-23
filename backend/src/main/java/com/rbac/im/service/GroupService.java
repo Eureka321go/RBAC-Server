@@ -41,6 +41,9 @@ public class GroupService {
 
     @Transactional
     public CreateGroupResult createGroup(long ownerId, String name, List<Long> memberIds) {
+        if (name == null || name.isBlank()) {
+            throw new BusinessException(400, "im.group.nameRequired");
+        }
         ImGroup g = new ImGroup();
         g.setName(name);
         g.setOwnerId(ownerId);
