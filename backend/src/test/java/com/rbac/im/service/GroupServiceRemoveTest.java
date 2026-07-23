@@ -34,10 +34,11 @@ class GroupServiceRemoveTest {
     }
 
     @Test
-    void cannotKickOwner() {
+    void memberCannotKick() {
         CreateGroupResult r = groupService.createGroup(4101L, "群", List.of(4102L));
         assertThatThrownBy(() -> groupService.removeMember(4102L, r.getGroupId(), 4101L))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("messageKey", "im.group.noPermission");
     }
 
     @Test
