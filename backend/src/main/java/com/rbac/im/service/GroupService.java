@@ -89,6 +89,38 @@ public class GroupService {
         }
     }
 
+    @Transactional
+    public void removeMember(long operatorId, long groupId, long targetId) {
+        if (operatorId == targetId) {
+            throw new BusinessException(400, "im.group.cannotKickSelf");
+        }
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireManage(op);
+        ImGroupMember target = requireMember(groupId, targetId);
+        if ("OWNER".equals(target.getRole())) {
+            throw new BusinessException(403, "im.group.cannotKickOwner");
+        }
+        if ("ADMIN".equals(op.getRole()) && !"MEMBER".equals(target.getRole())) {
+            throw new BusinessException(403, "im.group.adminKickMemberOnly");
+        }
+        String cid = "g_" + groupId;
+        groupMemberMapper.deleteById(target.getId());
+        conversationService.removeConversationMember(cid, targetId);
+        postSystem(cid, operatorId, "MEMBER_KICK", List.of(targetId), null);
+    }
+
+    @Transactional
+    public void leaveGroup(long userId, long groupId) {
+        ImGroupMember m = requireMember(groupId, userId);
+        if ("OWNER".equals(m.getRole())) {
+            throw new BusinessException(403, "im.group.ownerCannotLeave");
+        }
+        String cid = "g_" + groupId;
+        groupMemberMapper.deleteById(m.getId());
+        conversationService.removeConversationMember(cid, userId);
+        postSystem(cid, userId, "MEMBER_LEAVE", List.of(userId), null);
+    }
+
     // ---------- 共享私有助手（后续 Task 复用） ----------
 
     void insertGroupMember(long groupId, long userId, String role) {

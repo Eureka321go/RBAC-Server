@@ -6,6 +6,7 @@ import com.rbac.im.dto.AddMembersRequest;
 import com.rbac.im.dto.CreateGroupRequest;
 import com.rbac.im.service.GroupService;
 import com.rbac.im.vo.CreateGroupResult;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,6 +32,18 @@ public class ImGroupController {
     @PostMapping("/{groupId}/members")
     public Result<Void> addMembers(@PathVariable Long groupId, @RequestBody AddMembersRequest req) {
         groupService.addMembers(SecurityUtils.getUserId(), groupId, req.getUserIds());
+        return Result.success();
+    }
+
+    @DeleteMapping("/{groupId}/members/me")
+    public Result<Void> leave(@PathVariable Long groupId) {
+        groupService.leaveGroup(SecurityUtils.getUserId(), groupId);
+        return Result.success();
+    }
+
+    @DeleteMapping("/{groupId}/members/{userId}")
+    public Result<Void> kick(@PathVariable Long groupId, @PathVariable Long userId) {
+        groupService.removeMember(SecurityUtils.getUserId(), groupId, userId);
         return Result.success();
     }
 }
