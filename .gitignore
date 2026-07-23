@@ -1,8 +1,8 @@
 # 中间件凭据（含密码，勿入库）
 deploy/.env
 
-# 后端构建产物
-backend/target/
+# 构建产物（各 Maven 模块）
+target/
 *.class
 
 # 前端构建产物 / 依赖（frontend/ 内另有自带 .gitignore）
