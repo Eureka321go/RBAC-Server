@@ -116,6 +116,17 @@
             <artifactId>flyway-mysql</artifactId>
         </dependency>
 
+        <!-- IM：消息存 MongoDB -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>
+        <!-- IM：网关↔logic 经 Kafka 解耦 -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

@@ -24,6 +24,23 @@ spring:
     baseline-on-migrate: true
     baseline-version: 1
 
+  # ── IM：消息存 MongoDB（会话/成员/群元数据仍在 MySQL）──
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://rbac:rbac123456@localhost:27017/rbac_im?authSource=admin}
+
+  # ── IM：网关↔logic 经 Kafka 解耦 ──
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: im-logic
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
 # ── MyBatis-Plus（与环境无关的公共配置；SQL 打印开关放各 profile）──
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -48,6 +65,10 @@ rbac:
   security:
     # 新建用户默认密码（明文，落库前加密）
     default-password: 123456
+  # ── IM 相关阈值 ──
+  im:
+    recall-window-seconds: 120
+    mention-all-admin-only: true
 
 # ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
 management:
