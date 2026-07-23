@@ -12,4 +12,5 @@ public class ImGroupMember extends BaseEntity {
     private Long groupId;
     private Long userId;
     private String role;
+    private Integer muted;
 }
