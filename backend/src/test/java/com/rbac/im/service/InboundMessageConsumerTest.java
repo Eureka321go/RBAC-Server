@@ -14,6 +14,8 @@ class InboundMessageConsumerTest {
 
     private final ImMessageRepository repo = mock(ImMessageRepository.class);
     private final MessageAppender appender = mock(MessageAppender.class);
+    private final ConversationService conversationService = mock(ConversationService.class);
+    private final OutboundDispatcher dispatcher = mock(OutboundDispatcher.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
     private String json(String clientMsgId) throws Exception {
@@ -30,8 +32,9 @@ class InboundMessageConsumerTest {
     @Test
     void assigns_seq_persists_and_dispatches() throws Exception {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(false);
+        when(conversationService.isMember("c_1_2", 1L)).thenReturn(true);
         when(appender.append("c_1_2", 1L, "TEXT", Map.of("text", "hi"), "cli-1")).thenReturn(5L);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher);
 
         c.onMessage(json("cli-1"));
 
@@ -41,7 +44,7 @@ class InboundMessageConsumerTest {
     @Test
     void duplicate_clientMsgId_is_skipped() throws Exception {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(true);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher);
 
         c.onMessage(json("cli-1"));
 

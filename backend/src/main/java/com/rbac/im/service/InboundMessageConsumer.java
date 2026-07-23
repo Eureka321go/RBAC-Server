@@ -7,16 +7,25 @@ import com.rbac.im.protocol.Envelope;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class InboundMessageConsumer {
 
     private final ImMessageRepository repo;
     private final MessageAppender appender;
+    private final ConversationService conversationService;
+    private final OutboundDispatcher dispatcher;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public InboundMessageConsumer(ImMessageRepository repo, MessageAppender appender) {
+    public InboundMessageConsumer(ImMessageRepository repo,
+                                  MessageAppender appender,
+                                  ConversationService conversationService,
+                                  OutboundDispatcher dispatcher) {
         this.repo = repo;
         this.appender = appender;
+        this.conversationService = conversationService;
+        this.dispatcher = dispatcher;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -29,6 +38,26 @@ public class InboundMessageConsumer {
             return;
         }
 
+        // 成员校验（安全红线）：非成员 / 被禁言 → 丢弃并回 ERROR
+        if (!conversationService.isMember(env.getCid(), env.getSenderId())) {
+            pushError(env, "NOT_MEMBER");
+            return;
+        }
+        if (conversationService.isGroupMuted(env.getCid(), env.getSenderId())) {
+            pushError(env, "MUTED");
+            return;
+        }
+
         appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
+    }
+
+    private void pushError(Envelope src, String reason) {
+        Envelope err = new Envelope();
+        err.setOp("ERROR");
+        err.setCid(src.getCid());
+        err.setSenderId(src.getSenderId());
+        err.setClientMsgId(src.getClientMsgId());
+        err.setBody(Map.of("reason", reason));
+        dispatcher.dispatchToUser(src.getSenderId(), err);
     }
 }

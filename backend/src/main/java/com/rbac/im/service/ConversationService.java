@@ -3,8 +3,10 @@ package com.rbac.im.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.rbac.im.entity.ImConversation;
 import com.rbac.im.entity.ImConversationMember;
+import com.rbac.im.entity.ImGroupMember;
 import com.rbac.im.mapper.ImConversationMapper;
 import com.rbac.im.mapper.ImConversationMemberMapper;
+import com.rbac.im.mapper.ImGroupMemberMapper;
 import com.rbac.im.vo.ImConversationVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +20,14 @@ public class ConversationService {
 
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper memberMapper;
+    private final ImGroupMemberMapper groupMemberMapper;
 
     public ConversationService(ImConversationMapper conversationMapper,
-                               ImConversationMemberMapper memberMapper) {
+                               ImConversationMemberMapper memberMapper,
+                               ImGroupMemberMapper groupMemberMapper) {
         this.conversationMapper = conversationMapper;
         this.memberMapper = memberMapper;
+        this.groupMemberMapper = groupMemberMapper;
     }
 
     public String singleCid(long a, long b) {
@@ -71,6 +76,24 @@ public class ConversationService {
                         .eq(ImConversationMember::getCid, cid)
                         .eq(ImConversationMember::getUserId, userId));
         return count != null && count > 0;
+    }
+
+    /** 从 cid 解析群 id；非群会话返回 null。 */
+    public static Long groupIdFromCid(String cid) {
+        return cid != null && cid.startsWith("g_") ? Long.valueOf(cid.substring(2)) : null;
+    }
+
+    /** 该用户在群会话内是否被禁言（单聊恒 false）。 */
+    public boolean isGroupMuted(String cid, long userId) {
+        Long gid = groupIdFromCid(cid);
+        if (gid == null) {
+            return false;
+        }
+        Long n = groupMemberMapper.selectCount(new LambdaQueryWrapper<ImGroupMember>()
+                .eq(ImGroupMember::getGroupId, gid)
+                .eq(ImGroupMember::getUserId, userId)
+                .eq(ImGroupMember::getMuted, 1));
+        return n != null && n > 0;
     }
 
     /** 当前用户参与的会话列表（含未读数）。 */

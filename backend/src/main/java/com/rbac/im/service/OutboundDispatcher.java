@@ -45,6 +45,21 @@ public class OutboundDispatcher {
         }
     }
 
+    /** 定向推送给单个用户的所有在线设备（用于发送失败 ERROR 回执）。 */
+    public void dispatchToUser(long userId, Envelope env) {
+        Map<Object, Object> routes = redis.opsForHash().entries("route:user:" + userId);
+        for (Map.Entry<Object, Object> e : routes.entrySet()) {
+            String deviceId = String.valueOf(e.getKey());
+            String gatewayId = String.valueOf(e.getValue());
+            OutboundPacket packet = new OutboundPacket();
+            packet.setGatewayId(gatewayId);
+            packet.setTargetUserId(userId);
+            packet.setDeviceId(deviceId);
+            packet.setEnvelope(env);
+            send(gatewayId, packet);
+        }
+    }
+
     private void send(String gatewayId, OutboundPacket packet) {
         try {
             kafka.send(ImKafkaTopics.OUT, gatewayId, mapper.writeValueAsString(packet));
