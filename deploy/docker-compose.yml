@@ -200,6 +200,38 @@ services: #定义需要运行的服务
     depends_on: [elasticsearch]
     networks: [rbac-net]
 
+  # ==================== IM 层（--profile im） ====================
+  mongodb:
+    image: mongo:7.0
+    container_name: rbac-mongodb
+    profiles: ["im"]
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rbac
+      MONGO_INITDB_ROOT_PASSWORD: rbac123456
+      MONGO_INITDB_DATABASE: rbac_im
+    volumes:
+      - mongo-data:/data/db
+    networks: [rbac-net]
+
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: rbac-minio
+    profiles: ["im"]
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: rbac
+      MINIO_ROOT_PASSWORD: rbac123456
+    volumes:
+      - minio-data:/data
+    networks: [rbac-net]
+
 volumes: #声明持久化数据卷
   mysql-data:
   redis-data:
@@ -207,6 +239,8 @@ volumes: #声明持久化数据卷
   es-data:
   caddy-data:
   caddy-config:
+  mongo-data:
+  minio-data:
 
 networks: #声明服务通信网络
   rbac-net:
