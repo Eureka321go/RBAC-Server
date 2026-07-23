@@ -166,6 +166,19 @@ public class GroupService {
         postSystem("g_" + groupId, operatorId, "ADMIN_CHANGE", List.of(targetId), Map.of("role", role));
     }
 
+    @Transactional
+    public void setMute(long operatorId, long groupId, long targetId, boolean muted) {
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireManage(op);
+        ImGroupMember target = requireMember(groupId, targetId);
+        if (!"MEMBER".equals(target.getRole())) {
+            throw new BusinessException(403, "im.group.muteMemberOnly");
+        }
+        target.setMuted(muted ? 1 : 0);
+        groupMemberMapper.updateById(target);
+        postSystem("g_" + groupId, operatorId, "MEMBER_MUTE", List.of(targetId), Map.of("muted", muted));
+    }
+
     // ---------- 共享私有助手（后续 Task 复用） ----------
 
     void insertGroupMember(long groupId, long userId, String role) {

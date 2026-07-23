@@ -5,6 +5,7 @@ import com.rbac.common.util.SecurityUtils;
 import com.rbac.im.dto.AddMembersRequest;
 import com.rbac.im.dto.CreateGroupRequest;
 import com.rbac.im.dto.RenameRequest;
+import com.rbac.im.dto.SetMuteRequest;
 import com.rbac.im.dto.SetRoleRequest;
 import com.rbac.im.dto.TransferRequest;
 import com.rbac.im.service.GroupService;
@@ -67,6 +68,12 @@ public class ImGroupController {
     @PutMapping("/{groupId}/members/{userId}/role")
     public Result<Void> setRole(@PathVariable Long groupId, @PathVariable Long userId, @RequestBody SetRoleRequest req) {
         groupService.setRole(SecurityUtils.getUserId(), groupId, userId, req.getRole());
+        return Result.success();
+    }
+
+    @PutMapping("/{groupId}/members/{userId}/mute")
+    public Result<Void> setMute(@PathVariable Long groupId, @PathVariable Long userId, @RequestBody SetMuteRequest req) {
+        groupService.setMute(SecurityUtils.getUserId(), groupId, userId, Boolean.TRUE.equals(req.getMuted()));
         return Result.success();
     }
 }
