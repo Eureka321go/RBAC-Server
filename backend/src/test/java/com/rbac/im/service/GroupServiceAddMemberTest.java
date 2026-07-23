@@ -57,4 +57,43 @@ class GroupServiceAddMemberTest {
         assertThatThrownBy(() -> groupService.addMembers(3301L, r.getGroupId(), List.of(3304L)))
                 .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    void kick_thenReAdd_succeeds() {
+        CreateGroupResult r = groupService.createGroup(3401L, "群", List.of(3402L)); // 2 人，未达上限 3
+        groupService.removeMember(3401L, r.getGroupId(), 3402L);
+        groupService.addMembers(3401L, r.getGroupId(), List.of(3402L));
+
+        List<ImGroupMember> groupMembers = groupMemberMapper.selectList(new LambdaQueryWrapper<ImGroupMember>()
+                .eq(ImGroupMember::getGroupId, r.getGroupId()));
+        assertThat(groupMembers).extracting(ImGroupMember::getUserId).contains(3402L);
+        assertThat(groupMembers.stream().filter(m -> m.getUserId() == 3402L).findFirst().orElseThrow().getRole())
+                .isEqualTo("MEMBER");
+        assertThat(convMemberMapper.selectList(new LambdaQueryWrapper<ImConversationMember>()
+                        .eq(ImConversationMember::getCid, r.getCid())))
+                .extracting(ImConversationMember::getUserId).contains(3402L);
+    }
+
+    @Test
+    void leave_thenRejoin_succeeds() {
+        CreateGroupResult r = groupService.createGroup(3501L, "群", List.of(3502L)); // 2 人，未达上限 3
+        groupService.leaveGroup(3502L, r.getGroupId());
+        groupService.addMembers(3501L, r.getGroupId(), List.of(3502L));
+
+        List<ImGroupMember> groupMembers = groupMemberMapper.selectList(new LambdaQueryWrapper<ImGroupMember>()
+                .eq(ImGroupMember::getGroupId, r.getGroupId()));
+        assertThat(groupMembers).extracting(ImGroupMember::getUserId).contains(3502L);
+        assertThat(groupMembers.stream().filter(m -> m.getUserId() == 3502L).findFirst().orElseThrow().getRole())
+                .isEqualTo("MEMBER");
+        assertThat(convMemberMapper.selectList(new LambdaQueryWrapper<ImConversationMember>()
+                        .eq(ImConversationMember::getCid, r.getCid())))
+                .extracting(ImConversationMember::getUserId).contains(3502L);
+    }
+
+    @Test
+    void createGroup_overLimit_rejected() {
+        assertThatThrownBy(() -> groupService.createGroup(3601L, "群", List.of(3602L, 3603L, 3604L)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", 400);
+    }
 }

@@ -98,9 +98,7 @@ public class ConversationService {
     }
 
     public void removeConversationMember(String cid, long userId) {
-        memberMapper.delete(new LambdaQueryWrapper<ImConversationMember>()
-                .eq(ImConversationMember::getCid, cid)
-                .eq(ImConversationMember::getUserId, userId));
+        memberMapper.physicalDelete(cid, userId);
     }
 
     public void removeConversation(String cid) {

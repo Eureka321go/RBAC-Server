@@ -57,6 +57,9 @@ public class GroupService {
         if (memberIds != null) {
             all.addAll(memberIds);
         }
+        if (all.size() > maxMembers) {
+            throw new BusinessException(400, "im.group.memberLimit");
+        }
 
         String cid = conversationService.ensureGroupConversation(groupId, new ArrayList<>(all));
         for (Long uid : all) {
@@ -106,7 +109,7 @@ public class GroupService {
             throw new BusinessException(403, "im.group.adminKickMemberOnly");
         }
         String cid = "g_" + groupId;
-        groupMemberMapper.deleteById(target.getId());
+        groupMemberMapper.physicalDeleteById(target.getId());
         conversationService.removeConversationMember(cid, targetId);
         postSystem(cid, operatorId, "MEMBER_KICK", List.of(targetId), null);
     }
@@ -118,7 +121,7 @@ public class GroupService {
             throw new BusinessException(403, "im.group.ownerCannotLeave");
         }
         String cid = "g_" + groupId;
-        groupMemberMapper.deleteById(m.getId());
+        groupMemberMapper.physicalDeleteById(m.getId());
         conversationService.removeConversationMember(cid, userId);
         postSystem(cid, userId, "MEMBER_LEAVE", List.of(userId), null);
     }
