@@ -7,6 +7,8 @@ import com.rbac.im.entity.ImGroupMember;
 import com.rbac.im.mapper.ImGroupMapper;
 import com.rbac.im.mapper.ImGroupMemberMapper;
 import com.rbac.im.vo.CreateGroupResult;
+import com.rbac.im.vo.ImGroupMemberVO;
+import com.rbac.im.vo.ImGroupVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -177,6 +179,46 @@ public class GroupService {
         target.setMuted(muted ? 1 : 0);
         groupMemberMapper.updateById(target);
         postSystem("g_" + groupId, operatorId, "MEMBER_MUTE", List.of(targetId), Map.of("muted", muted));
+    }
+
+    @Transactional
+    public void dissolve(long operatorId, long groupId) {
+        ImGroupMember op = requireMember(groupId, operatorId);
+        requireOwner(op);
+        String cid = "g_" + groupId;
+        // 先扇出解散通知给在线成员，再软删（离线成员漏收为已知局限）
+        postSystem(cid, operatorId, "GROUP_DISSOLVE", null, null);
+        groupMapper.deleteById(groupId);
+        groupMemberMapper.delete(new LambdaQueryWrapper<ImGroupMember>().eq(ImGroupMember::getGroupId, groupId));
+        conversationService.removeConversation(cid);
+    }
+
+    public ImGroupVO getGroup(long groupId, long requesterId) {
+        ImGroupMember me = requireMember(groupId, requesterId);
+        ImGroup g = groupMapper.selectById(groupId);
+        if (g == null) {
+            throw new BusinessException(404, "im.group.notFound");
+        }
+        ImGroupVO vo = new ImGroupVO();
+        vo.setGroupId(groupId);
+        vo.setName(g.getName());
+        vo.setOwnerId(g.getOwnerId());
+        vo.setMemberCount((int) memberCount(groupId));
+        vo.setMyRole(me.getRole());
+        return vo;
+    }
+
+    public List<ImGroupMemberVO> listMembers(long groupId, long requesterId) {
+        requireMember(groupId, requesterId);
+        return groupMemberMapper.selectList(new LambdaQueryWrapper<ImGroupMember>()
+                        .eq(ImGroupMember::getGroupId, groupId))
+                .stream().map(m -> {
+                    ImGroupMemberVO vo = new ImGroupMemberVO();
+                    vo.setUserId(m.getUserId());
+                    vo.setRole(m.getRole());
+                    vo.setMuted(m.getMuted() != null && m.getMuted() == 1);
+                    return vo;
+                }).toList();
     }
 
     // ---------- 共享私有助手（后续 Task 复用） ----------
