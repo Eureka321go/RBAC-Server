@@ -75,11 +75,15 @@
 
 ### `LINK_PREVIEW` 增量推送帧（复用 `Envelope` + `OutboundDispatcher.dispatch(cid, env)`）
 ```json
-{ "op": "LINK_PREVIEW", "cid": "c_1_2", "seq": 42, "link": { ... } }
+{ "op": "LINK_PREVIEW", "cid": "c_1_2", "seq": 42, "body": { "link": { ... } } }
 ```
-- 语义：客户端按 `cid + seq` 找到本地已渲染的纯文本气泡，就地补 link 变卡片。**不是新消息，不占新 seq。**
+- **承载方式**：复用 `Envelope` 现有 `body`（`body.link`），**不给 `Envelope` 新增顶层字段**。设 `op=LINK_PREVIEW`、`cid`、`seq`、`body={"link": card}`。
+- 语义：客户端按 `cid + seq` 找到本地已渲染的纯文本气泡，就地补 `body.link` 变卡片。**不是新消息，不占新 seq。**
 - **扇出范围：整个会话在线成员**（群聊亦然，全员看到同一条消息升级为卡片，体验一致），与 `PUSH` 共用 `dispatch(cid, …)`。
 - 更新帧可能晚于用户后续消息到达客户端；它带 `seq` 精确定位，不依赖到达顺序。
+
+### 网关侧：零改动透传
+`im-gateway` 的 `OutboundConsumer` 把 `packet.getEnvelope()` 整体序列化后 `writeAndFlush` 给客户端，**对 `op` 完全无感知**——新的 `LINK_PREVIEW` 帧与既有 `PUSH`/`ERROR` 走同一条 `im-outbound` → 网关 → WebSocket 路径，**网关无需任何改动**。客户端（联调侧）需新增识别 `op=LINK_PREVIEW`、按 `cid+seq` 就地更新气泡的渲染逻辑；本期后端只负责产出该帧。
 
 ### Mongo 回写
 `ImMessageRepository` 新增 `updateLink(cid, seq, LinkCard card)`：按 `cid + seq` 定位文档，`$set` 更新 `body.link` 单字段（不用 `save` 整档覆盖，避免与其它并发更新打架）。
