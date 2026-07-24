@@ -21,18 +21,21 @@ public class InboundMessageConsumer {
     private final ConversationService conversationService;
     private final OutboundDispatcher dispatcher;
     private final MediaService mediaService;
+    private final LinkPreviewService linkPreview;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
                                   MessageAppender appender,
                                   ConversationService conversationService,
                                   OutboundDispatcher dispatcher,
-                                  MediaService mediaService) {
+                                  MediaService mediaService,
+                                  LinkPreviewService linkPreview) {
         this.repo = repo;
         this.appender = appender;
         this.conversationService = conversationService;
         this.dispatcher = dispatcher;
         this.mediaService = mediaService;
+        this.linkPreview = linkPreview;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -72,7 +75,13 @@ public class InboundMessageConsumer {
             }
         }
 
-        appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
+        long seq = appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
+
+        // 里程碑7：TEXT 消息异步补链接卡片（不阻塞消费线程；无 URL / 失败自然降级纯文本）
+        if ("TEXT".equals(env.getType()) && env.getBody() != null
+                && env.getBody().get("text") instanceof String text) {
+            linkPreview.tryEnrich(env.getCid(), seq, text);
+        }
     }
 
     private void pushError(Envelope src, String reason) {
