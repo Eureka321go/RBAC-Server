@@ -6,7 +6,7 @@
 
 **Architecture:** 把对象存储访问抽成端口接口 `MediaStorage`（唯一接触 AWS SDK 处），`S3MediaStorage` 为 AWS SDK v2 实现（endpoint override → MinIO/OSS 通吃）。`MediaService` 承载上传预签名与发送校验；`MediaUrlEnricher` 在 push（`MessageAppender`）与 pull（`MessageQueryService`）两条读路径共用，把持久化的 objectKey 临时换成预签名 GET URL。持久化 body 只存 objectKey+元数据，绝不存 url。
 
-**Tech Stack:** Java 21 + Spring Boot 3.4.1 + AWS SDK v2 (s3 + s3-presigner) + MinIO(S3 兼容) + MyBatis-Plus + MongoDB + Redis + Kafka；测试 `@SpringBootTest @ActiveProfiles("test")`，存储端口用 `@MockBean MediaStorage` 隔离，另加真实 MinIO 集成测。
+**Tech Stack:** Java 21 + Spring Boot 3.4.1 + AWS SDK v2 (s3，内含 presigner) + MinIO(S3 兼容) + MyBatis-Plus + MongoDB + Redis + Kafka；测试 `@SpringBootTest @ActiveProfiles("test")`，存储端口用 `@MockBean MediaStorage` 隔离，另加真实 MinIO 集成测。
 
 ## Global Constraints
 
@@ -25,7 +25,7 @@
 ### Task 1: AWS SDK 依赖 + `MediaProperties` 配置绑定
 
 **Files:**
-- Modify: `backend/pom.xml`（加 s3 + s3-presigner 依赖）
+- Modify: `backend/pom.xml`（加 s3 依赖，内含 S3Presigner）
 - Create: `backend/src/main/java/com/rbac/im/config/MediaProperties.java`
 - Modify: `backend/src/main/resources/application.yml`（`rbac.im` 下加 `media` 子节点）
 - Test: `backend/src/test/java/com/rbac/im/config/MediaPropertiesTest.java`
@@ -75,18 +75,14 @@ Expected: 编译失败——`MediaProperties` 不存在。
 
 - [ ] **Step 3: 加 AWS SDK 依赖**
 
-在 `backend/pom.xml` 的 spring-kafka 依赖之后、Lombok 之前插入（版本显式固定，Spring Boot BOM 不管理 AWS SDK）：
+在 `backend/pom.xml` 的 spring-kafka 依赖之后、Lombok 之前插入（版本显式固定，Spring Boot BOM 不管理 AWS SDK）。
+注意：AWS SDK v2 **没有**独立的 `s3-presigner` artifact，`S3Presigner` 就打包在 `s3` 内，只需这一个依赖：
 
 ```xml
         <!-- IM 富媒体：S3 兼容对象存储（MinIO/阿里云 OSS）预签名直传 -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <version>2.29.52</version>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3-presigner</artifactId>
             <version>2.29.52</version>
         </dependency>
 ```
