@@ -194,7 +194,7 @@ flowchart LR
 3. **单聊文本闭环**：上行→Kafka→定序→MongoDB→下行→在线推达；ack + clientMsgId 幂等。
 4. **离线 + 多端同步**：`pull(cid, sinceSeq)` 增量拉取接口（REST 或 WS 指令）。
 5. **群聊**：群会话 + 成员扇出（读扩散）。✅ 已完成（feat/im，Phase 3）——建/加/踢/退/解散/改名/转让/设免管理员/群禁言 + 全生命周期 SYSTEM 消息 + 发送成员校验/禁言拦截。
-6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。✅ 已完成（feat/im，Phase 4）——MediaStorage 端口 + S3MediaStorage 实现（预签名 PUT/GET、建桶、HEAD stat）；`POST /media/presign` 签发上传直传地址；IMAGE/AUDIO/FILE 三类媒体消息发送前校验 + HEAD 回填元数据；MediaUrlEnricher 统一在 push 推送与 pull 拉取两条路径回显预签名 GET URL（不落库、不改持久化 body）；图片缩略图不在本期范围内，未实现。
+6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。✅ 已完成（feat/im，Phase 4）——MediaStorage 端口 + S3MediaStorage 实现（预签名 PUT/GET、建桶、HEAD stat）；`POST /api/im/upload/presign` 签发上传直传地址；IMAGE/AUDIO/FILE 三类媒体消息发送前校验 + HEAD 回填元数据；MediaUrlEnricher 统一在 push 推送与 pull 拉取两条路径回显预签名 GET URL（不落库、不改持久化 body）；图片缩略图不在本期范围内，未实现。
 7. **链接卡片**：URL 识别 + OG 抓取（超时 + SSRF 防护）→ LINK 卡片，降级纯文本。
 8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。
 9. **@提及**：`mentions`/`mentionAll` 解析校验 + `mention_seq` 维护 + "有人@我"标记。
