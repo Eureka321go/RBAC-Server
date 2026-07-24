@@ -1924,21 +1924,21 @@ git commit -m "feat(im): 群解散+群详情/成员列表读接口"
 
 **Files:** 无新增（回归与文档）。
 
-- [ ] **Step 1: 跑全部 IM 测试**
+- [x] **Step 1: 跑全部 IM 测试**
 
 Run: `mvn -f backend/pom.xml test -Dtest='com.rbac.im.**'`
 Expected: 全绿。若失败，按 `superpowers:systematic-debugging` 定位，勿盲改。
 
-- [ ] **Step 2: 全量构建**
+- [x] **Step 2: 全量构建**
 
 Run: `mvn -f backend/pom.xml -q package -DskipTests=false`
 Expected: BUILD SUCCESS。
 
-- [ ] **Step 3: 更新设计里程碑勾选（可选）**
+- [x] **Step 3: 更新设计里程碑勾选（可选）**
 
 在 `docs/superpowers/specs/2026-07-22-im-chat-mvp-design.md` 里程碑 5 旁注记"已完成（feat/im）"。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A

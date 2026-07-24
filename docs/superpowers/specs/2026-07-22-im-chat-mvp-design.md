@@ -193,7 +193,7 @@ flowchart LR
 2. **握手鉴权**：网关 WS 握手复用 JWT+Redis，连接建立/断开 → 路由表增删 + 心跳续期。
 3. **单聊文本闭环**：上行→Kafka→定序→MongoDB→下行→在线推达；ack + clientMsgId 幂等。
 4. **离线 + 多端同步**：`pull(cid, sinceSeq)` 增量拉取接口（REST 或 WS 指令）。
-5. **群聊**：群会话 + 成员扇出（读扩散）。
+5. **群聊**：群会话 + 成员扇出（读扩散）。✅ 已完成（feat/im，Phase 3）——建/加/踢/退/解散/改名/转让/设免管理员/群禁言 + 全生命周期 SYSTEM 消息 + 发送成员校验/禁言拦截。
 6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。
 7. **链接卡片**：URL 识别 + OG 抓取（超时 + SSRF 防护）→ LINK 卡片，降级纯文本。
 8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。
