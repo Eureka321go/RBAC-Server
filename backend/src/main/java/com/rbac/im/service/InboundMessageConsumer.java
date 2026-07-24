@@ -16,16 +16,19 @@ public class InboundMessageConsumer {
     private final MessageAppender appender;
     private final ConversationService conversationService;
     private final OutboundDispatcher dispatcher;
+    private final MediaService mediaService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
                                   MessageAppender appender,
                                   ConversationService conversationService,
-                                  OutboundDispatcher dispatcher) {
+                                  OutboundDispatcher dispatcher,
+                                  MediaService mediaService) {
         this.repo = repo;
         this.appender = appender;
         this.conversationService = conversationService;
         this.dispatcher = dispatcher;
+        this.mediaService = mediaService;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -46,6 +49,16 @@ public class InboundMessageConsumer {
         if (conversationService.isGroupMuted(env.getCid(), env.getSenderId())) {
             pushError(env, "MUTED");
             return;
+        }
+
+        // 富媒体校验：objectKey 归属 + HEAD 确认 + 回填 size/mime
+        if (MediaService.isMedia(env.getType())) {
+            try {
+                mediaService.validateForSend(env.getCid(), env.getBody());
+            } catch (MediaValidationException ex) {
+                pushError(env, ex.getReason());
+                return;
+            }
         }
 
         appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());

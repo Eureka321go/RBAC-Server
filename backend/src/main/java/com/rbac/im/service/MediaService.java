@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -55,6 +56,20 @@ public class MediaService {
 
     private boolean mimeAllowed(List<String> mimes, String mime) {
         return mimes.contains("*") || (mime != null && mimes.contains(mime));
+    }
+
+    /** 发送媒体消息前校验：objectKey 须属本会话且对象真实存在；成功则用 HEAD 回填权威 size/mime。 */
+    public void validateForSend(String cid, Map<String, Object> body) {
+        if (body == null || !(body.get("objectKey") instanceof String objectKey)
+                || !objectKey.startsWith("im/" + cid + "/")) {
+            throw new MediaValidationException("INVALID_OBJECT");
+        }
+        MediaStorage.ObjectStat stat = storage.stat(objectKey)
+                .orElseThrow(() -> new MediaValidationException("OBJECT_NOT_FOUND"));
+        // 存为 int：与客户端自报字段（Jackson 反序列化的 JSON number）类型一致，
+        // 避免 Mongo 落库后 Long/Integer 类型不一致；媒体大小受 MediaProperties 限制，远小于 Integer.MAX_VALUE。
+        body.put("size", (int) stat.size());
+        body.put("mime", stat.contentType());
     }
 
     private String buildKey(String cid, String filename) {

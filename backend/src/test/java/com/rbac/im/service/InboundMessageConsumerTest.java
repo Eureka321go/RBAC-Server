@@ -34,7 +34,7 @@ class InboundMessageConsumerTest {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(false);
         when(conversationService.isMember("c_1_2", 1L)).thenReturn(true);
         when(appender.append("c_1_2", 1L, "TEXT", Map.of("text", "hi"), "cli-1")).thenReturn(5L);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class));
 
         c.onMessage(json("cli-1"));
 
@@ -44,7 +44,7 @@ class InboundMessageConsumerTest {
     @Test
     void duplicate_clientMsgId_is_skipped() throws Exception {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(true);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class));
 
         c.onMessage(json("cli-1"));
 
