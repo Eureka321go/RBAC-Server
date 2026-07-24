@@ -56,8 +56,8 @@ public class LinkFetchConfig {
         return new SsrfGuardedFetcher(props, resolver, exchange);
     }
 
-    /** 流式读取，超过上限即中断（不信 Content-Length）。 */
-    private static String readCapped(InputStream in, long maxBytes) throws Exception {
+    /** 流式读取，超过上限即中断（不信 Content-Length）。包级可见仅为单测直调，逻辑不变。 */
+    static String readCapped(InputStream in, long maxBytes) throws Exception {
         try (BufferedInputStream bin = new BufferedInputStream(in)) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buf = new byte[8192];

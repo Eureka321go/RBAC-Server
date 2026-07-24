@@ -104,4 +104,35 @@ class SsrfGuardedFetcherTest {
                 url -> new SsrfGuardedFetcher.Response(404, null, "text/html", "nope"));
         assertThat(f.fetch("http://x.com/a")).isEmpty();
     }
+
+    /**
+     * 安全边界回归：某 host 解析出多个 IP，其中一个是危险地址（云元数据端点）。
+     * 只要单测桩恒定「只查 ips.get(0)」也能全绿，就说明 isUrlSafe 悄悄退化成只校验第一个解析 IP，
+     * 而这里第一个 IP 是公网、第二个才危险 —— 必须整体拒绝，否则重开多 A 记录 SSRF 洞。
+     */
+    @Test
+    void rejects_when_any_of_multiple_resolved_ips_is_dangerous() throws Exception {
+        SsrfGuardedFetcher.HostResolver multiIpResolver = host -> List.of(
+                InetAddress.getByName("93.184.216.34"),   // 公网，排第一
+                InetAddress.getByName("169.254.169.254")  // 云元数据端点，危险，排第二
+        );
+        var f = new SsrfGuardedFetcher(props(), multiIpResolver,
+                url -> { throw new AssertionError("不应发起请求"); });
+        assertThat(f.fetch("http://multi-ip.example.com/a")).isEmpty();
+    }
+
+    @Test
+    void follows_relative_redirect_location_resolved_against_current_hop() {
+        var f = new SsrfGuardedFetcher(props(),
+                resolver(Map.of("a.com", "93.184.216.34")),
+                url -> url.equals("http://a.com/x")
+                        ? new SsrfGuardedFetcher.Response(302, "/final", null, null)
+                        : url.equals("http://a.com/final")
+                            ? new SsrfGuardedFetcher.Response(200, null, "text/html", "<title>Final</title>")
+                            : new SsrfGuardedFetcher.Response(404, null, null, null));
+        Optional<SsrfGuardedFetcher.FetchResult> r = f.fetch("http://a.com/x");
+        assertThat(r).isPresent();
+        assertThat(r.get().finalUrl()).isEqualTo("http://a.com/final");
+        assertThat(r.get().html()).contains("<title>Final</title>");
+    }
 }
