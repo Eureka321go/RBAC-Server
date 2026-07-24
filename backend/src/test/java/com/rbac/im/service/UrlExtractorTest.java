@@ -26,6 +26,22 @@ class UrlExtractorTest {
     }
 
     @Test
+    void trims_trailing_ascii_sentence_punctuation() {
+        assertThat(UrlExtractor.firstHttpUrl("见 https://x.com.")).contains("https://x.com");
+    }
+
+    @Test
+    void trims_trailing_wrapping_paren_without_matching_open() {
+        assertThat(UrlExtractor.firstHttpUrl("链接(https://x.com)")).contains("https://x.com");
+    }
+
+    @Test
+    void keeps_balanced_parens_inside_url() {
+        assertThat(UrlExtractor.firstHttpUrl("https://en.wikipedia.org/wiki/Foo_(bar)"))
+                .contains("https://en.wikipedia.org/wiki/Foo_(bar)");
+    }
+
+    @Test
     void ignores_non_http_scheme() {
         assertThat(UrlExtractor.firstHttpUrl("ftp://x.com file:///etc/passwd")).isEmpty();
     }

@@ -23,9 +23,23 @@ public final class UrlExtractor {
             return Optional.empty();
         }
         String url = m.group();
-        // 去掉常见尾随英文标点（正则已挡中文/空白，但 . , ; ) 可能是句尾而非 URL 一部分）
-        while (!url.isEmpty() && ".,;)!?'\"".indexOf(url.charAt(url.length() - 1)) >= 0) {
-            url = url.substring(0, url.length() - 1);
+        // 去掉常见尾随英文标点（正则已挡中文/空白，但 . , ; ) 可能是句尾而非 URL 一部分）。
+        // 对 ')' 做配平式判断：仅当 URL 串内右括号数多于左括号数（即这个尾随 ')' 没有对应的 '(')
+        // 才剥离，否则视为 URL 自身的配对括号（如维基百科 Foo_(bar)），保留不动。
+        while (!url.isEmpty()) {
+            char last = url.charAt(url.length() - 1);
+            if (last == ')') {
+                long open = url.chars().filter(c -> c == '(').count();
+                long close = url.chars().filter(c -> c == ')').count();
+                if (close <= open) {
+                    break;
+                }
+                url = url.substring(0, url.length() - 1);
+            } else if (".,;!?'\"".indexOf(last) >= 0) {
+                url = url.substring(0, url.length() - 1);
+            } else {
+                break;
+            }
         }
         return url.isEmpty() ? Optional.empty() : Optional.of(url);
     }
