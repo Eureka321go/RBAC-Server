@@ -19,10 +19,13 @@ public class MessageQueryService {
 
     private final ImMessageRepository repo;
     private final ConversationService conversationService;
+    private final MediaUrlEnricher enricher;
 
-    public MessageQueryService(ImMessageRepository repo, ConversationService conversationService) {
+    public MessageQueryService(ImMessageRepository repo, ConversationService conversationService,
+                                MediaUrlEnricher enricher) {
         this.repo = repo;
         this.conversationService = conversationService;
+        this.enricher = enricher;
     }
 
     public PullResult pull(String cid, Long sinceSeq, Integer limit, long requesterUserId) {
@@ -61,7 +64,7 @@ public class MessageQueryService {
         vo.setMsgId(m.getMsgId());
         vo.setSenderId(m.getSenderId());
         vo.setType(m.getType());
-        vo.setBody(m.getBody());
+        vo.setBody(enricher.enrich(m.getType(), m.getBody()));
         vo.setRecalled(m.isRecalled());
         vo.setTs(m.getTs());
         return vo;

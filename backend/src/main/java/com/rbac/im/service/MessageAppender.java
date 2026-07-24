@@ -19,15 +19,18 @@ public class MessageAppender {
     private final SeqService seqService;
     private final OutboundDispatcher dispatcher;
     private final ImConversationMapper conversationMapper;
+    private final MediaUrlEnricher enricher;
 
     public MessageAppender(ImMessageRepository repo,
                            SeqService seqService,
                            OutboundDispatcher dispatcher,
-                           ImConversationMapper conversationMapper) {
+                           ImConversationMapper conversationMapper,
+                           MediaUrlEnricher enricher) {
         this.repo = repo;
         this.seqService = seqService;
         this.dispatcher = dispatcher;
         this.conversationMapper = conversationMapper;
+        this.enricher = enricher;
     }
 
     /** 追加一条消息并扇出，返回定序后的 seq。 */
@@ -54,7 +57,7 @@ public class MessageAppender {
         push.setCid(cid);
         push.setSenderId(senderId);
         push.setType(type);
-        push.setBody(body);
+        push.setBody(enricher.enrich(type, body));
         push.setClientMsgId(clientMsgId);
         push.setSeq(seq);
         push.setMsgId(msgId);
