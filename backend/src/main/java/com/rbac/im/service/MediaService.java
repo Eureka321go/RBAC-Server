@@ -66,9 +66,7 @@ public class MediaService {
         }
         MediaStorage.ObjectStat stat = storage.stat(objectKey)
                 .orElseThrow(() -> new MediaValidationException("OBJECT_NOT_FOUND"));
-        // 存为 int：与客户端自报字段（Jackson 反序列化的 JSON number）类型一致，
-        // 避免 Mongo 落库后 Long/Integer 类型不一致；媒体大小受 MediaProperties 限制，远小于 Integer.MAX_VALUE。
-        body.put("size", (int) stat.size());
+        body.put("size", stat.size());
         body.put("mime", stat.contentType());
     }
 

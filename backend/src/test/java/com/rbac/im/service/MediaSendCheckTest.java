@@ -92,7 +92,7 @@ class MediaSendCheckTest {
 
         List<ImMessage> rows = repo.findByCidAndSeqGreaterThanOrderBySeqAsc(cid, 0L, Limit.of(10));
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getBody().get("size")).isEqualTo(20480);   // HEAD 值覆盖客户端自报的 1
+        assertThat(rows.get(0).getBody().get("size")).isEqualTo(20480L);   // HEAD 值覆盖客户端自报的 1
         assertThat(rows.get(0).getBody().get("mime")).isEqualTo("image/png");
     }
 }
