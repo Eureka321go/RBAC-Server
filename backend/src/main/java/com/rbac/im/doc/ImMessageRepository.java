@@ -5,7 +5,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
 
-public interface ImMessageRepository extends MongoRepository<ImMessage, String> {
+public interface ImMessageRepository extends MongoRepository<ImMessage, String>, ImMessageRepositoryCustom {
 
     List<ImMessage> findByCidAndSeqGreaterThanOrderBySeqAsc(String cid, Long seq);
 
