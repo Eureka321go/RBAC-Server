@@ -15,9 +15,9 @@ import java.util.Map;
 
 /** 在 WebSocket 升级前读取 ?token=&deviceId=，校验失败直接 401 关闭。 */
 public class HandshakeAuthHandler extends SimpleChannelInboundHandler<HttpRequest> {
-
-    public static final AttributeKey<Long> USER_ID = AttributeKey.valueOf("imUserId");
-    public static final AttributeKey<String> DEVICE_ID = AttributeKey.valueOf("imDeviceId");
+    // 往包裹上贴的标签
+    public static final AttributeKey<Long> USER_ID = AttributeKey.valueOf("imUserId"); // 这个 key 是全局注册的，字符串相同就是同一个 key
+    public static final AttributeKey<String> DEVICE_ID = AttributeKey.valueOf("imDeviceId"); // 这个 key 是全局注册的，字符串相同就是同一个 key
 
     private final GatewayJwtVerifier verifier;
     private final ChannelRegistry registry;
@@ -33,21 +33,22 @@ public class HandshakeAuthHandler extends SimpleChannelInboundHandler<HttpReques
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, HttpRequest req) {
-        Map<String, String> q = parseQuery(req.uri());
+        Map<String, String> q = parseQuery(req.uri());  // 从 /im?token=xx&deviceId=yy 取参数
         AuthResult r = verifier.verify(q.get("token"));
         if (!r.ok()) {
-            reject(ctx);
+            reject(ctx);  // 401 + close
             return;
         }
         String deviceId = q.getOrDefault("deviceId", "default");
-        ctx.channel().attr(USER_ID).set(r.userId());
+        ctx.channel().attr(USER_ID).set(r.userId()); // 细节 A：身份挂到 Channel 上
         ctx.channel().attr(DEVICE_ID).set(deviceId);
-        registry.add(r.userId(), deviceId, ctx.channel());
-        routeService.register(r.userId(), deviceId);
+        registry.add(r.userId(), deviceId, ctx.channel()); // 登记本机连接表
+        routeService.register(r.userId(), deviceId);  // 登记 Redis 全局路由
         // 重置 uri 到纯路径，交给后续 WebSocketServerProtocolHandler 完成升级
-        req.setUri(URI.create(req.uri()).getPath());
-        ctx.pipeline().remove(this);
-        ctx.fireChannelRead(io.netty.util.ReferenceCountUtil.retain(req));
+        // 但下一个工位 WebSocketServerProtocolHandler("/im") 是按路径精确匹配的, 看到带 query 的 uri 会匹配失败，握手不了。所以这里用 URI.create(uri).getPath() 剥掉 query，只留 /im 再往下传。
+        req.setUri(URI.create(req.uri()).getPath());  // 细节 B：uri 洗回纯路径
+        ctx.pipeline().remove(this); // 细节 C：把自己从流水线拆掉
+        ctx.fireChannelRead(io.netty.util.ReferenceCountUtil.retain(req)); // 把请求交给下一个工位
     }
 
     private void reject(ChannelHandlerContext ctx) {

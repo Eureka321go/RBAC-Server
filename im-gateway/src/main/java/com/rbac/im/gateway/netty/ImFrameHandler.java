@@ -10,12 +10,15 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.timeout.IdleStateEvent;
 
+// 收到消息帧(channelRead0)
+// 心跳超时(userEvent Triggered)
+// 连接断开清理(channelInactive)
 public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
 
-    private final InboundProducer inboundProducer;
-    private final ChannelRegistry registry;
-    private final RouteService routeService;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final InboundProducer inboundProducer; // —— 上行的出口,项目里自己写的类(kafka/InboundProducer.java),封装了"把消息发到Kafka im-inbound topic"这个动作。
+    private final ChannelRegistry registry; // 本机连接表 维护本网关内存里userId → {deviceId → Channel} 的映射。只登记本机的连接(Channel对象没法跨进程)
+    private final RouteService routeService; // 操作 Redis 里的route:user:<uid> —— 记录"某用户挂在哪台网关上",这是全局信息,所有网关和backend 都能查。
+    private final ObjectMapper mapper = new ObjectMapper(); //JSON 翻译器- 是什么:Jackson 库的类(第三方,不是你写的),负责 Java 对象 ↔ JSON字符串互转。注意它和上面三个不同 —— 是当场 new 出来的,不是 Spring 注入的。
 
     public ImFrameHandler(InboundProducer inboundProducer,
                           ChannelRegistry registry,
@@ -38,7 +41,10 @@ public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFra
             Envelope ack = new Envelope();
             ack.setOp("ACK");
             ack.setClientMsgId(env.getClientMsgId());
-            ack.setCid(env.getCid());
+            // 原路往回发
+            //  - write:把数据写进缓冲区,还没真出网卡
+            //  - flush:把缓冲区的数据真正冲刷到网络
+            //  - writeAndFlush:两步合一,写完立即发
             ctx.writeAndFlush(new TextWebSocketFrame(mapper.writeValueAsString(ack)));
         }
     }
@@ -51,12 +57,12 @@ public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFra
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) {
+    public void channelInactive(ChannelHandlerContext ctx) { // 连接断开（主动/被动）
         Long userId = ctx.channel().attr(HandshakeAuthHandler.USER_ID).get();
         String deviceId = ctx.channel().attr(HandshakeAuthHandler.DEVICE_ID).get();
         if (userId != null && deviceId != null) {
-            registry.remove(userId, deviceId);
-            routeService.unregister(userId, deviceId);
+            registry.remove(userId, deviceId); // 清本机表
+            routeService.unregister(userId, deviceId); // 清 Redis 路由
         }
     }
 }

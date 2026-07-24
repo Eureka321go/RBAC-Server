@@ -23,6 +23,6 @@ public class InboundProducer {
             kafka.send(TOPIC, env.getCid(), mapper.writeValueAsString(env));
         } catch (Exception e) {
             throw new IllegalStateException("serialize envelope failed", e);
-        }
-    }
+    }        }
+
 }

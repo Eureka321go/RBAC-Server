@@ -32,10 +32,10 @@ public class NettyWebSocketServer {
         this.port = port;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
+    @EventListener(ApplicationReadyEvent.class) // Spring 全部 Bean 就绪后再启动 Netty
     public void start() throws InterruptedException {
-        boss = new NioEventLoopGroup(1);
-        worker = new NioEventLoopGroup();
+        boss = new NioEventLoopGroup(1); // 老板：只负责 accept 新连接，1 个线程够了
+        worker = new NioEventLoopGroup();  // 工人：负责所有连接的读写，默认 CPU核数×2
         ServerBootstrap b = new ServerBootstrap();
         b.group(boss, worker)
                 .channel(NioServerSocketChannel.class)
@@ -46,7 +46,7 @@ public class NettyWebSocketServer {
         log.info("IM Netty WebSocket 网关已监听端口 {}", port);
     }
 
-    @PreDestroy
+    @PreDestroy  // 进程关闭时优雅停机
     public void stop() {
         if (channelFuture != null) channelFuture.channel().close();
         if (boss != null) boss.shutdownGracefully();
