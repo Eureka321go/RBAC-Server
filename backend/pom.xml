@@ -134,6 +134,13 @@
             <version>2.29.52</version>
         </dependency>
 
+        <!-- IM 链接卡片：OG 元数据 HTML 解析 -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.1</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

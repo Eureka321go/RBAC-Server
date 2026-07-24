@@ -89,6 +89,19 @@ rbac:
         file:
           max-size: 104857600
           mimes: ["*"]
+    link:
+      enabled: true
+      connect-timeout-ms: 2000
+      request-timeout-ms: 2000
+      max-body-bytes: 524288
+      max-redirects: 3
+      allowed-ports: [80, 443]
+      user-agent: "RBAC-IM-LinkBot/1.0"
+      cache-ttl-ok: 6h
+      cache-ttl-fail: 10m
+      pool-core: 2
+      pool-max: 4
+      pool-queue: 100
 
 # ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
 management:
