@@ -71,9 +71,10 @@ rbac:
     mention-all-admin-only: true
     group-max-members: 500
     media:
-      endpoint: http://localhost:9000
-      access-key: rbac
-      secret-key: rbac123456
+      # 连接密钥走环境变量，默认值仅供本地/测试；生产由 application-prod.yml 强制注入
+      endpoint: ${MEDIA_ENDPOINT:http://localhost:9000}
+      access-key: ${MEDIA_ACCESS_KEY:rbac}
+      secret-key: ${MEDIA_SECRET_KEY:rbac123456}
       bucket: im-media
       region: us-east-1
       put-ttl-seconds: 300

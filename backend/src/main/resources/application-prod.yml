@@ -6,6 +6,7 @@
 #
 #  必须由环境注入（无默认，缺失即失败）：
 #    DB_HOST / DB_USER / DB_PASSWORD / REDIS_HOST / REDIS_PASSWORD / RBAC_JWT_SECRET
+#    MEDIA_ENDPOINT / MEDIA_ACCESS_KEY / MEDIA_SECRET_KEY
 #  结构性、低风险项给默认（可覆盖）：DB_PORT / DB_NAME / REDIS_PORT
 # ══════════════════════════════════════════════════════════════════
 spring:
@@ -40,6 +41,13 @@ spring:
 rbac:
   jwt:
     secret: ${RBAC_JWT_SECRET}
+  # ── IM 富媒体对象存储：endpoint/密钥无默认值，缺失即启动失败，
+  #    绝不让生产悄悄连到 localhost:9000 或用上开发密钥。──
+  im:
+    media:
+      endpoint: ${MEDIA_ENDPOINT}
+      access-key: ${MEDIA_ACCESS_KEY}
+      secret-key: ${MEDIA_SECRET_KEY}
 
 # ── 日志：生产收敛，不打 SQL ──
 logging:
