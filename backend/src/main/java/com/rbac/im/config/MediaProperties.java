@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** 富媒体对象存储配置（S3 兼容：MinIO/OSS）。 */
@@ -27,7 +28,7 @@ public class MediaProperties {
 
     /** 按消息类型取上限规则；未知类型返回 null。 */
     public Limit limitFor(String type) {
-        return type == null ? null : limits.get(type.toLowerCase());
+        return type == null ? null : limits.get(type.toLowerCase(Locale.ROOT));
     }
 
     @Data

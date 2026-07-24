@@ -2,6 +2,7 @@ package com.rbac.im.service;
 
 import com.rbac.im.config.MediaProperties;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -78,9 +79,12 @@ public class S3MediaStorage implements MediaStorage {
     }
 
     @Override
-    public String presignPut(String objectKey, Duration ttl) {
+    public String presignPut(String objectKey, long contentLength, String contentType, Duration ttl) {
         PutObjectRequest put = PutObjectRequest.builder()
-                .bucket(props.getBucket()).key(objectKey).build();
+                .bucket(props.getBucket()).key(objectKey)
+                .contentLength(contentLength)   // 入签名 → 改字节数即签名失配
+                .contentType(contentType)       // 入签名 → 改 mime 即签名失配
+                .build();
         return presigner.presignPutObject(b -> b.signatureDuration(ttl).putObjectRequest(put))
                 .url().toString();
     }
@@ -106,5 +110,12 @@ public class S3MediaStorage implements MediaStorage {
             }
             throw e;
         }
+    }
+
+    /** 释放 SDK 的 HTTP 客户端与连接池（否则每个测试上下文都会泄漏一份）。 */
+    @PreDestroy
+    void close() {
+        s3.close();
+        presigner.close();
     }
 }

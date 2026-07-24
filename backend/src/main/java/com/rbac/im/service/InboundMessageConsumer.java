@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rbac.im.config.ImKafkaTopics;
 import com.rbac.im.doc.ImMessageRepository;
 import com.rbac.im.protocol.Envelope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -11,6 +13,8 @@ import java.util.Map;
 
 @Service
 public class InboundMessageConsumer {
+
+    private static final Logger log = LoggerFactory.getLogger(InboundMessageConsumer.class);
 
     private final ImMessageRepository repo;
     private final MessageAppender appender;
@@ -51,12 +55,19 @@ public class InboundMessageConsumer {
             return;
         }
 
-        // 富媒体校验：objectKey 归属 + HEAD 确认 + 回填 size/mime
+        // 富媒体校验：objectKey 归属 + HEAD 确认 + 大小/mime 复核 + 回填 size/mime
         if (MediaService.isMedia(env.getType())) {
             try {
-                mediaService.validateForSend(env.getCid(), env.getBody());
-            } catch (MediaValidationException ex) {
+                mediaService.validateForSend(env.getCid(), env.getType(), env.getBody());
+            } catch (MediaValidationException ex) {   // 具体在前：它也是 RuntimeException
                 pushError(env, ex.getReason());
+                return;
+            } catch (RuntimeException ex) {
+                // 对象存储故障/超时若逃出本方法，Kafka 重试后会静默丢弃这条消息，
+                // 发送方收了 ACK 却永远等不到 PUSH/ERROR。这里兜住并回通用码。
+                log.warn("媒体校验时对象存储不可用 cid={} senderId={}: {}",
+                        env.getCid(), env.getSenderId(), ex.toString());
+                pushError(env, "STORAGE_UNAVAILABLE");   // 只回通用码，不外泄 SDK 异常细节
                 return;
             }
         }

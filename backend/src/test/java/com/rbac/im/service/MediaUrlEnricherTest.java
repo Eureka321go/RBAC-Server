@@ -54,6 +54,15 @@ class MediaUrlEnricherTest {
         assertThat(enricher.enrich("IMAGE", null)).isNull();
     }
 
+    /** I3：Set.of(...).contains(null) 会抛 NPE；pull 对每条存量消息都调本方法，不能炸。 */
+    @Test
+    void nullType_isNoOp_notNpe() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("objectKey", "im/c_1_2/199001/abc.png");
+        assertThat(enricher.enrich(null, body)).isSameAs(body);
+        assertThat(enricher.enrich(null, null)).isNull();
+    }
+
     @Test
     void audio_getsUrl_fromPresignedGet() {
         when(storage.presignGet(eq("im/c_1_2/199001/audio.mp3"), any(Duration.class)))

@@ -40,7 +40,7 @@ class InboundMessageConsumerTest {
         c.onMessage(json("cli-1"));
 
         verify(appender).append("c_1_2", 1L, "TEXT", Map.of("text", "hi"), "cli-1");
-        verify(mediaService, never()).validateForSend(any(), any());
+        verify(mediaService, never()).validateForSend(any(), any(), any());
     }
 
     @Test

@@ -24,7 +24,10 @@ public class MediaUrlEnricher {
 
     /** 媒体类型且含 objectKey → 返回带 url 的新副本；否则原样返回（不改动持久化 body）。 */
     public Map<String, Object> enrich(String type, Map<String, Object> body) {
-        if (!MEDIA_TYPES.contains(type) || body == null || !(body.get("objectKey") instanceof String objectKey)) {
+        // type 为 null 必须先短路：Set.of(...).contains(null) 抛 NPE，
+        // 而 pull 会对每条存量消息调本方法，一条 null-type 文档就能让整个会话 500。
+        if (type == null || !MEDIA_TYPES.contains(type)
+                || body == null || !(body.get("objectKey") instanceof String objectKey)) {
             return body;
         }
         Map<String, Object> copy = new HashMap<>(body);
