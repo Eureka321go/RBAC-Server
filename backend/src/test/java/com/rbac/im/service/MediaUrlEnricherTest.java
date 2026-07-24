@@ -48,4 +48,46 @@ class MediaUrlEnricherTest {
         Map<String, Object> body = Map.of("foo", "bar");
         assertThat(enricher.enrich("FILE", body)).isSameAs(body);
     }
+
+    @Test
+    void nullBody_isNoOp() {
+        assertThat(enricher.enrich("IMAGE", null)).isNull();
+    }
+
+    @Test
+    void audio_getsUrl_fromPresignedGet() {
+        when(storage.presignGet(eq("im/c_1_2/199001/audio.mp3"), any(Duration.class)))
+                .thenReturn("http://signed/audio");
+        Map<String, Object> body = new HashMap<>();
+        body.put("objectKey", "im/c_1_2/199001/audio.mp3");
+        body.put("duration", 60);
+
+        Map<String, Object> out = enricher.enrich("AUDIO", body);
+
+        assertThat(out.get("url")).isEqualTo("http://signed/audio");
+        assertThat(out.get("duration")).isEqualTo(60);
+        assertThat(body).doesNotContainKey("url");   // 原 body 不被污染
+    }
+
+    @Test
+    void file_getsUrl_fromPresignedGet() {
+        when(storage.presignGet(eq("im/c_1_2/199001/doc.pdf"), any(Duration.class)))
+                .thenReturn("http://signed/file");
+        Map<String, Object> body = new HashMap<>();
+        body.put("objectKey", "im/c_1_2/199001/doc.pdf");
+        body.put("fileName", "document.pdf");
+
+        Map<String, Object> out = enricher.enrich("FILE", body);
+
+        assertThat(out.get("url")).isEqualTo("http://signed/file");
+        assertThat(out.get("fileName")).isEqualTo("document.pdf");
+        assertThat(body).doesNotContainKey("url");   // 原 body 不被污染
+    }
+
+    @Test
+    void objectKey_notString_isNoOp() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("objectKey", 123);
+        assertThat(enricher.enrich("IMAGE", body)).isSameAs(body);
+    }
 }
