@@ -127,6 +127,13 @@
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
+        <!-- IM 富媒体：S3 兼容对象存储（MinIO/阿里云 OSS）预签名直传 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.29.52</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

@@ -70,6 +70,24 @@ rbac:
     recall-window-seconds: 120
     mention-all-admin-only: true
     group-max-members: 500
+    media:
+      endpoint: http://localhost:9000
+      access-key: rbac
+      secret-key: rbac123456
+      bucket: im-media
+      region: us-east-1
+      put-ttl-seconds: 300
+      get-ttl-seconds: 300
+      limits:
+        image:
+          max-size: 10485760
+          mimes: [image/jpeg, image/png, image/gif, image/webp]
+        audio:
+          max-size: 20971520
+          mimes: [audio/mpeg, audio/mp4, audio/aac, audio/ogg, audio/wav]
+        file:
+          max-size: 104857600
+          mimes: ["*"]
 
 # ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
 management:
