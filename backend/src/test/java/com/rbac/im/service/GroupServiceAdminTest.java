@@ -67,4 +67,15 @@ class GroupServiceAdminTest {
         assertThatThrownBy(() -> groupService.setRole(5402L, r.getGroupId(), 5403L, "ADMIN"))
                 .isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    void isGroupManager_true_for_owner_and_admin_false_for_member_and_absent() {
+        CreateGroupResult r = groupService.createGroup(5601L, "群", List.of(5602L, 5603L));
+        groupService.setRole(5601L, r.getGroupId(), 5602L, "ADMIN");
+
+        assertThat(groupService.isGroupManager(r.getGroupId(), 5601L)).isTrue();  // OWNER
+        assertThat(groupService.isGroupManager(r.getGroupId(), 5602L)).isTrue();  // ADMIN
+        assertThat(groupService.isGroupManager(r.getGroupId(), 5603L)).isFalse(); // MEMBER
+        assertThat(groupService.isGroupManager(r.getGroupId(), 9999L)).isFalse(); // 非成员
+    }
 }

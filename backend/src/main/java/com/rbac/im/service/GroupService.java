@@ -264,6 +264,14 @@ public class GroupService {
         return n != null && n > 0;
     }
 
+    /** 该用户在群内是否为管理员（OWNER 或 ADMIN）；成员不存在返回 false。 */
+    public boolean isGroupManager(long groupId, long userId) {
+        ImGroupMember m = groupMemberMapper.selectOne(new LambdaQueryWrapper<ImGroupMember>()
+                .eq(ImGroupMember::getGroupId, groupId)
+                .eq(ImGroupMember::getUserId, userId));
+        return m != null && ("OWNER".equals(m.getRole()) || "ADMIN".equals(m.getRole()));
+    }
+
     long memberCount(long groupId) {
         Long n = groupMemberMapper.selectCount(new LambdaQueryWrapper<ImGroupMember>()
                 .eq(ImGroupMember::getGroupId, groupId));
