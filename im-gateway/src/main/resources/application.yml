@@ -5,8 +5,9 @@ spring:
     name: im-gateway
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:rbac_redis_123}   # 必须与 backend 一致（docker rbac-redis 启用了 requirepass）
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -26,4 +27,5 @@ im:
 
 rbac:
   jwt:
-    secret: ${RBAC_JWT_SECRET:change-me-please-change-me-32bytes-min}   # 必须与 backend 一致
+    # 必须与 backend 一致：本地 dev 无 RBAC_JWT_SECRET 时，默认值对齐 backend application-dev.yml
+    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}
