@@ -221,10 +221,10 @@ services: #定义需要运行的服务
     container_name: rbac-minio
     profiles: ["im"]
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: server /data --console-address ":9091"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"        # S3 API（后端预签名直传用）
+      - "9091:9091"        # MinIO 控制台 UI（避让 im-gateway 的 WS 端口 9001）
     environment:
       MINIO_ROOT_USER: rbac
       MINIO_ROOT_PASSWORD: rbac123456
