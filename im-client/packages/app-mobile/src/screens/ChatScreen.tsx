@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -29,11 +29,19 @@ export function ChatScreen({ route }: Props) {
   const [draft, setDraft] = useState('');
   const [banner, setBanner] = useState<string | null>(null);
 
+  // 组件是否仍处于挂载状态；卸载后用它守卫所有异步回调里的 setState，避免对已卸载组件调用。
+  const mountedRef = useRef(true);
+  // 横幅自动消失的定时器；每次新错误到来时需要清掉旧的，重新计时 3 秒。
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const reload = useCallback(async () => {
-    setItems(await sdk.chat.getChatMessages(cid));
+    const list = await sdk.chat.getChatMessages(cid);
+    if (!mountedRef.current) return;
+    setItems(list);
   }, [cid]);
 
   useEffect(() => {
+    mountedRef.current = true;
     void reload();
     const offMsg = sdk.chat.on('message', (p) => {
       if (p.cid === cid) void reload();
@@ -41,9 +49,18 @@ export function ChatScreen({ route }: Props) {
     const offErr = sdk.chat.on('sendError', (p) => {
       if (p.cid !== cid) return;
       setBanner(`发送失败：${p.reason}`);
-      setTimeout(() => setBanner(null), 3000);
+      if (bannerTimerRef.current != null) clearTimeout(bannerTimerRef.current);
+      bannerTimerRef.current = setTimeout(() => {
+        bannerTimerRef.current = null;
+        if (mountedRef.current) setBanner(null);
+      }, 3000);
     });
     return () => {
+      mountedRef.current = false;
+      if (bannerTimerRef.current != null) {
+        clearTimeout(bannerTimerRef.current);
+        bannerTimerRef.current = null;
+      }
       offMsg();
       offErr();
     };
