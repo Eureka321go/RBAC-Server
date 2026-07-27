@@ -9,6 +9,7 @@
   },
   "peerDependencies": {
     "@im/sdk-core": "*",
+    "@op-engineering/op-sqlite": ">=11",
     "react-native": ">=0.74",
     "react-native-keychain": ">=8"
   }
