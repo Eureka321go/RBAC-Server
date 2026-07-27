@@ -25,6 +25,13 @@ public class ImMessageRepositoryImpl implements ImMessageRepositoryCustom {
         template.updateFirst(q, u, ImMessage.class);
     }
 
+    @Override
+    public void markRecalled(String cid, long seq) {
+        Query q = new Query(Criteria.where("cid").is(cid).and("seq").is(seq));
+        Update u = new Update().set("recalled", true).set("body", new LinkedHashMap<>());
+        template.updateFirst(q, u, ImMessage.class);
+    }
+
     private static Map<String, Object> toMap(LinkCard c) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("url", c.url());
