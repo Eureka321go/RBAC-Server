@@ -95,7 +95,7 @@ public class LinkPreviewService {
             repo.updateLink(cid, seq, card);
             dispatcher.dispatch(cid, linkPreviewEnvelope(cid, seq, card));
         } catch (Throwable t) {
-            log.warn("链接卡片补写失败 cid={} seq={}: {}", cid, seq, t.toString());
+            log.warn("链接卡片补写失败 cid={} seq={}", cid, seq, t);
         }
     }
 
