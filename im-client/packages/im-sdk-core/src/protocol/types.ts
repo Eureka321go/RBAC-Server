@@ -5,6 +5,8 @@ export const OP = {
   ACK: 'ACK',
   PUSH: 'PUSH',
   ERROR: 'ERROR',
+  PING: 'PING',
+  PONG: 'PONG',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];

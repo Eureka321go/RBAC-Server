@@ -1,4 +1,4 @@
-import { AuthService, ConnectionManager } from '@im/sdk-core';
+import { AuthService, ConnectionManager, TOKEN_KEYS } from '@im/sdk-core';
 import { AxiosHttp } from './adapters/axiosHttp';
 import { WebSocketTransport } from './adapters/webSocketTransport';
 import { KeychainSecureStore } from './adapters/keychainSecureStore';
@@ -13,7 +13,7 @@ export interface SdkConfig {
 
 export function createSdk(config: SdkConfig) {
   const store = new KeychainSecureStore();
-  const http = new AxiosHttp(config.apiBaseUrl, () => store.get('im.accessToken'));
+  const http = new AxiosHttp(config.apiBaseUrl, () => store.get(TOKEN_KEYS.access));
   const auth = new AuthService(http, store);
   const transport = new WebSocketTransport();
   const lifecycle = new AppStateLifecycle();

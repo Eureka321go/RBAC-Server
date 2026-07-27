@@ -20,7 +20,7 @@ function App() {
         <ConnectionStatusBar />
         {loggedIn ? (
           <View style={styles.home}>
-            <Text style={styles.hi}>已登录，WS 长连接已建立。</Text>
+            <Text style={styles.hi}>已登录（连接状态见顶部状态条）。</Text>
             <Button title="登出" onPress={() => logout()} />
           </View>
         ) : (
