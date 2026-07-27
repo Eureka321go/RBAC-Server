@@ -134,12 +134,44 @@ describe('ChatService.sendText', () => {
 
   it('does not overwrite an acked row when the timeout fires late', async () => {
     const { chat, outbox, transport } = await setup();
+    const errors: string[] = [];
+    chat.on('sendError', (p) => errors.push(p.reason));
     const cmid = await chat.sendText('c_1_2', 'hi');
 
     transport.emitMessage(JSON.stringify({ op: 'ACK', clientMsgId: cmid }));
     await vi.advanceTimersByTimeAsync(20000);
 
     expect((await outbox.get(cmid))!.status).toBe('acked');
+    // 迟到的超时不得对一条已经成功的消息补发 sendError（brief 明确要求不得误报）。
+    expect(errors).toEqual([]);
+  });
+
+  it('does not resurrect the row or emit sendError when the timeout fires after its own PUSH already settled it', async () => {
+    const { chat, outbox, transport } = await setup();
+    const errors: string[] = [];
+    chat.on('sendError', (p) => errors.push(p.reason));
+    const cmid = await chat.sendText('c_1_2', 'hi');
+
+    transport.emitMessage(
+      JSON.stringify({
+        op: 'PUSH',
+        cid: 'c_1_2',
+        seq: 11,
+        msgId: 'm11',
+        senderId: 1,
+        clientMsgId: cmid,
+        type: 'TEXT',
+        body: { text: 'hi' },
+        ts: 1234,
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await outbox.get(cmid)).toBeNull(); // PUSH 已落定，行被删除
+
+    await vi.advanceTimersByTimeAsync(15000); // ACK 超时定时器到点
+
+    expect(await outbox.get(cmid)).toBeNull(); // 不应被复活
+    expect(errors).toEqual([]);
   });
 
   it('marks the row failed with the reason from an ERROR frame', async () => {
@@ -183,9 +215,65 @@ describe('ChatService.resend', () => {
   });
 });
 
+describe('ChatService.stop', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('ignores ACK/PUSH frames delivered after stop()', async () => {
+    const { chat, outbox, transport, messages } = await setup();
+    const cmid = await chat.sendText('c_1_2', 'hi');
+
+    chat.stop();
+
+    transport.emitMessage(JSON.stringify({ op: 'ACK', clientMsgId: cmid }));
+    transport.emitMessage(
+      JSON.stringify({
+        op: 'PUSH',
+        cid: 'c_1_2',
+        seq: 11,
+        msgId: 'm11',
+        senderId: 1,
+        clientMsgId: cmid,
+        type: 'TEXT',
+        body: { text: 'hi' },
+        ts: 1234,
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(20000);
+
+    // 停掉之后不再消费任何帧：outbox 行原样停在 sending，消息也没落库。
+    expect((await outbox.get(cmid))!.status).toBe('sending');
+    expect(await messages.getMessages('c_1_2')).toHaveLength(0);
+  });
+});
+
 describe('ChatService downstream routing', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+
+  it('processes two frames delivered in the same tick without breaking the tx boundary', async () => {
+    // RN 的原生事件桥会在同一 JS turn 批量投递多帧；fire-and-forget 处理会让
+    // 第二帧在第一帧的 db.tx 尚未提交时插入，炸穿 sql.js 的事务边界（Critical-1 的回归锁）。
+    const { transport, messages } = await setup();
+    const push = (seq: number) =>
+      JSON.stringify({
+        op: 'PUSH',
+        cid: 'c_1_2',
+        seq,
+        msgId: `m${seq}`,
+        senderId: 2,
+        clientMsgId: null,
+        type: 'TEXT',
+        body: { text: `t${seq}` },
+        ts: 1000 + seq,
+      });
+    transport.emitMessage(push(21));
+    transport.emitMessage(push(22));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const rows = await messages.getMessages('c_1_2');
+    expect(rows.map((r) => r.seq)).toEqual([21, 22]);
+  });
 
   it('routes PUSH into the engine and reconciles the outbox row', async () => {
     const { chat, outbox, transport, messages } = await setup();
