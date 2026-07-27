@@ -25,6 +25,7 @@ public class InboundMessageConsumer {
     private final LinkPreviewService linkPreview;
     private final RecallService recallService;
     private final MentionService mentionService;
+    private final ReadService readService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
@@ -34,7 +35,8 @@ public class InboundMessageConsumer {
                                   MediaService mediaService,
                                   LinkPreviewService linkPreview,
                                   RecallService recallService,
-                                  MentionService mentionService) {
+                                  MentionService mentionService,
+                                  ReadService readService) {
         this.repo = repo;
         this.appender = appender;
         this.conversationService = conversationService;
@@ -43,6 +45,7 @@ public class InboundMessageConsumer {
         this.linkPreview = linkPreview;
         this.recallService = recallService;
         this.mentionService = mentionService;
+        this.readService = readService;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -52,6 +55,12 @@ public class InboundMessageConsumer {
         // 里程碑8：撤回走独立编排（自带成员/权限/时间窗校验）
         if ("RECALL".equals(env.getOp())) {
             recallService.recall(env);
+            return;
+        }
+
+        // 里程碑10：已读上报走独立分支（不落库、不占 seq、不走幂等/媒体/@提及校验链）
+        if ("READ".equals(env.getOp())) {
+            readService.read(env);
             return;
         }
 
