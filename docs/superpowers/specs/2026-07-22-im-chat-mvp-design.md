@@ -196,7 +196,7 @@ flowchart LR
 5. **群聊**：群会话 + 成员扇出（读扩散）。✅ 已完成（feat/im，Phase 3）——建/加/踢/退/解散/改名/转让/设免管理员/群禁言 + 全生命周期 SYSTEM 消息 + 发送成员校验/禁言拦截。
 6. **富媒体**：MinIO 预签名上传/回显；IMAGE / AUDIO / FILE 消息类型 + 元数据；图片缩略图。✅ 已完成（feat/im，Phase 4）——MediaStorage 端口 + S3MediaStorage 实现（预签名 PUT/GET、建桶、HEAD stat）；`POST /api/im/upload/presign` 签发上传直传地址；IMAGE/AUDIO/FILE 三类媒体消息发送前校验 + HEAD 回填元数据；MediaUrlEnricher 统一在 push 推送与 pull 拉取两条路径回显预签名 GET URL（不落库、不改持久化 body）；图片缩略图不在本期范围内，未实现。
 7. **链接卡片**：URL 识别 + OG 抓取（超时 + SSRF 防护）→ LINK 卡片，降级纯文本。✅ 已完成（feat/im，Phase 5）——TEXT 首个 URL 异步抓 OG（严格 SSRF：协议/端口白名单+全 IPv4/IPv6 危险段+逐跳重定向重校验）→ body.link 补写 + LINK_PREVIEW 增量帧扇出；Redis 正/负缓存；抓取失败/超时/被拒降级纯文本。
-8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。
+8. **撤回**：`recall(cid, targetSeq)` + 时间窗口/权限校验 + RECALL 控制消息扇出。✅ 已完成（feat/im，Phase 6）——op=RECALL 复用 Kafka im-inbound 按 op 分支；RecallService 6 步校验（成员/目标存在/类型可撤/幂等/权限/时间窗）；权限=单聊本人、群本人或 OWNER/ADMIN，时间窗对所有人（含管理员）一视同仁；原子 `$set recalled=true`+清空 body，生成 RECALL 控制消息（body.targetSeq）扇出；pull 侧撤回消息 body 清空不外泄正文（闭合 FU-2）。富媒体对象暂不即时删（GC follow-up）。
 9. **@提及**：`mentions`/`mentionAll` 解析校验 + `mention_seq` 维护 + "有人@我"标记。
 10. **已读未读**：`last_read_seq` + 已读回执。
 11. **压测**：压测客户端模拟 N 万连接 + 消息 QPS，出观测报告。
