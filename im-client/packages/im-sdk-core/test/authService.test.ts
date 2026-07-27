@@ -134,4 +134,25 @@ describe('AuthService.fetchMe', () => {
 
     expect(auth.getMyId()).toBeNull();
   });
+
+  it('login resets cached id to avoid cross-account leak', async () => {
+    const http = new FakeHttp();
+    const store = new MemStore();
+    http.nextGet = {
+      code: 200,
+      message: 'success',
+      data: { id: 7, username: 'admin', nickname: '管理员' },
+    };
+    const auth = new AuthService(http, store);
+
+    await auth.fetchMe();
+    expect(auth.getMyId()).toBe(7);
+
+    // 未先 logout，直接切换账号登录：myId 必须清空，逼调用方重新 fetchMe，
+    // 否则会残留上一个账号的 id，造成跨账号串号。
+    http.nextPost = ok({ accessToken: 'a2', refreshToken: 'r2', tokenType: 'Bearer', expiresIn: 3600 });
+    await auth.login('other', 'pw2');
+
+    expect(auth.getMyId()).toBeNull();
+  });
 });

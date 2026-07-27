@@ -58,6 +58,9 @@ export class AuthService {
     }
     await this.store.set(TOKEN_KEYS.access, res.data.accessToken);
     await this.store.set(TOKEN_KEYS.refresh, res.data.refreshToken);
+    // 切账号场景（未先 logout 直接 login）：清掉上一个账号缓存的 id，
+    // 逼调用方重新 fetchMe，避免跨账号串号窗口。
+    this.myId = null;
   }
 
   /** 尽力通知服务端登出（失败忽略），本地 token 无论如何清空。 */
