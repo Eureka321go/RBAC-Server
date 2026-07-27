@@ -12,4 +12,6 @@ public class ImConversationVO {
     private String lastMsgPreview;
     private Long lastReadSeq;
     private Long unreadCount;
+    private Long mentionSeq;        // 我被 @ 命中的最新消息 seq（里程碑9）
+    private boolean hasMention;     // mentionSeq > lastReadSeq → "有人@我"强提醒
 }

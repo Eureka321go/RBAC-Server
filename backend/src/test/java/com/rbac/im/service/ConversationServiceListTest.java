@@ -63,4 +63,29 @@ class ConversationServiceListTest {
         // 非成员看不到该会话
         assertTrue(service.listMyConversations(999).stream().noneMatch(v -> v.getCid().equals(cid)));
     }
+
+    @Test
+    void list_surfaces_mention_marker() {
+        String cid = service.ensureSingleConversation(301, 302);
+        ImConversationMember m = memberMapper.selectOne(
+                new LambdaQueryWrapper<ImConversationMember>()
+                        .eq(ImConversationMember::getCid, cid)
+                        .eq(ImConversationMember::getUserId, 301L));
+        m.setLastReadSeq(3L);
+        m.setMentionSeq(7L);   // 被 @ 在 seq=7，尚未读到 → hasMention
+        memberMapper.updateById(m);
+
+        ImConversationVO vo = service.listMyConversations(301).stream()
+                .filter(v -> v.getCid().equals(cid)).findFirst().orElseThrow();
+        assertEquals(7L, vo.getMentionSeq());
+        assertTrue(vo.isHasMention());
+
+        // 读到越过 mention_seq → 标记消除
+        m.setLastReadSeq(7L);
+        memberMapper.updateById(m);
+        ImConversationVO vo2 = service.listMyConversations(301).stream()
+                .filter(v -> v.getCid().equals(cid)).findFirst().orElseThrow();
+        assertEquals(7L, vo2.getMentionSeq());
+        assertFalse(vo2.isHasMention());
+    }
 }

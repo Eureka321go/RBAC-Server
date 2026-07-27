@@ -153,12 +153,17 @@ public class ConversationService {
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
                         (a, b) -> a));
+        Map<String, Long> mentionSeqByCid = members.stream()
+                .collect(Collectors.toMap(ImConversationMember::getCid,
+                        m -> m.getMentionSeq() == null ? 0L : m.getMentionSeq(),
+                        (a, b) -> a));
         List<String> cids = members.stream().map(ImConversationMember::getCid).toList();
         List<ImConversation> convs = conversationMapper.selectList(
                 new LambdaQueryWrapper<ImConversation>().in(ImConversation::getCid, cids));
         return convs.stream().map(c -> {
             long lastMsgSeq = c.getLastMsgSeq() == null ? 0L : c.getLastMsgSeq();
             long lastReadSeq = readSeqByCid.getOrDefault(c.getCid(), 0L);
+            long mentionSeq = mentionSeqByCid.getOrDefault(c.getCid(), 0L);
             ImConversationVO vo = new ImConversationVO();
             vo.setCid(c.getCid());
             vo.setType(c.getType());
@@ -167,6 +172,8 @@ public class ConversationService {
             vo.setLastMsgPreview(c.getLastMsgPreview());
             vo.setLastReadSeq(lastReadSeq);
             vo.setUnreadCount(Math.max(0L, lastMsgSeq - lastReadSeq));
+            vo.setMentionSeq(mentionSeq);
+            vo.setHasMention(mentionSeq > lastReadSeq);
             return vo;
         }).toList();
     }
