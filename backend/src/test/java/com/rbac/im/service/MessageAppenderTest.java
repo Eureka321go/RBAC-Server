@@ -61,4 +61,9 @@ class MessageAppenderTest {
     void preview_forSystem_isPlaceholder() {
         assertThat(MessageAppender.preview("SYSTEM", Map.of("event", "MEMBER_JOIN"))).isEqualTo("[系统消息]");
     }
+
+    @Test
+    void preview_of_recall_is_friendly_text() {
+        assertThat(MessageAppender.preview("RECALL", Map.of("targetSeq", 5L))).isEqualTo("[撤回了一条消息]");
+    }
 }

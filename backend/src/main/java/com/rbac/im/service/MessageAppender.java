@@ -86,6 +86,9 @@ public class MessageAppender {
         if ("SYSTEM".equals(type)) {
             return "[系统消息]";
         }
+        if ("RECALL".equals(type)) {
+            return "[撤回了一条消息]";
+        }
         return "[" + type + "]";
     }
 }
