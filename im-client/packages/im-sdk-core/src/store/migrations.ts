@@ -30,6 +30,7 @@ export const MIGRATIONS: string[] = [
      cid TEXT PRIMARY KEY,
      synced_seq INTEGER NOT NULL DEFAULT 0
    )`,
+  `CREATE INDEX idx_messages_cid_client ON messages (cid, client_msg_id)`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

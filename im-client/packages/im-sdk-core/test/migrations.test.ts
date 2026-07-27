@@ -16,6 +16,15 @@ describe('migrations', () => {
     expect(names).toContain('sync_meta');
   });
 
+  it('creates the (cid, client_msg_id) index on messages', async () => {
+    const db = await createSqljsDatabase();
+    await runMigrations(db);
+    const idx = await db.query<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type='index' AND name='idx_messages_cid_client'`,
+    );
+    expect(idx.length).toBe(1);
+  });
+
   it('is idempotent (second run is a no-op)', async () => {
     const db = await createSqljsDatabase();
     await runMigrations(db);
@@ -23,6 +32,6 @@ describe('migrations', () => {
     const rows = await db.query<{ version: number }>(
       `SELECT version FROM _migrations ORDER BY version`,
     );
-    expect(rows.length).toBe(3);
+    expect(rows.length).toBe(4);
   });
 });
