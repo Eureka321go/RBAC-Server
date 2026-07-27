@@ -113,4 +113,34 @@ export class MessageStore {
       [cid, seq],
     );
   }
+
+  /** 会话位点只增不减；预览仅在 seq 更大时才更新，乱序到达的旧消息不得覆盖。 */
+  async advanceConversation(c: {
+    cid: string;
+    type: string;
+    groupId: number | null;
+    seq: number;
+    preview: string | null;
+  }): Promise<void> {
+    await this.db.exec(
+      `INSERT INTO conversations (cid, type, group_id, last_msg_seq, last_msg_preview, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(cid) DO UPDATE SET
+         last_msg_preview = CASE WHEN excluded.last_msg_seq > conversations.last_msg_seq
+                                 THEN excluded.last_msg_preview
+                                 ELSE conversations.last_msg_preview END,
+         last_msg_seq = MAX(conversations.last_msg_seq, excluded.last_msg_seq),
+         updated_at = excluded.updated_at`,
+      [c.cid, c.type, c.groupId, c.seq, c.preview, Date.now()],
+    );
+  }
+
+  /** 同步位点前向单调推进（M3 增量拉取的起点）。 */
+  async advanceSyncedSeq(cid: string, seq: number): Promise<void> {
+    await this.db.exec(
+      `INSERT INTO sync_meta (cid, synced_seq) VALUES (?, ?)
+       ON CONFLICT(cid) DO UPDATE SET synced_seq = MAX(sync_meta.synced_seq, excluded.synced_seq)`,
+      [cid, seq],
+    );
+  }
 }
