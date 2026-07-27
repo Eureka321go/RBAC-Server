@@ -13,6 +13,7 @@ export class KeychainSecureStore implements SecureStore {
   }
 
   async del(key: string): Promise<void> {
-    await Keychain.resetInternetCredentials({ server: key });
+    // react-native-keychain 8.x：resetInternetCredentials(server: string)，收字符串而非 { server }
+    await Keychain.resetInternetCredentials(key);
   }
 }
