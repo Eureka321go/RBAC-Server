@@ -1,40 +1,78 @@
 /**
- * IM app-mobile：M1 最小 App —— 登录 + WS 长连接状态条。
+ * IM app-mobile：登录 → 选人 → 会话 三屏。
  *
  * @format
  */
 
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from './src/store';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { ContactsScreen } from './src/screens/ContactsScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
+import type { RootStackParamList } from './src/navigation/types';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+function ChatPlaceholder() {
+  return (
+    <View style={styles.center}>
+      <Text>会话页在 Task 7 实现</Text>
+    </View>
+  );
+}
 
 function App() {
+  const booted = useAppStore((x) => x.booted);
+  const boot = useAppStore((x) => x.boot);
   const loggedIn = useAppStore((x) => x.loggedIn);
-  const logout = useAppStore((x) => x.logout);
+
+  useEffect(() => {
+    void boot();
+  }, [boot]);
+
+  if (!booted) {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.center}>
+          <Text>初始化本地数据库…</Text>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root}>
-        <ConnectionStatusBar />
-        {loggedIn ? (
-          <View style={styles.home}>
-            <Text style={styles.hi}>已登录（连接状态见顶部状态条）。</Text>
-            <Button title="登出" onPress={() => logout()} />
-          </View>
-        ) : (
-          <LoginScreen />
-        )}
-      </SafeAreaView>
+      <ConnectionStatusBar />
+      <NavigationContainer>
+        <Stack.Navigator>
+          {!loggedIn ? (
+            <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'IM 登录' }} />
+          ) : (
+            <>
+              <Stack.Screen
+                name="Contacts"
+                component={ContactsScreen}
+                options={{ title: '选择联系人' }}
+              />
+              <Stack.Screen
+                name="Chat"
+                component={ChatPlaceholder}
+                options={({ route }) => ({ title: route.params.peerName })}
+              />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  home: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
-  hi: { fontSize: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default App;

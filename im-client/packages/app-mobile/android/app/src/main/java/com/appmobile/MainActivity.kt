@@ -1,11 +1,20 @@
 package com.appmobile
 
+import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
+
+  /**
+   * react-native-screens 要求：传 null 而非 savedInstanceState，
+   * 避免 Fragment 状态被系统恢复导致的崩溃。
+   */
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(null)
+  }
 
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule
