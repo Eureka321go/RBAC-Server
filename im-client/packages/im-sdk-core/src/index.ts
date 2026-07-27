@@ -5,3 +5,4 @@ export * from './store/migrations';
 export * from './store/messageStore';
 export * from './events/emitter';
 export * from './engine/syncEngine';
+export * from './auth/authService';
