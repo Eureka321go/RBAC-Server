@@ -8,14 +8,20 @@ apply plugin: "com.facebook.react"
  */
 react {
     /* Folders */
-    //   The root of your project, i.e. where "package.json" lives. Default is '../..'
-    // root = file("../../")
-    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
-    // reactNativeDir = file("../../node_modules/react-native")
-    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
-    // codegenDir = file("../../node_modules/@react-native/codegen")
-    //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
-    // cliFile = file("../../node_modules/react-native/cli.js")
+    // monorepo（npm workspaces）：react-native / @react-native/codegen 被 hoist 到
+    // im-client/node_modules，默认的 ../../node_modules/... 相对路径失效。
+    // 用 node require.resolve 解析真实位置，不受 hoist 影响。
+    def rnDir = new File(
+        ["node", "--print", "require.resolve('react-native/package.json')"]
+            .execute(null, rootDir).text.trim()
+    ).getParentFile()
+    reactNativeDir = rnDir
+    codegenDir = new File(
+        ["node", "--print",
+         "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"
+        ].execute(null, rootDir).text.trim()
+    ).getParentFile()
+    cliFile = new File(rnDir, "cli.js")
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
