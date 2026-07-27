@@ -12,18 +12,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from './src/store';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ContactsScreen } from './src/screens/ContactsScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-function ChatPlaceholder() {
-  return (
-    <View style={styles.center}>
-      <Text>会话页在 Task 7 实现</Text>
-    </View>
-  );
-}
 
 function App() {
   const booted = useAppStore((x) => x.booted);
@@ -60,7 +53,7 @@ function App() {
               />
               <Stack.Screen
                 name="Chat"
-                component={ChatPlaceholder}
+                component={ChatScreen}
                 options={({ route }) => ({ title: route.params.peerName })}
               />
             </>
