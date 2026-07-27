@@ -4,6 +4,7 @@ export * from './protocol/cid';
 export * from './ports/index';
 export * from './store/migrations';
 export * from './store/messageStore';
+export * from './store/outboxStore';
 export * from './events/emitter';
 export * from './engine/syncEngine';
 export * from './auth/authService';

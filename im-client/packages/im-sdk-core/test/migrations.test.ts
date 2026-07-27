@@ -32,6 +32,6 @@ describe('migrations', () => {
     const rows = await db.query<{ version: number }>(
       `SELECT version FROM _migrations ORDER BY version`,
     );
-    expect(rows.length).toBe(4);
+    expect(rows.length).toBe(6);
   });
 });

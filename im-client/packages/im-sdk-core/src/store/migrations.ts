@@ -31,6 +31,16 @@ export const MIGRATIONS: string[] = [
      synced_seq INTEGER NOT NULL DEFAULT 0
    )`,
   `CREATE INDEX idx_messages_cid_client ON messages (cid, client_msg_id)`,
+  `CREATE TABLE outbox (
+     client_msg_id TEXT PRIMARY KEY,
+     cid TEXT NOT NULL,
+     type TEXT NOT NULL,
+     body_json TEXT,
+     status TEXT NOT NULL,
+     error TEXT,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX idx_outbox_cid_created ON outbox (cid, created_at)`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */
