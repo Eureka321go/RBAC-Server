@@ -3,3 +3,5 @@ export * from './protocol/types';
 export * from './ports/index';
 export * from './store/migrations';
 export * from './store/messageStore';
+export * from './events/emitter';
+export * from './engine/syncEngine';
