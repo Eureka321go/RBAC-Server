@@ -167,6 +167,17 @@ public class ConversationService {
         List<String> cids = members.stream().map(ImConversationMember::getCid).toList();
         List<ImConversation> convs = conversationMapper.selectList(
                 new LambdaQueryWrapper<ImConversation>().in(ImConversation::getCid, cids));
+        List<String> singleCids = convs.stream()
+                .filter(c -> "SINGLE".equals(c.getType()))
+                .map(ImConversation::getCid).toList();
+        Map<String, Long> peerReadByCid = singleCids.isEmpty() ? Map.of()
+                : memberMapper.selectList(new LambdaQueryWrapper<ImConversationMember>()
+                        .in(ImConversationMember::getCid, singleCids)
+                        .ne(ImConversationMember::getUserId, userId))
+                    .stream()
+                    .collect(Collectors.toMap(ImConversationMember::getCid,
+                            m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
+                            (a, b) -> a));
         return convs.stream().map(c -> {
             long lastMsgSeq = c.getLastMsgSeq() == null ? 0L : c.getLastMsgSeq();
             long lastReadSeq = readSeqByCid.getOrDefault(c.getCid(), 0L);
@@ -181,6 +192,9 @@ public class ConversationService {
             vo.setUnreadCount(Math.max(0L, lastMsgSeq - lastReadSeq));
             vo.setMentionSeq(mentionSeq);
             vo.setHasMention(mentionSeq > lastReadSeq);
+            if ("SINGLE".equals(c.getType())) {
+                vo.setPeerReadSeq(peerReadByCid.getOrDefault(c.getCid(), 0L));
+            }
             return vo;
         }).toList();
     }
