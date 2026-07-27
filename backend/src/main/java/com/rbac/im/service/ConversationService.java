@@ -123,6 +123,13 @@ public class ConversationService {
         return count != null && count > 0;
     }
 
+    /** 会话当前 last_msg_seq；会话不存在或未初始化返回 0。用于已读位点钳制。 */
+    public long lastMsgSeq(String cid) {
+        ImConversation c = conversationMapper.selectOne(
+                new LambdaQueryWrapper<ImConversation>().eq(ImConversation::getCid, cid));
+        return (c == null || c.getLastMsgSeq() == null) ? 0L : c.getLastMsgSeq();
+    }
+
     /** 从 cid 解析群 id；非群会话返回 null。 */
     public static Long groupIdFromCid(String cid) {
         return cid != null && cid.startsWith("g_") ? Long.valueOf(cid.substring(2)) : null;
