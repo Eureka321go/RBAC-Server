@@ -64,7 +64,12 @@ public class MessageQueryService {
         vo.setMsgId(m.getMsgId());
         vo.setSenderId(m.getSenderId());
         vo.setType(m.getType());
-        vo.setBody(enricher.enrich(m.getType(), m.getBody()));
+        // 撤回消息正文不外泄：即便 Mongo 中 body 未清干净，pull 也返回空 body（闭合 FU-2）
+        if (m.isRecalled()) {
+            vo.setBody(java.util.Map.of());
+        } else {
+            vo.setBody(enricher.enrich(m.getType(), m.getBody()));
+        }
         vo.setRecalled(m.isRecalled());
         vo.setTs(m.getTs());
         return vo;

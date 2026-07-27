@@ -90,4 +90,25 @@ class MessageQueryServiceTest {
         assertEquals(5, r.getMessages().size()); // 默认 limit 50，全量 5 条
         assertFalse(r.isHasMore());
     }
+
+    @Test
+    void pull_blanks_body_of_recalled_message() {
+        ImMessage recalled = new ImMessage();
+        recalled.setCid(cid);
+        recalled.setSeq(6L);
+        recalled.setMsgId("m6");
+        recalled.setSenderId(301L);
+        recalled.setType("TEXT");
+        recalled.setBody(Map.of("text", "secret")); // 即便 body 未清干净
+        recalled.setRecalled(true);
+        recalled.setClientMsgId("cli-6");
+        recalled.setTs(System.currentTimeMillis());
+        repo.save(recalled);
+
+        PullResult r = service.pull(cid, 5L, 50, 301L);
+
+        assertEquals(1, r.getMessages().size());
+        assertTrue(r.getMessages().get(0).isRecalled());
+        assertTrue(r.getMessages().get(0).getBody().isEmpty()); // 正文不外泄
+    }
 }
