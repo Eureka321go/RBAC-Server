@@ -22,6 +22,7 @@ public class InboundMessageConsumer {
     private final OutboundDispatcher dispatcher;
     private final MediaService mediaService;
     private final LinkPreviewService linkPreview;
+    private final RecallService recallService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
@@ -29,18 +30,26 @@ public class InboundMessageConsumer {
                                   ConversationService conversationService,
                                   OutboundDispatcher dispatcher,
                                   MediaService mediaService,
-                                  LinkPreviewService linkPreview) {
+                                  LinkPreviewService linkPreview,
+                                  RecallService recallService) {
         this.repo = repo;
         this.appender = appender;
         this.conversationService = conversationService;
         this.dispatcher = dispatcher;
         this.mediaService = mediaService;
         this.linkPreview = linkPreview;
+        this.recallService = recallService;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
     public void onMessage(String json) throws Exception {
         Envelope env = mapper.readValue(json, Envelope.class);
+
+        // 里程碑8：撤回走独立编排（自带成员/权限/时间窗校验）
+        if ("RECALL".equals(env.getOp())) {
+            recallService.recall(env);
+            return;
+        }
 
         // 幂等：同一发送者 + clientMsgId 只处理一次
         if (env.getClientMsgId() != null
