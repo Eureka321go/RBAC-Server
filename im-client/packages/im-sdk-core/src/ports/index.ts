@@ -1,0 +1,63 @@
+// —— 数据库端口（全 Promise 化；同步驱动包一层 Promise.resolve）——
+export type SqlValue = string | number | null;
+export type Row = Record<string, SqlValue>;
+
+export interface Database {
+  exec(sql: string, params?: SqlValue[]): Promise<void>;
+  query<T = Row>(sql: string, params?: SqlValue[]): Promise<T[]>;
+  tx(fn: (tx: Database) => Promise<void>): Promise<void>;
+}
+
+// —— 长连接端口（M1 实现）——
+export type TransportState =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'closed';
+
+export interface Transport {
+  connect(url: string): void;
+  send(text: string): void;
+  onMessage(handler: (text: string) => void): void;
+  onState(handler: (state: TransportState) => void): void;
+  close(): void;
+}
+
+// —— HTTP 端口（M1 实现，axios 适配）——
+export interface Http {
+  get<T>(path: string, params?: Record<string, unknown>): Promise<T>;
+  post<T>(path: string, body?: unknown): Promise<T>;
+  put(url: string, body: unknown, headers?: Record<string, string>): Promise<void>;
+}
+
+// —— 安全存储端口（M1 实现，keychain）——
+export interface SecureStore {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  del(key: string): Promise<void>;
+}
+
+// —— 媒体选择端口（M5 实现）——
+export interface PickedMedia {
+  uri: string;
+  filename: string;
+  mime: string;
+  size: number;
+}
+
+export interface MediaPicker {
+  pickImage(): Promise<PickedMedia | null>;
+  pickFile(): Promise<PickedMedia | null>;
+}
+
+// —— 生命周期端口（M1 实现，AppState）——
+export interface AppLifecycle {
+  onForeground(handler: () => void): void;
+  onBackground(handler: () => void): void;
+}
+
+// —— id / 时间端口（Hermes 不保证 crypto.randomUUID）——
+export interface Ids {
+  uuid(): string;
+  now(): number;
+}
