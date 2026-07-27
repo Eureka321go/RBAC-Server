@@ -4,8 +4,13 @@ import type { Http, SecureStore } from '../src/index';
 
 class FakeHttp implements Http {
   posts: Array<{ path: string; body: unknown }> = [];
+  gets: Array<{ path: string }> = [];
   nextPost: unknown;
-  async get<T>(): Promise<T> { throw new Error('not used'); }
+  nextGet: unknown;
+  async get<T>(path: string): Promise<T> {
+    this.gets.push({ path });
+    return this.nextGet as T;
+  }
   async post<T>(path: string, body?: unknown): Promise<T> {
     this.posts.push({ path, body });
     return this.nextPost as T;
@@ -91,5 +96,42 @@ describe('AuthService', () => {
 
     await auth.logout(); // must not throw
     expect(await store.get(TOKEN_KEYS.access)).toBeNull();
+  });
+});
+
+describe('AuthService.fetchMe', () => {
+  it('fetches current user and caches the id', async () => {
+    const http = new FakeHttp();
+    const store = new MemStore();
+    http.nextGet = {
+      code: 200,
+      message: 'success',
+      data: { id: 7, username: 'admin', nickname: '管理员' },
+    };
+    const auth = new AuthService(http, store);
+    expect(auth.getMyId()).toBeNull();
+
+    const me = await auth.fetchMe();
+
+    expect(http.gets[0]).toEqual({ path: '/auth/me' });
+    expect(me.id).toBe(7);
+    expect(auth.getMyId()).toBe(7);
+  });
+
+  it('clears cached id on logout', async () => {
+    const http = new FakeHttp();
+    const store = new MemStore();
+    http.nextGet = {
+      code: 200,
+      message: 'success',
+      data: { id: 7, username: 'admin', nickname: '管理员' },
+    };
+    http.nextPost = { code: 200, message: 'success', data: null };
+    const auth = new AuthService(http, store);
+
+    await auth.fetchMe();
+    await auth.logout();
+
+    expect(auth.getMyId()).toBeNull();
   });
 });

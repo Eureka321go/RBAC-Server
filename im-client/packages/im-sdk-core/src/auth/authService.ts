@@ -18,12 +18,35 @@ export const TOKEN_KEYS = {
   refresh: 'im.refreshToken',
 } as const;
 
+export interface MeData {
+  id: number;
+  username: string;
+  nickname: string;
+}
+
 /** 登录编排：调用 RBAC /auth 接口，token 落 SecureStore。 */
 export class AuthService {
+  private myId: number | null = null;
+
   constructor(
     private readonly http: Http,
     private readonly store: SecureStore,
   ) {}
+
+  /** 取当前登录用户；cid 拼接与"己方消息"判定都依赖它。 */
+  async fetchMe(): Promise<MeData> {
+    const res = await this.http.get<ApiResult<MeData>>('/auth/me');
+    if (res.code !== 200 || res.data == null) {
+      throw new Error(res.message || 'fetch me failed');
+    }
+    this.myId = res.data.id;
+    return res.data;
+  }
+
+  /** 已缓存的当前用户 id；未登录/未拉取返回 null。 */
+  getMyId(): number | null {
+    return this.myId;
+  }
 
   async login(username: string, password: string): Promise<void> {
     const res = await this.http.post<ApiResult<LoginData>>('/auth/login', {
@@ -46,6 +69,7 @@ export class AuthService {
     }
     await this.store.del(TOKEN_KEYS.access);
     await this.store.del(TOKEN_KEYS.refresh);
+    this.myId = null;
   }
 
   getAccessToken(): Promise<string | null> {
