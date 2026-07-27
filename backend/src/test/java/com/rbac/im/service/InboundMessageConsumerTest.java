@@ -37,7 +37,7 @@ class InboundMessageConsumerTest {
         when(appender.append("c_1_2", 1L, "TEXT", Map.of("text", "hi"), "cli-1")).thenReturn(5L);
         MediaService mediaService = mock(MediaService.class);
         LinkPreviewService linkPreview = mock(LinkPreviewService.class);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, recallService);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, recallService, mock(MentionService.class));
 
         c.onMessage(json("cli-1"));
 
@@ -48,7 +48,7 @@ class InboundMessageConsumerTest {
     @Test
     void duplicate_clientMsgId_is_skipped() throws Exception {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(true);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class), mock(LinkPreviewService.class), recallService);
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class), mock(LinkPreviewService.class), recallService, mock(MentionService.class));
 
         c.onMessage(json("cli-1"));
 
@@ -66,7 +66,7 @@ class InboundMessageConsumerTest {
 
         InboundMessageConsumer c = new InboundMessageConsumer(
                 repo, appender, conversationService, dispatcher,
-                mock(MediaService.class), mock(LinkPreviewService.class), recallService);
+                mock(MediaService.class), mock(LinkPreviewService.class), recallService, mock(MentionService.class));
 
         c.onMessage(json);
 

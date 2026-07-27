@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -23,6 +24,7 @@ public class InboundMessageConsumer {
     private final MediaService mediaService;
     private final LinkPreviewService linkPreview;
     private final RecallService recallService;
+    private final MentionService mentionService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
@@ -31,7 +33,8 @@ public class InboundMessageConsumer {
                                   OutboundDispatcher dispatcher,
                                   MediaService mediaService,
                                   LinkPreviewService linkPreview,
-                                  RecallService recallService) {
+                                  RecallService recallService,
+                                  MentionService mentionService) {
         this.repo = repo;
         this.appender = appender;
         this.conversationService = conversationService;
@@ -39,6 +42,7 @@ public class InboundMessageConsumer {
         this.mediaService = mediaService;
         this.linkPreview = linkPreview;
         this.recallService = recallService;
+        this.mentionService = mentionService;
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -84,7 +88,19 @@ public class InboundMessageConsumer {
             }
         }
 
+        // 里程碑9：@提及 校验（非群/非 TEXT 返回空；@非成员或越权 @所有人抛异常 → 整条拒绝回 ERROR）
+        List<Long> mentionTargets;
+        try {
+            mentionTargets = mentionService.resolve(env.getCid(), env.getSenderId(), env.getType(), env.getBody());
+        } catch (MentionValidationException ex) {
+            pushError(env, ex.getReason());
+            return;
+        }
+
         long seq = appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
+
+        // 里程碑9：定序后把命中成员 mention_seq 推进到本消息 seq（空目标 no-op）
+        mentionService.apply(env.getCid(), seq, mentionTargets);
 
         // 里程碑7：TEXT 消息异步补链接卡片（不阻塞消费线程；无 URL / 失败自然降级纯文本）
         if ("TEXT".equals(env.getType()) && env.getBody() != null
