@@ -9,3 +9,4 @@ export * from './events/emitter';
 export * from './engine/syncEngine';
 export * from './auth/authService';
 export * from './connection/connectionManager';
+export * from './chat/chatService';
