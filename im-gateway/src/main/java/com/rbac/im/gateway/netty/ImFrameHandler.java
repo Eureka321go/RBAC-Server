@@ -33,6 +33,14 @@ public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFra
         Long userId = ctx.channel().attr(HandshakeAuthHandler.USER_ID).get();
         String deviceId = ctx.channel().attr(HandshakeAuthHandler.DEVICE_ID).get();
         Envelope env = mapper.readValue(frame.text(), Envelope.class);
+        if ("PING".equals(env.getOp())) {
+            // 心跳应答：回 PONG，供客户端存活看门狗判定连接健康（空闲连接不被误杀）
+            Envelope pong = new Envelope();
+            pong.setOp("PONG");
+            pong.setTs(System.currentTimeMillis());
+            ctx.writeAndFlush(new TextWebSocketFrame(mapper.writeValueAsString(pong)));
+            return;
+        }
         if ("SEND".equals(env.getOp())) {
             env.setSenderId(userId);       // 以连接身份为准，忽略客户端伪造
             env.setDeviceId(deviceId);
