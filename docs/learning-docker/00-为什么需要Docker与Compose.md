@@ -106,7 +106,7 @@ deploy/
 |----|-----------|-----------|
 | **核心层**（默认） | `mysql`、`redis`、`backend`、`frontend`、`caddy` | 平时开发、上线都要 |
 | **扩展层**（`--profile extra`） | `nginx`、`rabbitmq` | 需要消息队列时 |
-| **完整层**（`--profile full`） | `kafka`、`elasticsearch`、`kibana` | 需要搜索/日志分析时 |
+| **完整层**（`--profile full`） | `kafka` | 需要 IM 消息流时 |
 
 对应的常用命令（现在只需眼熟，别急着敲）：
 

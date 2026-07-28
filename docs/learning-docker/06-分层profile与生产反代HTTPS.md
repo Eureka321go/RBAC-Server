@@ -14,7 +14,7 @@
 
 ## 一、承上：还剩三块
 
-`05` 结束时，核心层（mysql + redis）每一个字段你都能讲出为什么了。但 `deploy/docker-compose.yml` 一共 214 行，你精读过的还不到一半。剩下的东西可以归成三块：
+`05` 结束时，核心层（mysql + redis）每一个字段你都能讲出为什么了。但 `deploy/docker-compose.yml` 一共 217 行，你精读过的还不到一半。剩下的东西可以归成三块：
 
 | 剩下的 | 是什么问题 |
 |---|---|
@@ -30,22 +30,11 @@
 
 ### 2.1 先看要解决的问题
 
-本项目的 compose 文件里，除了 mysql / redis，还躺着 nginx、rabbitmq、kafka、elasticsearch、kibana。
+本项目的 compose 文件里，除了 mysql / redis，还有 nginx、rabbitmq 和 kafka。
 
-问题来了：**你每天写 RBAC 的增删改查，需要 Kafka 吗？需要 Elasticsearch 吗？**
+问题来了：**你每天写 RBAC 的增删改查，需要 Kafka 吗？**
 
-不需要。而这些东西**不是白嫖的**——看 `elasticsearch` 的配置（第 181-186 行，真实内容）：
-
-```yaml
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-```
-
-`-Xms512m -Xmx512m` 是给 JVM 堆划的 512MB，**这还只是堆**，加上 JVM 自身开销和 Kibana，轻松吃掉 2GB 内存。你的 Mac mini 一边跑 IDEA 一边跑前端 dev server，再无脑起一堆 ES + Kafka，风扇会告诉你答案。
-
-**那为什么不干脆把它们从文件里删掉？** 因为项目以后要用。删了，将来要加消息队列时你得重新查一遍 RabbitMQ 该怎么配；留着，写好放在那儿，需要的那天一条命令就起来了。
+普通 RBAC 功能不需要 Kafka；只有 IM 消息流等场景才需要它。所以配置保留在 `full` profile 中，按需启动。Elasticsearch/Kibana 没有业务依赖，已从编排中移除，避免为未使用的能力长期占用资源。
 
 `profiles` 解决的就是这个矛盾：**配置写在文件里（不丢），但默认不启动（不占资源）。**
 
@@ -76,7 +65,7 @@
 # 分层启动（用 profile 控制）：
 #   核心层（默认，无 profile）：mysql、redis
 #   扩展层（--profile extra）  ：nginx、rabbitmq
-#   完整层（--profile full）   ：kafka、elasticsearch、kibana
+#   完整层（--profile full）   ：kafka
 #
 # 常用命令：
 #   仅核心      : docker compose up -d
@@ -96,10 +85,6 @@
 
   kafka:
     profiles: ["full"]      # 第 157 行
-  elasticsearch:
-    profiles: ["full"]      # 第 177 行
-  kibana:
-    profiles: ["full"]      # 第 194 行
 ```
 
 注意最后一条命令：**`--profile extra --profile full`，两个都要写**。
@@ -139,8 +124,6 @@ backend
 frontend
 kafka            # ← full 层
 nginx
-elasticsearch    # ← full 层
-kibana           # ← full 层
 rabbitmq
 caddy
 ```
@@ -558,7 +541,7 @@ Vue 打包出来的 `dist` 只有一个 `index.html`。用户直接访问 `https
 | 字段 / 配置 | 本项目怎么写 | 实际作用 |
 |---|---|---|
 | `profiles: ["extra"]` | nginx、rabbitmq | 只有 `--profile extra` 时才启动 |
-| `profiles: ["full"]` | kafka、elasticsearch、kibana | 只有 `--profile full` 时才启动 |
+| `profiles: ["full"]` | kafka | 只有 `--profile full` 时才启动 |
 | **不写** `profiles` | mysql、redis、backend、frontend、caddy | **无条件启动**（不是"默认 profile"，是"不受管辖"） |
 | `expose: - "80"` | frontend | **纯声明**，不产生任何效果 |
 | `EXPOSE 80`（Dockerfile） | frontend 镜像 | **纯声明** + `docker run -P` 时随机映射 |
@@ -694,7 +677,7 @@ docker compose --profile extra down nginx
 
 ## 承上启下
 
-到这里，`deploy/docker-compose.yml` **214 行，你已经全部读完了**。从 `01` 手敲 `docker run mysql` 踩端口冲突，到现在能讲清楚一套带自动 HTTPS 的生产编排——每个字段为什么这么写，你都答得上来。
+到这里，`deploy/docker-compose.yml` **217 行，你已经全部读完了**。从 `01` 手敲 `docker run mysql` 踩端口冲突，到现在能讲清楚一套带自动 HTTPS 的生产编排——每个字段为什么这么写，你都答得上来。
 
 **但"读懂"和"养得活"是两回事。**
 

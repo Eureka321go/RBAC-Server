@@ -129,7 +129,7 @@ git commit -m "build: 引入 Maven 多模块聚合 pom，为 im-gateway 铺路"
 **Interfaces:**
 - Produces: `--profile im` 起 MongoDB(:27017)、MinIO(:9000/:9001)；网络 `rbac-net`。
 
-- [ ] **Step 1: 在 `kibana` 服务之后、`volumes:` 之前插入两个服务**
+- [ ] **Step 1: 在 `kafka` 服务之后、`volumes:` 之前插入两个服务**
 
 ```yaml
   # ==================== IM 层（--profile im） ====================

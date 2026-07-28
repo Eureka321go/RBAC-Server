@@ -6,7 +6,7 @@ name: rbac-server #定义 Compose 项目名
 # 分层启动（用 profile 控制）：
 #   核心层（默认，无 profile）：mysql、redis
 #   扩展层（--profile extra）  ：nginx、rabbitmq
-#   完整层（--profile full）   ：kafka、elasticsearch、kibana
+#   完整层（--profile full）   ：kafka
 #
 # 常用命令：
 #   仅核心      : docker compose up -d
@@ -171,35 +171,6 @@ services: #定义需要运行的服务
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     networks: [rbac-net]
 
-  elasticsearch:
-    image: elasticsearch:8.15.3
-    container_name: rbac-es
-    profiles: ["full"]
-    restart: unless-stopped
-    ports:
-      - "9200:9200"
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-    ulimits:
-      memlock: { soft: -1, hard: -1 }
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
-    networks: [rbac-net]
-
-  kibana:
-    image: kibana:8.15.3
-    container_name: rbac-kibana
-    profiles: ["full"]
-    restart: unless-stopped
-    ports:
-      - "5601:5601"
-    environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    depends_on: [elasticsearch]
-    networks: [rbac-net]
-
   # ==================== IM 层（--profile im） ====================
   mongodb:
     image: mongo:7.0
@@ -236,7 +207,6 @@ volumes: #声明持久化数据卷
   mysql-data:
   redis-data:
   rabbitmq-data:
-  es-data:
   caddy-data:
   caddy-config:
   mongo-data:
