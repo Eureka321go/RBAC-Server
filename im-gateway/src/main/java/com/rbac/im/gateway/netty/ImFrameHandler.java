@@ -34,6 +34,8 @@ public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFra
         String deviceId = ctx.channel().attr(HandshakeAuthHandler.DEVICE_ID).get();
         Envelope env = mapper.readValue(frame.text(), Envelope.class);
         if ("PING".equals(env.getOp())) {
+            // 重新登记而不是只续 TTL：即使路由已过期，存量 WebSocket 也能通过下一次心跳自愈。
+            routeService.register(userId, deviceId);
             // 心跳应答：回 PONG，供客户端存活看门狗判定连接健康（空闲连接不被误杀）
             Envelope pong = new Envelope();
             pong.setOp("PONG");

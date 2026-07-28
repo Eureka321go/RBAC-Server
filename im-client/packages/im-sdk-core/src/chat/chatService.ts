@@ -14,9 +14,12 @@ import type { Ids } from '../ports/index';
 export interface ChatOptions {
   /** 发出 SEND 后多久没收到 ACK 就判失败（毫秒） */
   ackTimeoutMs?: number;
+  /** 收到 ACK 后多久没收到最终 PUSH 就判失败（毫秒） */
+  pushTimeoutMs?: number;
 }
 
 const DEFAULT_ACK_TIMEOUT_MS = 15000;
+const DEFAULT_PUSH_TIMEOUT_MS = 30000;
 
 /**
  * 发送编排 + 下行帧路由。
@@ -24,7 +27,9 @@ const DEFAULT_ACK_TIMEOUT_MS = 15000;
  */
 export class ChatService {
   private readonly ackTimeoutMs: number;
+  private readonly pushTimeoutMs: number;
   private readonly ackTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly offs: Array<() => void> = [];
   // 下行帧串行链：RN 的原生事件桥会在同一 JS turn 批量投递多帧，
   // fire-and-forget 会让第二帧在第一帧的 db.tx 未提交时插入，
@@ -41,6 +46,7 @@ export class ChatService {
     opts: ChatOptions = {},
   ) {
     this.ackTimeoutMs = opts.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
+    this.pushTimeoutMs = opts.pushTimeoutMs ?? DEFAULT_PUSH_TIMEOUT_MS;
     this.offs.push(
       this.connection.on('ack', ({ clientMsgId }) => this.enqueue(() => this.onAck(clientMsgId))),
       this.connection.on('envelope', (env) => this.enqueue(() => this.onEnvelope(env))),
@@ -97,6 +103,8 @@ export class ChatService {
     this.offs.splice(0).forEach((off) => off());
     this.ackTimers.forEach((t) => clearTimeout(t));
     this.ackTimers.clear();
+    this.pushTimers.forEach((t) => clearTimeout(t));
+    this.pushTimers.clear();
   }
 
   private async dispatch(row: OutboxRow): Promise<void> {
@@ -132,12 +140,33 @@ export class ChatService {
     }
   }
 
+  private armPushTimer(cid: string, clientMsgId: string): void {
+    this.clearPushTimer(clientMsgId);
+    const timer = setTimeout(() => {
+      this.pushTimers.delete(clientMsgId);
+      // ACK 只代表网关受理；最终 PUSH 长期缺失时结束等待，避免气泡永久转圈。
+      this.enqueue(() => this.failIfAcked(cid, clientMsgId, 'PUSH_TIMEOUT'));
+    }, this.pushTimeoutMs);
+    this.pushTimers.set(clientMsgId, timer);
+  }
+
+  private clearPushTimer(clientMsgId: string): void {
+    const timer = this.pushTimers.get(clientMsgId);
+    if (timer != null) {
+      clearTimeout(timer);
+      this.pushTimers.delete(clientMsgId);
+    }
+  }
+
   private async onAck(clientMsgId?: string): Promise<void> {
     if (!clientMsgId) return;
     this.clearAckTimer(clientMsgId);
     await this.outbox.setStatusWhere(clientMsgId, 'sending', 'acked', null);
     const row = await this.outbox.get(clientMsgId);
     if (row != null) {
+      if (row.status === 'acked') {
+        this.armPushTimer(row.cid, clientMsgId);
+      }
       this.emitter.emit('message', { cid: row.cid });
     }
   }
@@ -145,6 +174,9 @@ export class ChatService {
   private async onEnvelope(env: Envelope): Promise<void> {
     if (env.op === OP.PUSH) {
       await this.engine.applyPush(env);
+      if (env.clientMsgId) {
+        this.clearPushTimer(env.clientMsgId);
+      }
       return;
     }
     if (env.op === OP.ERROR) {
@@ -163,6 +195,7 @@ export class ChatService {
     if (!clientMsgId) return;
     const reason = typeof env.body?.reason === 'string' ? env.body.reason : 'UNKNOWN';
     this.clearAckTimer(clientMsgId);
+    this.clearPushTimer(clientMsgId);
     const before = await this.outbox.get(clientMsgId);
     if (before == null) return; // 已被 PUSH 结算，ERROR 晚到，不应误报
     await this.outbox.setStatusWhere(clientMsgId, before.status, 'failed', reason);
@@ -182,6 +215,16 @@ export class ChatService {
   /** 只有仍处于 sending 才判失败：ACK 已到（acked）或 PUSH 已到（行没了）都不该被改写。 */
   private async failIfSending(cid: string, clientMsgId: string, reason: string): Promise<void> {
     await this.outbox.setStatusWhere(clientMsgId, 'sending', 'failed', reason);
+    const row = await this.outbox.get(clientMsgId);
+    if (row?.status === 'failed' && row.error === reason) {
+      this.emitter.emit('message', { cid });
+      this.emitter.emit('sendError', { cid, clientMsgId, reason });
+    }
+  }
+
+  /** 只有网关已 ACK、最终 PUSH 仍未到达时才结束等待。 */
+  private async failIfAcked(cid: string, clientMsgId: string, reason: string): Promise<void> {
+    await this.outbox.setStatusWhere(clientMsgId, 'acked', 'failed', reason);
     const row = await this.outbox.get(clientMsgId);
     if (row?.status === 'failed' && row.error === reason) {
       this.emitter.emit('message', { cid });
