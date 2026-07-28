@@ -13,6 +13,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ChatMessage } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
+import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -22,8 +23,8 @@ function textOf(m: ChatMessage): string {
   return typeof t === 'string' ? t : '';
 }
 
-export function ChatScreen({ route }: Props) {
-  const { cid, syncOnOpen = true } = route.params;
+export function ChatScreen({ route, navigation }: Props) {
+  const { cid, title, syncOnOpen = true } = route.params;
   const myId = useAppStore((s) => s.myId);
   const [items, setItems] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -86,6 +87,7 @@ export function ChatScreen({ route }: Props) {
 
   return (
     <View style={styles.wrap}>
+      <CompactScreenHeader title={title} onBack={() => navigation.goBack()} />
       {banner ? <Text style={styles.banner}>{banner}</Text> : null}
       <FlatList
         inverted

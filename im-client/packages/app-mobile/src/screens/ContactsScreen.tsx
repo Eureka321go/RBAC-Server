@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { buildSingleCid } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
+import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 
 interface UserRow {
@@ -38,79 +38,97 @@ export function ContactsScreen({ navigation }: Props) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [manualId, setManualId] = useState('');
+  const [openingPeerId, setOpeningPeerId] = useState<number | null>(null);
+  const mountedRef = useRef(true);
 
   const openChat = useCallback(
-    (peerId: number, peerName: string) => {
+    async (peerId: number, peerName: string) => {
       if (myId == null || peerId === myId || !Number.isFinite(peerId)) return;
-      navigation.replace('Chat', {
-        cid: buildSingleCid(myId, peerId),
-        title: peerName,
-        // 新会话尚未在服务端建 membership，第一次发送成功前不能拉历史。
-        syncOnOpen: false,
-      });
+      setOpeningPeerId(peerId);
+      setHint('正在创建会话…');
+      try {
+        const cid = await sdk.sync.createSingleConversation(peerId);
+        if (!mountedRef.current) return;
+        setOpeningPeerId(null);
+        navigation.replace('Chat', { cid, title: peerName, syncOnOpen: true });
+      } catch (cause) {
+        if (!mountedRef.current) return;
+        setHint(`创建会话失败：${cause instanceof Error ? cause.message : 'unknown'}`);
+        setOpeningPeerId(null);
+      }
     },
     [myId, navigation],
   );
 
   useEffect(() => {
-    let alive = true;
+    mountedRef.current = true;
     (async () => {
       try {
         const res = await sdk.http.get<ApiResult<PageResult<UserRow>>>('/system/users', {
           page: 1,
           pageSize: 50,
         });
-        if (!alive) return;
+        if (!mountedRef.current) return;
         const list = (res.data?.records ?? []).filter((u) => u.id !== myId);
         setUsers(list);
         if (list.length === 0) {
           setHint('没有可选联系人（可能受数据权限过滤），可在下方直接输入对端 userId。');
         }
       } catch {
-        if (alive) {
+        if (mountedRef.current) {
           setHint('拉取用户列表失败（缺少 system:user:list 权限？），请在下方直接输入对端 userId。');
         }
       }
     })();
     return () => {
-      alive = false;
+      mountedRef.current = false;
     };
   }, [myId]);
 
   return (
-    <View style={styles.wrap}>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-      <FlatList
-        data={users}
-        keyExtractor={(u) => String(u.id)}
-        renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => openChat(item.id, item.nickname || item.username)}>
-            <Text style={styles.name}>{item.nickname || item.username}</Text>
-            <Text style={styles.sub}>#{item.id}</Text>
-          </Pressable>
-        )}
-      />
-      <View style={styles.manual}>
-        <TextInput
-          style={styles.input}
-          placeholder="直接输入对端 userId"
-          keyboardType="number-pad"
-          value={manualId}
-          onChangeText={setManualId}
+    <View style={styles.page}>
+      <CompactScreenHeader title="新建会话" onBack={() => navigation.goBack()} />
+      <View style={styles.wrap}>
+        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+        <FlatList
+          data={users}
+          keyExtractor={(u) => String(u.id)}
+          renderItem={({ item }) => (
+            <Pressable
+              disabled={openingPeerId != null}
+              style={[styles.row, openingPeerId != null && styles.disabled]}
+              onPress={() => void openChat(item.id, item.nickname || item.username)}
+            >
+              <Text style={styles.name}>{item.nickname || item.username}</Text>
+              <Text style={styles.sub}>#{item.id}</Text>
+            </Pressable>
+          )}
         />
-        <Button
-          title="进入会话"
-          onPress={() => openChat(Number(manualId), `用户 ${manualId}`)}
-        />
+        <View style={styles.manual}>
+          <TextInput
+            style={styles.input}
+            placeholder="直接输入对端 userId"
+            keyboardType="number-pad"
+            value={manualId}
+            onChangeText={setManualId}
+          />
+          <Button
+            title="进入会话"
+            disabled={openingPeerId != null}
+            onPress={() => void openChat(Number(manualId), `用户 ${manualId}`)}
+          />
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#f8fafc' },
   wrap: { flex: 1, padding: 16, gap: 12 },
   hint: { color: '#b45309', fontSize: 13 },
   row: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  disabled: { opacity: 0.5 },
   name: { fontSize: 16 },
   sub: { fontSize: 12, color: '#6b7280' },
   manual: { gap: 8 },

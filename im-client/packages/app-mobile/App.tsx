@@ -44,7 +44,7 @@ function App() {
       <NavigationContainer>
         <Stack.Navigator>
           {!loggedIn ? (
-            <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'IM 登录' }} />
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           ) : (
             <>
               <Stack.Screen
@@ -55,12 +55,12 @@ function App() {
               <Stack.Screen
                 name="Contacts"
                 component={ContactsScreen}
-                options={{ title: '新建会话' }}
+                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="Chat"
                 component={ChatScreen}
-                options={({ route }) => ({ title: route.params.title })}
+                options={{ headerShown: false }}
               />
             </>
           )}

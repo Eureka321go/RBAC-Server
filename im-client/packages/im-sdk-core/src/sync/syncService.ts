@@ -26,6 +26,10 @@ interface PullResult {
   nextSinceSeq: number;
 }
 
+interface CreateSingleConversationResult {
+  cid: string;
+}
+
 const PAGE_SIZE = 100;
 
 /** REST 会话快照与增量消息同步；所有页面仍只从 SQLite 读取。 */
@@ -46,6 +50,20 @@ export class SyncService {
 
   activateAccount(userId: number): Promise<void> {
     return this.store.activateAccount(userId);
+  }
+
+  /** 先让服务端幂等建立双方成员关系，再进入新单聊页面。 */
+  async createSingleConversation(peerId: number): Promise<string> {
+    const res = await this.http.post<ApiResult<CreateSingleConversationResult>>(
+      '/im/conversations/single',
+      { peerId },
+    );
+    if (res.code !== 200 || typeof res.data?.cid !== 'string') {
+      throw new Error(res.message || 'create single conversation failed');
+    }
+    // 会话已创建即可进入页面；列表快照后台刷新，失败不影响本次创建结果。
+    void this.syncAll().catch(() => {});
+    return res.data.cid;
   }
 
   /** 全量同步 single-flight：连接抖动和用户下拉刷新不会叠加多轮分页请求。 */
