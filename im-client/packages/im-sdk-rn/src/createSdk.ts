@@ -5,6 +5,7 @@ import {
   Emitter,
   MessageStore,
   OutboxStore,
+  SyncService,
   SyncEngine,
   TOKEN_KEYS,
   runMigrations,
@@ -40,10 +41,12 @@ export function createSdk(config: SdkConfig) {
   const db = OpSqliteDatabase.open(config.dbName ?? 'im.db');
   const emitter = new Emitter<SdkEvents>();
   const engine = new SyncEngine(db, emitter);
+  const messages = new MessageStore(db);
+  const sync = new SyncService(http, engine, messages, emitter);
   const chat = new ChatService(
     connection,
     engine,
-    new MessageStore(db),
+    messages,
     new OutboxStore(db),
     rnIds,
     emitter,
@@ -52,5 +55,16 @@ export function createSdk(config: SdkConfig) {
   // 建表是异步的；调用方必须先 await ready 再用 chat。
   const ready = runMigrations(db);
 
-  return { auth, connection, chat, http, ids: rnIds, ready };
+  const triggerSync = () => {
+    // SyncService 已通过 syncState 报错；这里兜住 Promise，避免自动触发产生未处理拒绝。
+    void ready.then(() => sync.syncAll()).catch(() => {});
+  };
+  connection.on('state', (state) => {
+    if (state === 'connected') triggerSync();
+  });
+  lifecycle.onForeground(() => {
+    if (connection.getState() === 'connected') triggerSync();
+  });
+
+  return { auth, connection, chat, sync, http, ids: rnIds, ready };
 }

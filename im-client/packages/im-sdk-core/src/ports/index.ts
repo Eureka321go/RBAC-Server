@@ -52,8 +52,8 @@ export interface MediaPicker {
 
 // —— 生命周期端口（M1 实现，AppState）——
 export interface AppLifecycle {
-  onForeground(handler: () => void): void;
-  onBackground(handler: () => void): void;
+  onForeground(handler: () => void): () => void;
+  onBackground(handler: () => void): () => void;
 }
 
 // —— id / 时间端口（Hermes 不保证 crypto.randomUUID）——
