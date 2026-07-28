@@ -7,6 +7,7 @@ export * from './store/messageStore';
 export * from './store/outboxStore';
 export * from './events/emitter';
 export * from './engine/syncEngine';
+export * from './sync/syncService';
 export * from './auth/authService';
 export * from './connection/connectionManager';
 export * from './chat/chatService';

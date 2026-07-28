@@ -9,6 +9,18 @@ export interface SdkEvents extends Record<string, unknown> {
   message: { cid: string };
   conversation: { cid: string };
   sendError: { cid: string; clientMsgId: string; reason: string };
+  syncState: { running: boolean; error: string | null };
+}
+
+export interface RestMessage {
+  cid: string;
+  seq: number;
+  msgId: string;
+  senderId: number;
+  type: string;
+  body: Record<string, unknown> | null;
+  recalled: boolean;
+  ts: number;
 }
 
 /** 会话列表用的一行摘要文案；正文过长时截断。 */
@@ -72,22 +84,46 @@ export class SyncEngine {
       status: 'sent',
       ts: env.ts ?? 0,
     };
+
+    await this.applyStored(stored);
+  }
+
+  /** REST 增量消息复用 WS PUSH 的同一事务写路径，并保留服务端撤回状态。 */
+  async applyRestMessage(message: RestMessage): Promise<void> {
+    if (message.cid === '') return;
+    if (!Number.isFinite(message.seq)) return;
+    await this.applyStored({
+      cid: message.cid,
+      seq: message.seq,
+      msgId: message.msgId,
+      clientMsgId: null,
+      senderId: message.senderId,
+      type: message.type,
+      body: message.body,
+      recalled: message.recalled,
+      status: 'sent',
+      ts: message.ts,
+    });
+  }
+
+  private async applyStored(stored: StoredMessage): Promise<void> {
+    const { cid } = stored;
     const { type, groupId } = parseCid(cid);
 
     await this.db.tx(async (tx) => {
       const messages = new MessageStore(tx);
       await messages.upsertMessage(stored);
-      if (env.clientMsgId) {
-        await new OutboxStore(tx).delete(env.clientMsgId);
+      if (stored.clientMsgId) {
+        await new OutboxStore(tx).delete(stored.clientMsgId);
       }
       await messages.advanceConversation({
         cid,
         type,
         groupId,
-        seq,
-        preview: previewOf(stored.type, body),
+        seq: stored.seq,
+        preview: previewOf(stored.type, stored.body),
       });
-      await messages.advanceSyncedSeq(cid, seq);
+      await messages.advanceSyncedSeq(cid, stored.seq);
     });
 
     this.emitter.emit('message', { cid });
