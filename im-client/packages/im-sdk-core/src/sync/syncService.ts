@@ -11,6 +11,8 @@ interface ConversationSnapshot {
   cid: string;
   type: 'SINGLE' | 'GROUP';
   groupId: number | null;
+  peerId: number | null;
+  peerName: string | null;
   lastMsgSeq: number;
   lastMsgPreview: string | null;
   lastReadSeq: number;
@@ -101,6 +103,8 @@ export class SyncService {
         const item = res.data[index];
         await this.store.upsertConversationSnapshot({
           ...item,
+          peerId: item.peerId ?? null,
+          peerName: item.peerName ?? null,
           lastMsgPreview: item.lastMsgPreview ?? null,
           peerReadSeq: item.peerReadSeq ?? null,
           updatedAt: now - index,

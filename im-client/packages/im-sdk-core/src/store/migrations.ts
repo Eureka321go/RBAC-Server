@@ -41,6 +41,8 @@ export const MIGRATIONS: string[] = [
      created_at INTEGER NOT NULL
    )`,
   `CREATE INDEX idx_outbox_cid_created ON outbox (cid, created_at)`,
+  `ALTER TABLE conversations ADD COLUMN peer_id INTEGER`,
+  `ALTER TABLE conversations ADD COLUMN peer_name TEXT`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

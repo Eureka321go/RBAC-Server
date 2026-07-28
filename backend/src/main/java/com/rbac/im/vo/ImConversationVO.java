@@ -8,6 +8,8 @@ public class ImConversationVO {
     private String cid;
     private String type;            // SINGLE / GROUP
     private Long groupId;
+    private Long peerId;            // 单聊对端用户 ID；群聊为 null
+    private String peerName;        // 单聊对端昵称，昵称为空时回退用户名
     private Long lastMsgSeq;
     private String lastMsgPreview;
     private Long lastReadSeq;

@@ -8,11 +8,14 @@ import com.rbac.im.mapper.ImConversationMapper;
 import com.rbac.im.mapper.ImConversationMemberMapper;
 import com.rbac.im.mapper.ImGroupMemberMapper;
 import com.rbac.im.vo.ImConversationVO;
+import com.rbac.system.user.entity.SysUser;
+import com.rbac.system.user.mapper.SysUserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,13 +24,16 @@ public class ConversationService {
     private final ImConversationMapper conversationMapper;
     private final ImConversationMemberMapper memberMapper;
     private final ImGroupMemberMapper groupMemberMapper;
+    private final SysUserMapper userMapper;
 
     public ConversationService(ImConversationMapper conversationMapper,
                                ImConversationMemberMapper memberMapper,
-                               ImGroupMemberMapper groupMemberMapper) {
+                               ImGroupMemberMapper groupMemberMapper,
+                               SysUserMapper userMapper) {
         this.conversationMapper = conversationMapper;
         this.memberMapper = memberMapper;
         this.groupMemberMapper = groupMemberMapper;
+        this.userMapper = userMapper;
     }
 
     public String singleCid(long a, long b) {
@@ -170,14 +176,24 @@ public class ConversationService {
         List<String> singleCids = convs.stream()
                 .filter(c -> "SINGLE".equals(c.getType()))
                 .map(ImConversation::getCid).toList();
-        Map<String, Long> peerReadByCid = singleCids.isEmpty() ? Map.of()
+        List<ImConversationMember> peerMembers = singleCids.isEmpty() ? List.of()
                 : memberMapper.selectList(new LambdaQueryWrapper<ImConversationMember>()
-                        .in(ImConversationMember::getCid, singleCids)
-                        .ne(ImConversationMember::getUserId, userId))
-                    .stream()
-                    .collect(Collectors.toMap(ImConversationMember::getCid,
-                            m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
-                            (a, b) -> a));
+                .in(ImConversationMember::getCid, singleCids)
+                .ne(ImConversationMember::getUserId, userId));
+        Map<String, Long> peerReadByCid = peerMembers.stream()
+                .collect(Collectors.toMap(ImConversationMember::getCid,
+                        m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
+                        (a, b) -> a));
+        Map<String, Long> peerIdByCid = peerMembers.stream()
+                .collect(Collectors.toMap(ImConversationMember::getCid,
+                        ImConversationMember::getUserId, (a, b) -> a));
+        List<Long> peerIds = peerMembers.stream()
+                .map(ImConversationMember::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, SysUser> usersById = peerIds.isEmpty() ? Map.of()
+                : userMapper.selectByIds(peerIds).stream()
+                .collect(Collectors.toMap(SysUser::getId, Function.identity()));
         return convs.stream().map(c -> {
             long lastMsgSeq = c.getLastMsgSeq() == null ? 0L : c.getLastMsgSeq();
             long lastReadSeq = readSeqByCid.getOrDefault(c.getCid(), 0L);
@@ -194,8 +210,22 @@ public class ConversationService {
             vo.setHasMention(mentionSeq > lastReadSeq);
             if ("SINGLE".equals(c.getType())) {
                 vo.setPeerReadSeq(peerReadByCid.getOrDefault(c.getCid(), 0L));
+                Long peerId = peerIdByCid.get(c.getCid());
+                vo.setPeerId(peerId);
+                vo.setPeerName(displayName(peerId == null ? null : usersById.get(peerId)));
             }
             return vo;
         }).toList();
+    }
+
+    private static String displayName(SysUser user) {
+        if (user == null) {
+            return null;
+        }
+        if (user.getNickname() != null && !user.getNickname().isBlank()) {
+            return user.getNickname().trim();
+        }
+        return user.getUsername() == null || user.getUsername().isBlank()
+                ? null : user.getUsername().trim();
     }
 }

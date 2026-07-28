@@ -10,6 +10,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
 
 function titleOf(row: ConversationRow, myId: number | null): string {
   if (row.type === 'GROUP') return `群聊 #${row.groupId ?? row.cid.slice(2)}`;
+  const peerName = row.peerName?.trim();
+  if (peerName) return peerName;
+  if (row.peerId != null) return `用户 #${row.peerId}`;
   const matched = /^c_(\d+)_(\d+)$/.exec(row.cid);
   if (matched == null) return row.cid;
   const left = Number(matched[1]);
