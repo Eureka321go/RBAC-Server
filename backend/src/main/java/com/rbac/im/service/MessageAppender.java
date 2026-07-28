@@ -26,11 +26,11 @@ public class MessageAppender {
                            OutboundDispatcher dispatcher,
                            ImConversationMapper conversationMapper,
                            MediaUrlEnricher enricher) {
-        this.repo = repo;
-        this.seqService = seqService;
-        this.dispatcher = dispatcher;
-        this.conversationMapper = conversationMapper;
-        this.enricher = enricher;
+        this.repo = repo;                            // 将完整消息保存到 MongoDB
+        this.seqService = seqService;                // 使用 Redis INCR 生成会话内递增序号
+        this.dispatcher = dispatcher;                // 查找在线设备路由并通过 im-outbound 扇出 PUSH
+        this.conversationMapper = conversationMapper; // 查询并更新 MySQL 中的会话消息摘要
+        this.enricher = enricher;                    // 为富媒体 PUSH 附加临时预签名下载 URL
     }
 
     /** 追加一条消息并扇出，返回定序后的 seq。 */
@@ -66,7 +66,7 @@ public class MessageAppender {
 
         return seq;
     }
-
+    // 更新会话摘要
     private void updateSummary(String cid, long seq, String preview) {
         ImConversation c = conversationMapper.selectOne(
                 new LambdaQueryWrapper<ImConversation>().eq(ImConversation::getCid, cid));

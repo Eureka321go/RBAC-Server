@@ -36,12 +36,12 @@ public class NettyWebSocketServer {
     public void start() throws InterruptedException {
         boss = new NioEventLoopGroup(1); // 老板：只负责 accept 新连接，1 个线程够了
         worker = new NioEventLoopGroup();  // 工人：负责所有连接的读写，默认 CPU核数×2
-        ServerBootstrap b = new ServerBootstrap();
-        b.group(boss, worker)
-                .channel(NioServerSocketChannel.class)
-                .option(ChannelOption.SO_BACKLOG, 1024)
-                .childOption(ChannelOption.SO_KEEPALIVE, true)
-                .childHandler(initializer);
+        ServerBootstrap b = new ServerBootstrap(); // 建配置对象,开始填写服务器启动表
+        b.group(boss, worker) // 设置接收连接和处理连接的线程组
+                .channel(NioServerSocketChannel.class)  // 使用 NIO 服务端 Channel
+                .option(ChannelOption.SO_BACKLOG, 1024) // 等待接收的连接队列大小
+                .childOption(ChannelOption.SO_KEEPALIVE, true)  // 为客户端连接启用 TCP keepalive
+                .childHandler(initializer);  // 为每条客户端连接安装 pipeline
         channelFuture = b.bind(port).sync();
         log.info("IM Netty WebSocket 网关已监听端口 {}", port);
     }

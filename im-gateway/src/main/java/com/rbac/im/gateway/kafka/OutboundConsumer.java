@@ -26,9 +26,9 @@ public class OutboundConsumer {
     public void onOutbound(String json) throws Exception {
         OutboundPacket packet = mapper.readValue(json, OutboundPacket.class);
         if (!gatewayId.equals(packet.getGatewayId())) {
-            return;   // 不是发给本网关的
+            return;   // 不是发给本网关的,丢弃
         }
-        Channel ch = registry.find(packet.getTargetUserId(), packet.getDeviceId());
+        Channel ch = registry.find(packet.getTargetUserId(), packet.getDeviceId()); // 判断是否有存这个用户的通道
         if (ch != null && ch.isActive()) {
             ch.writeAndFlush(new TextWebSocketFrame(
                     mapper.writeValueAsString(packet.getEnvelope())));

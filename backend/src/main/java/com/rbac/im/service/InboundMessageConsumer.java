@@ -37,15 +37,15 @@ public class InboundMessageConsumer {
                                   RecallService recallService,
                                   MentionService mentionService,
                                   ReadService readService) {
-        this.repo = repo;
-        this.appender = appender;
-        this.conversationService = conversationService;
-        this.dispatcher = dispatcher;
-        this.mediaService = mediaService;
-        this.linkPreview = linkPreview;
-        this.recallService = recallService;
-        this.mentionService = mentionService;
-        this.readService = readService;
+        this.repo = repo;                                // SEND 前置：按 clientMsgId 做幂等校验
+        this.appender = appender;                        // SEND 主流程：定序、落库、更新摘要并扇出
+        this.conversationService = conversationService;  // SEND 前置：校验会话成员身份和群禁言状态
+        this.dispatcher = dispatcher;                    // SEND 失败分支：向发送者推送 ERROR
+        this.mediaService = mediaService;                // SEND 前置：按消息类型校验媒体对象
+        this.linkPreview = linkPreview;                  // SEND 后置：落库后异步补充文本链接卡片
+        this.recallService = recallService;              // RECALL 独立分支，不走 appender.append
+        this.mentionService = mentionService;            // SEND 前置校验提及目标，落库后更新 mention_seq
+        this.readService = readService;                  // READ 独立分支，不走 appender.append
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -106,6 +106,7 @@ public class InboundMessageConsumer {
             return;
         }
 
+        // SEND 通过幂等、成员/禁言、媒体和 @提及校验后，才进入统一的定序、落库与扇出流程。
         long seq = appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
 
         // 里程碑9：定序后把命中成员 mention_seq 推进到本消息 seq（空目标 no-op）

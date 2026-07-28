@@ -17,12 +17,18 @@ public class InboundProducer {
         this.kafka = kafka;
     }
 
-    /** key = cid 保证同会话进同一分区、分区内有序。 */
+    /**
+     * key = cid 保证同会话进同一分区、分区内有序。
+     */
     public void send(Envelope env) {
         try {
-            kafka.send(TOPIC, env.getCid(), mapper.writeValueAsString(env));
+            kafka.send(
+                    TOPIC, // 消息发送到哪个主题
+                    env.getCid(), // 即会话 ID。Kafka 默认根据 Key 计算分区
+                    mapper.writeValueAsString(env)); // 实际消息正文
         } catch (Exception e) {
             throw new IllegalStateException("serialize envelope failed", e);
-    }        }
+        }
+    }
 
 }

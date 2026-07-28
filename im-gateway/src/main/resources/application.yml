@@ -18,7 +18,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
-
+#NettyWebSocketServer 在应用就绪后执行 bind(9001)，WebSocketChannelInitializer 又把协议路径固定为 /im
+#ws://localhost:9001/im?token=<JWT>&deviceId=<设备标识>
 im:
   gateway:
     id: gw1              # 每个网关实例唯一
