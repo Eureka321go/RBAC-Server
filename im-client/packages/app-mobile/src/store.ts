@@ -32,6 +32,7 @@ export const useAppStore = create<AppState>((set) => {
         // 有效则恢复登录态并直接把 WS 连起来，免得杀进程重开还要再登录一次。
         try {
           const me = await sdk.auth.fetchMe();
+          await sdk.sync.activateAccount(me.id);
           set({ loggedIn: true, myId: me.id });
           await sdk.connection.start();
         } catch {
@@ -56,6 +57,7 @@ export const useAppStore = create<AppState>((set) => {
       try {
         await sdk.auth.login(u, p);
         const me = await sdk.auth.fetchMe();
+        await sdk.sync.activateAccount(me.id);
         set({ loggedIn: true, myId: me.id });
         await sdk.connection.start();
       } catch (e) {

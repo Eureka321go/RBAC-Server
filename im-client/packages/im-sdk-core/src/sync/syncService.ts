@@ -44,6 +44,10 @@ export class SyncService {
     return this.store.getConversationRows();
   }
 
+  activateAccount(userId: number): Promise<void> {
+    return this.store.activateAccount(userId);
+  }
+
   /** 全量同步 single-flight：连接抖动和用户下拉刷新不会叠加多轮分页请求。 */
   syncAll(): Promise<void> {
     if (this.allFlight != null) return this.allFlight;

@@ -30,6 +30,27 @@ export interface ConversationRow {
 export class MessageStore {
   constructor(private readonly db: Database) {}
 
+  /**
+   * 本地库暂未按 userId 分文件；检测到账号切换时清空上一账号缓存，防止跨账号展示私聊内容。
+   * 同一账号重复登录不会清数据，杀进程/登出重登仍保留离线历史。
+   */
+  async activateAccount(userId: number): Promise<void> {
+    const accountKey = '__account__';
+    await this.db.tx(async (tx) => {
+      const rows = await tx.query<Row>(
+        `SELECT synced_seq FROM sync_meta WHERE cid = ?`,
+        [accountKey],
+      );
+      if (rows.length > 0 && rows[0].synced_seq === userId) return;
+
+      await tx.exec(`DELETE FROM outbox`);
+      await tx.exec(`DELETE FROM messages`);
+      await tx.exec(`DELETE FROM conversations`);
+      await tx.exec(`DELETE FROM sync_meta`);
+      await tx.exec(`INSERT INTO sync_meta (cid, synced_seq) VALUES (?, ?)`, [accountKey, userId]);
+    });
+  }
+
   async upsertMessage(m: StoredMessage): Promise<void> {
     await this.db.exec(
       `INSERT INTO messages
