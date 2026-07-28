@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Button, FlatList, Pressable, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ConversationRow } from '@im/sdk-core';
 import { sdk } from '../sdk';
@@ -17,8 +17,14 @@ function titleOf(row: ConversationRow, myId: number | null): string {
   return `用户 #${left === myId ? right : left}`;
 }
 
+function avatarLetter(displayName: string | null): string {
+  const name = displayName?.trim();
+  return name ? (Array.from(name)[0]?.toLocaleUpperCase() ?? 'U') : 'U';
+}
+
 export function ConversationsScreen({ navigation }: Props) {
   const myId = useAppStore((state) => state.myId);
+  const displayName = useAppStore((state) => state.displayName);
   const logout = useAppStore((state) => state.logout);
   const [items, setItems] = useState<ConversationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,12 +72,40 @@ export function ConversationsScreen({ navigation }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.actions}>
-        <Button title="新建会话" onPress={() => navigation.navigate('Contacts')} />
-        <Button title="登出" onPress={() => void logout()} />
+      <View style={styles.header}>
+        <View style={styles.profile}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{avatarLetter(displayName)}</Text>
+          </View>
+          <View style={styles.profileText}>
+            <Text style={styles.displayName} numberOfLines={1}>
+              {displayName || `用户 #${myId ?? ''}`}
+            </Text>
+            <Text style={styles.sectionName}>消息</Text>
+          </View>
+        </View>
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.newButton, pressed && styles.buttonPressed]}
+            onPress={() => navigation.navigate('Contacts')}
+          >
+            <Text style={styles.newButtonText}>＋ 新建</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.logoutButton, pressed && styles.buttonPressed]}
+            onPress={() => void logout()}
+          >
+            <Text style={styles.logoutText}>登出</Text>
+          </Pressable>
+        </View>
       </View>
-      {error ? <Text style={styles.error}>同步失败：{error}（本地消息仍可查看）</Text> : null}
+      {error ? (
+        <Text style={styles.error}>同步失败：{error}（本地消息仍可查看）</Text>
+      ) : null}
       <FlatList
+        contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
         data={items}
         keyExtractor={(item) => item.cid}
         refreshing={refreshing}
@@ -113,16 +147,73 @@ export function ConversationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  error: { color: '#b91c1c', backgroundColor: '#fee2e2', padding: 8, borderRadius: 6 },
-  empty: { color: '#6b7280', textAlign: 'center', marginTop: 80 },
+  wrap: { flex: 1, backgroundColor: '#f8fafc' },
+  header: {
+    minHeight: 76,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e2e8f0',
+    elevation: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+  },
+  profile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+  },
+  avatarText: { color: '#ffffff', fontSize: 19, fontWeight: '700' },
+  profileText: { flex: 1, minWidth: 0 },
+  displayName: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
+  sectionName: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  actions: { marginLeft: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  newButton: {
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+  },
+  newButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  logoutButton: {
+    height: 36,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+  },
+  logoutText: { color: '#475569', fontSize: 14, fontWeight: '600' },
+  buttonPressed: { opacity: 0.72 },
+  error: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    color: '#b91c1c',
+    backgroundColor: '#fee2e2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  list: { paddingHorizontal: 16 },
+  emptyList: { flexGrow: 1, paddingHorizontal: 16 },
+  empty: { color: '#64748b', textAlign: 'center', marginTop: 80 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 76,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#e2e8f0',
   },
   content: { flex: 1, gap: 6 },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },

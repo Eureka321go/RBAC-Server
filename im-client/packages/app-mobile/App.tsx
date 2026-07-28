@@ -50,7 +50,7 @@ function App() {
               <Stack.Screen
                 name="Conversations"
                 component={ConversationsScreen}
-                options={{ title: '消息' }}
+                options={{ headerShown: false }}
               />
               <Stack.Screen
                 name="Contacts"

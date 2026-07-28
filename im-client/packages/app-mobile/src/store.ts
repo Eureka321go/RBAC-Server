@@ -6,6 +6,7 @@ interface AppState {
   booted: boolean;
   loggedIn: boolean;
   myId: number | null;
+  displayName: string | null;
   connState: TransportState;
   error: string | null;
   boot: () => Promise<void>;
@@ -19,6 +20,7 @@ export const useAppStore = create<AppState>((set) => {
     booted: false,
     loggedIn: false,
     myId: null,
+    displayName: null,
     connState: 'closed',
     error: null,
     async boot() {
@@ -33,7 +35,11 @@ export const useAppStore = create<AppState>((set) => {
         try {
           const me = await sdk.auth.fetchMe();
           await sdk.sync.activateAccount(me.id);
-          set({ loggedIn: true, myId: me.id });
+          set({
+            loggedIn: true,
+            myId: me.id,
+            displayName: me.nickname?.trim() || me.username,
+          });
           await sdk.connection.start();
         } catch {
           // token 过期/被强退：fetchMe 会抛错，清掉本地残留 token，保持未登录态，
@@ -58,7 +64,11 @@ export const useAppStore = create<AppState>((set) => {
         await sdk.auth.login(u, p);
         const me = await sdk.auth.fetchMe();
         await sdk.sync.activateAccount(me.id);
-        set({ loggedIn: true, myId: me.id });
+        set({
+          loggedIn: true,
+          myId: me.id,
+          displayName: me.nickname?.trim() || me.username,
+        });
         await sdk.connection.start();
       } catch (e) {
         set({ error: (e as Error).message });
@@ -68,7 +78,7 @@ export const useAppStore = create<AppState>((set) => {
       sdk.connection.stop();
       sdk.chat.stop();
       await sdk.auth.logout();
-      set({ loggedIn: false, myId: null });
+      set({ loggedIn: false, myId: null, displayName: null });
     },
   };
 });
