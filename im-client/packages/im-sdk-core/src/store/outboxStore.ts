@@ -104,7 +104,7 @@ export class OutboxStore {
   }
 }
 
-/** 已落库消息（seq ASC）在前，待发消息（created_at ASC）在后 —— 天然就是正确时间序。 */
+/** 已落库与待发消息统一按时间升序，避免历史失败消息被固定排到最新消息之后。 */
 export function mergeChatMessages(
   messages: StoredMessage[],
   pending: OutboxRow[],
@@ -135,5 +135,5 @@ export function mergeChatMessages(
     error: p.error,
     ts: p.createdAt,
   }));
-  return [...persisted, ...waiting];
+  return [...persisted, ...waiting].sort((a, b) => a.ts - b.ts);
 }
