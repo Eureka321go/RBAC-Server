@@ -23,7 +23,7 @@ function textOf(m: ChatMessage): string {
 }
 
 export function ChatScreen({ route }: Props) {
-  const { cid } = route.params;
+  const { cid, syncOnOpen = true } = route.params;
   const myId = useAppStore((s) => s.myId);
   const [items, setItems] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -42,7 +42,15 @@ export function ChatScreen({ route }: Props) {
 
   useEffect(() => {
     mountedRef.current = true;
-    void reload();
+    if (syncOnOpen) {
+      void sdk.sync.syncConversation(cid).then(reload).catch((cause) => {
+        if (!mountedRef.current) return;
+        setBanner(`同步失败：${cause instanceof Error ? cause.message : 'unknown'}`);
+        void reload();
+      });
+    } else {
+      void reload();
+    }
     const offMsg = sdk.chat.on('message', (p) => {
       if (p.cid === cid) void reload();
     });
@@ -64,7 +72,7 @@ export function ChatScreen({ route }: Props) {
       offMsg();
       offErr();
     };
-  }, [cid, reload]);
+  }, [cid, reload, syncOnOpen]);
 
   // inverted 列表要倒序数据：最新的在数组头部。
   const data = useMemo(() => [...items].reverse(), [items]);

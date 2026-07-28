@@ -35,7 +35,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Contacts'>;
 
 export function ContactsScreen({ navigation }: Props) {
   const myId = useAppStore((s) => s.myId);
-  const logout = useAppStore((s) => s.logout);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [manualId, setManualId] = useState('');
@@ -43,10 +42,11 @@ export function ContactsScreen({ navigation }: Props) {
   const openChat = useCallback(
     (peerId: number, peerName: string) => {
       if (myId == null || peerId === myId || !Number.isFinite(peerId)) return;
-      navigation.navigate('Chat', {
+      navigation.replace('Chat', {
         cid: buildSingleCid(myId, peerId),
-        peerId,
-        peerName,
+        title: peerName,
+        // 新会话尚未在服务端建 membership，第一次发送成功前不能拉历史。
+        syncOnOpen: false,
       });
     },
     [myId, navigation],
@@ -103,7 +103,6 @@ export function ContactsScreen({ navigation }: Props) {
           onPress={() => openChat(Number(manualId), `用户 ${manualId}`)}
         />
       </View>
-      <Button title="登出" onPress={() => logout()} />
     </View>
   );
 }

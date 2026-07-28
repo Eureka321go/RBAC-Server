@@ -12,6 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from './src/store';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ContactsScreen } from './src/screens/ContactsScreen';
+import { ConversationsScreen } from './src/screens/ConversationsScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
@@ -47,14 +48,19 @@ function App() {
           ) : (
             <>
               <Stack.Screen
+                name="Conversations"
+                component={ConversationsScreen}
+                options={{ title: '消息' }}
+              />
+              <Stack.Screen
                 name="Contacts"
                 component={ContactsScreen}
-                options={{ title: '选择联系人' }}
+                options={{ title: '新建会话' }}
               />
               <Stack.Screen
                 name="Chat"
                 component={ChatScreen}
-                options={({ route }) => ({ title: route.params.peerName })}
+                options={({ route }) => ({ title: route.params.title })}
               />
             </>
           )}
