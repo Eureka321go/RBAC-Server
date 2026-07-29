@@ -12,6 +12,7 @@ import type {
 } from '../ports/index';
 import type { MediaUploadTask, MediaMessageType } from './mediaTypes';
 import { MediaUploadStore } from './mediaUploadStore';
+import { parseVoiceMetadata } from '../voice/voiceWaveform';
 
 interface PresignResult {
   objectKey: string;
@@ -56,6 +57,7 @@ interface DownloadPresignResult {
 
 const MULTIPART_THRESHOLD = 5 * 1024 * 1024;
 const IMAGE_MAX_SIZE = 10 * 1024 * 1024;
+const AUDIO_MAX_SIZE = 20 * 1024 * 1024;
 const FILE_MAX_SIZE = 100 * 1024 * 1024;
 
 function dataOf<T>(result: ApiResult<T>, fallback: string): T {
@@ -68,6 +70,7 @@ function dataOf<T>(result: ApiResult<T>, fallback: string): T {
 function mediaBody(task: MediaUploadTask): Record<string, unknown> {
   if (task.objectKey == null) throw new Error('UPLOAD_OBJECT_MISSING');
   return {
+    ...task.metadata,
     objectKey: task.objectKey,
     filename: task.filename,
     mime: task.mime,
@@ -106,9 +109,21 @@ export class MediaUploadService {
     return this.picker.pickFile();
   }
 
-  async enqueue(cid: string, type: MediaMessageType, source: PickedMedia): Promise<string> {
+  async enqueue(
+    cid: string,
+    type: MediaMessageType,
+    source: PickedMedia,
+    metadata: Record<string, unknown> = {},
+  ): Promise<string> {
     const accountId = this.getAccountId();
     if (accountId == null) throw new Error('NOT_AUTHENTICATED');
+    const voiceMetadata = type === 'AUDIO' ? parseVoiceMetadata(metadata) : null;
+    if (type === 'AUDIO' && voiceMetadata == null) {
+      throw new Error('VOICE_METADATA_INVALID');
+    }
+    const safeMetadata: Record<string, unknown> = voiceMetadata == null
+      ? {}
+      : { duration: voiceMetadata.duration, waveform: [...voiceMetadata.waveform] };
     this.validateSource(type, source);
     const taskId = this.ids.uuid();
     const persisted = await this.binary.persist(source, taskId);
@@ -131,6 +146,7 @@ export class MediaUploadService {
       size: persisted.size,
       width: persisted.width ?? null,
       height: persisted.height ?? null,
+      metadata: safeMetadata,
       mode: persisted.size < MULTIPART_THRESHOLD ? 'single' : 'multipart',
       serverTaskId: null,
       objectKey: null,
@@ -376,7 +392,11 @@ export class MediaUploadService {
     if (!source.uri || !source.filename || !source.mime || source.size <= 0) {
       throw new Error('MEDIA_INVALID');
     }
-    const maxSize = type === 'IMAGE' ? IMAGE_MAX_SIZE : FILE_MAX_SIZE;
+    const maxSize = type === 'IMAGE'
+      ? IMAGE_MAX_SIZE
+      : type === 'AUDIO'
+        ? AUDIO_MAX_SIZE
+        : FILE_MAX_SIZE;
     if (source.size > maxSize) throw new Error('MEDIA_TOO_LARGE');
   }
 

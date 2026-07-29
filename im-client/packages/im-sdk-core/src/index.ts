@@ -18,5 +18,6 @@ export * from './media/mediaUploadService';
 export * from './voice/voiceTypes';
 export * from './voice/voiceWaveform';
 export * from './voice/voiceRecordingController';
+export * from './voice/voiceHeardStore';
 export * from './group/groupService';
 export * from './contact/contactService';

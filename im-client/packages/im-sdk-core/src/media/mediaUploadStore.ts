@@ -9,6 +9,18 @@ function optionalNumber(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
+function metadataOf(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'string' || value === '') return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function toTask(row: Row): MediaUploadTask {
   return {
     taskId: row.task_id as string,
@@ -22,6 +34,7 @@ function toTask(row: Row): MediaUploadTask {
     size: row.size as number,
     width: optionalNumber(row.width),
     height: optionalNumber(row.height),
+    metadata: metadataOf(row.metadata_json),
     mode: (row.mode as MediaUploadMode | null) ?? null,
     serverTaskId: (row.server_task_id as string | null) ?? null,
     objectKey: (row.object_key as string | null) ?? null,
@@ -35,7 +48,7 @@ function toTask(row: Row): MediaUploadTask {
 }
 
 const COLUMNS = `task_id, client_msg_id, account_id, cid, type, local_uri,
-  filename, mime, size, width, height, mode, server_task_id, object_key,
+  filename, mime, size, width, height, metadata_json, mode, server_task_id, object_key,
   part_size, status, progress, error, created_at, updated_at`;
 
 export class MediaUploadStore {
@@ -44,11 +57,12 @@ export class MediaUploadStore {
   async insert(task: MediaUploadTask): Promise<void> {
     await this.db.exec(
       `INSERT INTO media_upload_task (${COLUMNS})
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.taskId, task.clientMsgId, task.accountId, task.cid, task.type,
         task.localUri, task.filename, task.mime, task.size, task.width, task.height,
-        task.mode, task.serverTaskId, task.objectKey, task.partSize, task.status,
+        JSON.stringify(task.metadata), task.mode, task.serverTaskId, task.objectKey,
+        task.partSize, task.status,
         task.progress, task.error, task.createdAt, task.updatedAt,
       ],
     );

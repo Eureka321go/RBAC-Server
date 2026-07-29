@@ -12,7 +12,7 @@ import { OP, type Envelope, type MessageType } from '../protocol/types';
 import type { Ids } from '../ports/index';
 import { buildTextMessageBody, type SendTextOptions } from './mentionPayload';
 import type { MediaUploadStore } from '../media/mediaUploadStore';
-import { mediaTaskToChatMessage } from '../media/mediaTypes';
+import { mediaTaskToChatMessage, type MediaMessageType } from '../media/mediaTypes';
 
 export interface ChatOptions {
   /** 发出 SEND 后多久没收到 ACK 就判失败（毫秒） */
@@ -100,7 +100,7 @@ export class ChatService {
   /** 对象已经上传完成后进入与文本完全相同的 outbox ACK/PUSH 结算链路。 */
   async sendMedia(
     cid: string,
-    type: 'IMAGE' | 'FILE',
+    type: MediaMessageType,
     body: Record<string, unknown>,
     clientMsgId = this.ids.uuid(),
   ): Promise<string> {

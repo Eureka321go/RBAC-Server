@@ -70,6 +70,15 @@ export const MIGRATIONS: string[] = [
      ON media_upload_task (account_id, status, updated_at)`,
   `CREATE INDEX idx_media_upload_cid_created
      ON media_upload_task (cid, created_at)`,
+  `ALTER TABLE media_upload_task ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'`,
+  `CREATE TABLE voice_heard (
+     account_id INTEGER NOT NULL,
+     cid TEXT NOT NULL,
+     seq INTEGER NOT NULL,
+     heard_at INTEGER NOT NULL,
+     PRIMARY KEY (account_id, cid, seq)
+   )`,
+  `CREATE INDEX idx_voice_heard_account_cid ON voice_heard (account_id, cid)`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

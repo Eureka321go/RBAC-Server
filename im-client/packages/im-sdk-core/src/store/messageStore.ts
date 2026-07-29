@@ -55,6 +55,7 @@ export class MessageStore {
       await tx.exec(`DELETE FROM outbox`);
       await tx.exec(`DELETE FROM messages`);
       await tx.exec(`DELETE FROM conversations`);
+      await tx.exec(`DELETE FROM voice_heard`);
       await tx.exec(`DELETE FROM sync_meta`);
       await tx.exec(`INSERT INTO sync_meta (cid, synced_seq) VALUES (?, ?)`, [accountKey, userId]);
     });
