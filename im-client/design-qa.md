@@ -13,7 +13,7 @@ Reference: `/Users/xxmm/.codex/generated_images/019fab9c-4d95-7ae1-8da2-d0fb86e2
 
 ## Manual visual verification
 
-The user asked to perform visual verification personally. No simulator screenshot comparison was completed by Codex, so this document does not claim a visual pass.
+用户已于 2026-07-29 完成人工视觉验收并确认通过。Codex 未另外执行模拟器截图对比。
 
 Check the following on the target Android viewport:
 
@@ -27,6 +27,4 @@ Check the following on the target Android viewport:
 
 ## Result
 
-`final result: pending user visual verification`
-
-After manual verification, replace the result with `passed` or record each issue with its page, severity, and reproduction steps.
+`最终结果：用户人工视觉验收通过`
