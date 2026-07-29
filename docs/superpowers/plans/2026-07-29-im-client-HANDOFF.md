@@ -5,7 +5,7 @@ meta:
 
 # 如何在新窗口继续开发 IM 前端
 
-本文记录 `feat/im` 分支在 2026-07-29 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。群聊 @ 提及与聊天气泡配色代码已完成，等待用户手动验收；下一项开发目标是客户端富媒体消息。
+本文记录 `feat/im` 分支在 2026-07-29 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。群聊 @ 提及、聊天气泡配色、图片与文件富媒体代码已完成，等待用户手动验收；下一项开发目标是客户端语音消息。
 
 ## 协作与提交约定
 
@@ -16,7 +16,7 @@ meta:
 
 ## 当前接手点
 
-当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。提及功能分支已本地合并并清理；本交接文档提交后，当前分支比 `origin/feat/im` 领先 6 个提交，未主动 push。
+当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本交接文档提交后，当前分支比 `origin/feat/im` 领先 14 个提交，未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 注释改动，富媒体提交未包含也未覆盖它。
 
 本轮已完成以下功能：
 
@@ -43,11 +43,25 @@ meta:
 - 群成员加载失败、成员已退群和 `@所有人` 越权均显示中文提示
 - 对端消息使用白色气泡，己方消息使用较深的淡绿色 `#D5F0E2`
 - 消息正文统一使用黑色，合法的 `@成员` 与 `@所有人` 使用浅蓝色 `#5B8DEF`
+- 图片支持拍照或相册选择、最长边 2048/质量 0.8 压缩、上传进度、失败重试和取消
+- 文件支持系统文档选择、上传进度、失败重试、下载进度和调用系统应用打开
+- 小于 5 MiB 的媒体复用单次预签名 PUT，达到 5 MiB 后走 S3 Multipart Upload
+- Multipart 会话和客户端上传任务分别持久化到 MySQL 与 SQLite，应用或后端重启后只补传缺失分片
+- 图片消息支持气泡展示、临时 URL 自动刷新和全屏预览；文件打开前始终刷新临时 GET URL
+- 本地路径和上传进度仅留在 outbox/UI，发送帧会移除这些字段；最终 PUSH 落库后才清理发送端本地副本
+- 后端只签发对象存储地址，不中转文件字节；完成 Multipart 时以 S3 `ListParts` 为权威依据
 
 关键提交如下：
 
 | 提交 | 内容 |
 | --- | --- |
+| `4d32006` | 展示并操作图片文件消息 |
+| `df16d32` | 接入图片文件原生能力 |
+| `2a4f0ea` | 持久化并恢复富媒体上传任务 |
+| `b35e69b` | 增加富媒体断点续传接口 |
+| `7f6c879` | 支持富媒体分片存储会话 |
+| `7459fe9` | 规划图片文件富媒体实现 |
+| `87e100c` | 设计图片文件富媒体与断点续传 |
 | `8d6455d` | 加深己方消息气泡颜色 |
 | `40997c0` | 将己方消息气泡改为淡绿色 |
 | `c587193` | 统一聊天气泡与提及颜色 |
@@ -95,6 +109,11 @@ meta:
 - `src/screens/ConversationsScreen.tsx`：会话列表和当前用户信息
 - `src/screens/ContactsScreen.tsx`：选择用户并创建单聊
 - `src/screens/ChatScreen.tsx`：聊天、发送状态和重发
+- `src/components/AttachmentPickerSheet.tsx`：拍照、相册和文件入口
+- `src/components/MediaMessageContent.tsx`：图片/文件气泡、进度和下载状态
+- `src/components/ImagePreviewModal.tsx`：图片全屏预览
+- `packages/im-sdk-core/src/media/`：上传任务 SQLite 存储、大小分流和断点续传状态机
+- `packages/im-sdk-rn/src/adapters/rnMedia*.ts`：原生选择、持久副本、分片传输、下载和文件打开
 - `src/components/ConnectionStatusBar.tsx`：顶部连接状态安全区
 - `src/components/CompactScreenHeader.tsx`：聊天页紧凑标题栏
 - `src/sdk.ts`：服务地址和 SDK 装配
@@ -180,7 +199,7 @@ npm run android -- --deviceId emulator-5554 --no-packager
 
 后续排查发现：应用在后台超过 Redis 在线路由的 120 秒生存时间后，React Native 的心跳定时器可能暂停，但 WebSocket 仍保留 `connected` 状态。此时消息能到达后端并落库，网关也能收到出站事件，却因用户路由已过期而无法下发最终 `PUSH`，界面会停留在 `acked` 转圈状态。`62ef0ee` 已在前台恢复时立即重启心跳并发送 `PING`，让紧随其后的 `SEND` 之前先重建路由。该修复尚待用户按下文步骤手动验证。
 
-群聊 @ 提及与气泡配色完成后执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此新窗口只需说明建议手测项，由用户执行：
+图片与文件富媒体完成后再次执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此没有运行 Jest、Vitest、JUnit 或 E2E，新窗口只需说明建议手测项，由用户执行：
 
 ```bash
 cd /Users/xxmm/work/RBAC-Server/im-client
@@ -195,6 +214,8 @@ mvn -f backend/pom.xml -Dmaven.test.skip=true clean package
 mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 ```
 
+新增原生依赖后执行了 `npm audit --omit=dev`。当前报告 7 个 moderate，均来自 React Native CLI 20.1.1 间接依赖的 `fast-xml-parser`；自动修复需要 `--force` 升级到声明范围外的 CLI 20.2.0，因此未执行破坏性升级。iOS 尚未运行 CocoaPods 安装；首次 iOS 构建前需在 `im-client/packages/app-mobile/ios` 执行 `bundle exec pod install`。
+
 ## 下一窗口优先处理的边界
 
 客户端消息能力按以下顺序继续补齐：
@@ -202,8 +223,9 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 1. 消息撤回：代码已完成。
 2. @ 提及：代码已完成，等待用户手动验收。
 3. 聊天气泡配色：代码已完成，等待用户确认己方淡绿色、对端白色、正文黑色和提及浅蓝色。
-4. 图片、语音、文件等富媒体消息：下一项开发目标。
-5. 链接卡片：富媒体之后处理。
+4. 图片与文件消息：代码已完成，等待用户手动验收。
+5. 语音消息：下一项开发目标，需单独设计录音权限、波形/时长与播放状态。
+6. 链接卡片：语音之后处理。
 
 @ 提及的设计和实施记录位于：
 
@@ -224,20 +246,45 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 10. 双设备实时接收与离线恢复后的文本和高亮一致。
 11. 单聊输入 `@` 不打开成员面板。
 
-新会话开始富媒体设计时，先确定首期范围。当前建议先完成“图片 + 文件”的选择、预签名上传、发送、展示与下载闭环，把语音录制单独作为下一期；若用户希望更小步，可先只做图片。相关现状：
+图片与文件实现记录位于：
+
+- `docs/superpowers/specs/2026-07-29-im-client-image-file-media-design.md`
+- `docs/superpowers/plans/2026-07-29-im-client-image-file-media.md`
+
+图片与文件手测需要覆盖：
+
+1. 拍照和相册各发送一张图片，双方实时展示一致。
+2. 大图自动缩放压缩；压缩后仍超过 10 MiB 时显示中文提示。
+3. 发送小于 5 MiB 的图片/文件，确认走单次上传并正常结算。
+4. 发送达到 5 MiB 的图片/文件，确认显示分片上传进度并成功发送。
+5. Multipart 中途断网，联网后只续传缺失分片。
+6. Multipart 中途杀掉应用，重启并恢复同一账号后继续上传。
+7. 上传中取消，气泡消失且不再自动恢复。
+8. 上传失败点击红色重试图标，最终只产生一条消息。
+9. 图片点击进入全屏预览并可关闭。
+10. 等待临时 GET URL 过期后重新进入或触发加载，图片能自动刷新 URL。
+11. 文件点击后显示下载进度，并调用系统应用打开。
+12. 设备没有匹配应用时显示“没有可打开此文件的应用”。
+13. 接收方离线后再同步，图片与文件仍可展示/下载。
+14. 切换账号时不显示也不恢复上一账号的上传任务，切回原账号后可恢复。
+15. 已发送图片/文件可在两分钟窗口内撤回，双端正文不再展示。
+
+相关实现现状：
 
 - 服务端已实现 `POST /api/im/upload/presign`，请求字段为 `cid/type/filename/mime/size`，响应为 `objectKey/uploadUrl/expiresIn`。
-- 服务端已支持 `IMAGE`、`AUDIO`、`FILE` 消息校验，并在实时 PUSH 与离线拉取中回填临时 GET URL。
-- SDK Core 只有未接线的 `MediaPicker.pickImage/pickFile` 端口；尚无上传服务、媒体发送入口和音频选择或录制端口。
-- React Native 包尚未安装图片选择器、文件选择器、文件读写或录音依赖。新增原生依赖前需先完成方案选择。
+- 服务端新增 `/api/im/upload/multipart/**` 初始化、状态、分片签名、完成、取消接口和 `/api/im/upload/download/presign` 下载刷新接口。
+- Flyway `V5__im_media_upload.sql` 持久化服务端 Multipart 会话，并有五分钟一次的过期 abort 清理任务。
+- SDK Core 已实现 `MediaUploadService` 与 `media_upload_task` SQLite 表；音频选择、录制和播放端口仍未实现。
+- React Native 已安装图片选择器、文件选择器、文件访问、二进制传输和系统文件打开依赖；尚无录音依赖。
 - 后端富媒体设计与实施记录位于 `docs/superpowers/specs/2026-07-22-im-chat-mvp-design.md` 和 `docs/superpowers/plans/2026-07-24-im-mvp-phase4-rich-media.md`。
 
 ## 已知限制
 
 继续开发前需保留以下上下文：
 
-- 当前移动端已完整接入单聊文本、群聊文本、已读回执、消息撤回和群聊 @ 提及。
-- 服务端已具备富媒体和链接卡片能力，但移动端尚未接入这些界面与事件。
+- 当前移动端已完整接入单聊文本、群聊文本、已读回执、消息撤回、群聊 @ 提及、图片和文件。
+- 应用被系统杀死期间不会继续后台上传；重启进入同一账号后才恢复缺失分片。若以后要求杀进程后仍上传，需要 Android/iOS 原生后台任务。
+- 下载文件保存在应用缓存目录，当前没有主动按时间清理；系统可在空间不足时回收，长期可补一个缓存清理策略。
 - 当前气泡颜色定义在 `src/ui/theme.ts`：`messageMine=#D5F0E2`、`mention=#5B8DEF`；不要通过修改全局 `successSoft` 调整消息气泡。
 - 群成员列表只在聊天页聚焦时加载；加载失败后需重新进入页面再触发 `@`。
 - `PUSH_TIMEOUT` 后直接复用原 `clientMsgId` 重发存在边界：如果服务端已落库但最终 `PUSH` 丢失，服务端幂等分支可能只确认重复请求，不会重新推送已存消息
@@ -253,9 +300,9 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 继续开发 IM 前端。先完整阅读：
 docs/superpowers/plans/2026-07-29-im-client-HANDOFF.md
 
-当前分支是 feat/im，比 origin/feat/im 领先 6 个本地提交，未 push。群聊 @ 提及和最新气泡配色等待手动验收。
+当前分支是 feat/im，比 origin/feat/im 领先 14 个本地提交，未 push。群聊 @ 提及、最新气泡配色、图片与文件富媒体等待手动验收。
 不要新增或运行测试；每完成一项功能，只告诉我需要手测哪些场景。
 先检查工作区和最近提交，再从交接文档的“下一窗口优先处理的边界”继续。
-先确认用户是否需要立即手测 @ 提及与气泡配色；随后开始富媒体设计。优先询问首期做“图片 + 文件”还是只做图片，语音录制建议单独一期。
+先让用户按文档清单手测图片与文件；通过后单独设计语音录制、发送、播放和断点上传。
 修改完成后先查看 git diff，再提交代码，不要主动 push。
 ```
