@@ -81,7 +81,7 @@ export class MessageStore {
         m.clientMsgId,
         m.senderId,
         m.type,
-        m.body === null ? null : JSON.stringify(m.body),
+        m.recalled || m.body === null ? null : JSON.stringify(m.body),
         m.recalled ? 1 : 0,
         m.status,
         m.ts,
