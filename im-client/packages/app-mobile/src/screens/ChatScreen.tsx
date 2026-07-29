@@ -3,12 +3,11 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   FlatList,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { ChatMessage } from '@im/sdk-core';
@@ -19,6 +18,9 @@ import type { RootStackParamList } from '../navigation/types';
 import { formatGroupSystemMessage } from '../group/systemMessage';
 import { buildContactDirectory } from '../contact/directory';
 import { InitialAvatar } from '../components/Avatar';
+import { IconButton } from '../components/IconButton';
+import { StatusNotice } from '../components/StatusNotice';
+import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -182,14 +184,16 @@ export function ChatScreen({ route, navigation }: Props) {
       <CompactScreenHeader
         title={displayTitle}
         onBack={() => navigation.goBack()}
-        rightLabel={conversationType === 'GROUP' && groupId != null ? '群资料' : undefined}
+        rightIcon={conversationType === 'GROUP' && groupId != null ? 'settings-outline' : undefined}
+        rightAccessibilityLabel="群资料"
         onRightPress={conversationType === 'GROUP' && groupId != null
           ? () => navigation.navigate('GroupDetails', { cid, groupId, title: displayTitle })
           : undefined}
       />
-      {banner ? <Text style={styles.banner}>{banner}</Text> : null}
+      {banner ? <View style={styles.banner}><StatusNotice message={banner} tone="error" /></View> : null}
       <FlatList
         inverted
+        contentContainerStyle={styles.messageList}
         data={data}
         keyExtractor={(m) => (m.seq != null ? `s:${m.seq}` : `c:${m.clientMsgId}`)}
         renderItem={({ item }) => {
@@ -238,9 +242,12 @@ export function ChatScreen({ route, navigation }: Props) {
                 <ActivityIndicator size="small" />
               ) : null}
               {item.status === 'failed' && item.clientMsgId ? (
-                <Pressable onPress={() => sdk.chat.resend(item.clientMsgId!)}>
-                  <Text style={styles.retry}>!</Text>
-                </Pressable>
+                <IconButton
+                  name="alert-circle"
+                  accessibilityLabel="重新发送"
+                  color={COLORS.danger}
+                  onPress={() => sdk.chat.resend(item.clientMsgId!)}
+                />
               ) : null}
               {mine ? (
                 <InitialAvatar name={senderName} userId={senderId} size={36} />
@@ -249,24 +256,35 @@ export function ChatScreen({ route, navigation }: Props) {
           );
         }}
       />
-      <View style={styles.composer}>
-        <TextInput
-          style={styles.input}
-          placeholder="说点什么"
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={() => void send()}
-        />
-        <Button title="发送" onPress={() => void send()} />
-      </View>
+      <SafeAreaView edges={['bottom']} style={styles.composerSafeArea}>
+        <View style={styles.composer}>
+          <TextInput
+            style={styles.input}
+            placeholder="说点什么"
+            placeholderTextColor={COLORS.textMuted}
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={() => void send()}
+          />
+          <IconButton
+            name="send"
+            accessibilityLabel="发送"
+            disabled={draft.trim() === ''}
+            color={COLORS.white}
+            backgroundColor={draft.trim() === '' ? COLORS.textMuted : COLORS.primary}
+            onPress={() => void send()}
+          />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1 },
-  banner: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: 8, textAlign: 'center' },
-  rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 12, paddingVertical: 8 },
+  wrap: { flex: 1, backgroundColor: COLORS.page },
+  banner: { paddingHorizontal: SPACING.md, paddingTop: SPACING.xs },
+  messageList: { paddingVertical: SPACING.xs },
+  rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
   rowMine: { justifyContent: 'flex-end' },
   rowPeer: { justifyContent: 'flex-start' },
   rowWithSenderName: { paddingTop: 24 },
@@ -276,34 +294,47 @@ const styles = StyleSheet.create({
     top: -20,
     left: 4,
     right: 0,
-    color: '#64748b',
-    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontSize: TYPE.caption,
     lineHeight: 17,
   },
-  bubble: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
-  bubbleMine: { backgroundColor: '#2563eb' },
-  bubblePeer: { backgroundColor: '#e5e7eb' },
-  textMine: { color: '#fff', fontSize: 15 },
-  textPeer: { color: '#111827', fontSize: 15 },
-  deliveryStatus: { alignSelf: 'flex-end', color: '#94a3b8', fontSize: 11, marginTop: 2 },
-  systemRow: { alignItems: 'center', paddingHorizontal: 24, paddingVertical: 8 },
+  bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
+  bubbleMine: { backgroundColor: COLORS.primary },
+  bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
+  textMine: { color: COLORS.white, fontSize: TYPE.body, lineHeight: 21 },
+  textPeer: { color: COLORS.text, fontSize: TYPE.body, lineHeight: 21 },
+  deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
+  systemRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
   systemText: {
-    color: '#64748b',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    fontSize: 12,
+    color: COLORS.textSecondary,
+    backgroundColor: '#E9EEF5',
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xxs,
+    fontSize: TYPE.caption,
     textAlign: 'center',
   },
-  retry: { color: '#dc2626', fontSize: 18, fontWeight: '700', paddingHorizontal: 4 },
+  composerSafeArea: { backgroundColor: COLORS.surface },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: COLORS.border,
   },
-  input: { flex: 1, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10 },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    maxHeight: 108,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.surfaceMuted,
+    color: COLORS.text,
+    fontSize: TYPE.body,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
 });
