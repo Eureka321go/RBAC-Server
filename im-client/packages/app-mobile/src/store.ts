@@ -76,7 +76,6 @@ export const useAppStore = create<AppState>((set) => {
     },
     async logout() {
       sdk.connection.stop();
-      sdk.chat.stop();
       await sdk.auth.logout();
       set({ loggedIn: false, myId: null, displayName: null });
     },
