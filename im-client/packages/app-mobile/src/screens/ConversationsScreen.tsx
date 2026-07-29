@@ -5,6 +5,9 @@ import type { ConversationRow } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { GroupAvatar, InitialAvatar } from '../components/Avatar';
+import { IconButton } from '../components/IconButton';
+import { StatusNotice } from '../components/StatusNotice';
+import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
@@ -84,33 +87,32 @@ export function ConversationsScreen({ navigation }: Props) {
           </View>
         </View>
         <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.newButton, pressed && styles.buttonPressed]}
+          <IconButton
+            name="person-add-outline"
+            accessibilityLabel="发起单聊"
+            backgroundColor={COLORS.primarySoft}
+            color={COLORS.primary}
             onPress={() => navigation.navigate('Contacts')}
-          >
-            <Text style={styles.newButtonText}>单聊</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.newButton, pressed && styles.buttonPressed]}
+          />
+          <IconButton
+            name="people-outline"
+            accessibilityLabel="创建群聊"
+            backgroundColor={COLORS.primarySoft}
+            color={COLORS.primary}
             onPress={() => navigation.navigate('CreateGroup')}
-          >
-            <Text style={styles.newButtonText}>群聊</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.buttonPressed]}
+          />
+          <IconButton
+            name="log-out-outline"
+            accessibilityLabel="登出"
+            backgroundColor={COLORS.dangerSoft}
+            color={COLORS.danger}
             onPress={() => void logout()}
-          >
-            <Text style={styles.logoutText}>登出</Text>
-          </Pressable>
+          />
         </View>
       </View>
-      {error ? (
-        <Text style={styles.error}>同步失败：{error}（本地消息仍可查看）</Text>
-      ) : null}
+      {error ? <View style={styles.notice}><StatusNotice message={`同步失败：${error}（本地消息仍可查看）`} tone="error" /></View> : null}
       <FlatList
+        style={styles.listSurface}
         contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
         data={items}
         keyExtractor={(item) => item.cid}
@@ -164,79 +166,56 @@ export function ConversationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: '#f8fafc' },
+  wrap: { flex: 1, backgroundColor: COLORS.page },
   header: {
-    minHeight: 76,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 74,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-    elevation: 2,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    borderBottomColor: COLORS.border,
   },
   profile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   profileText: { flex: 1, minWidth: 0 },
-  displayName: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
-  sectionName: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  displayName: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '700' },
+  sectionName: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 2 },
   actions: { marginLeft: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  newButton: {
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb',
+  notice: { marginHorizontal: SPACING.md, marginTop: SPACING.sm },
+  listSurface: {
+    margin: SPACING.md,
+    marginBottom: 0,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
   },
-  newButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
-  logoutButton: {
-    height: 36,
-    paddingHorizontal: 10,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
-  },
-  logoutText: { color: '#475569', fontSize: 14, fontWeight: '600' },
-  buttonPressed: { opacity: 0.72 },
-  error: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    color: '#b91c1c',
-    backgroundColor: '#fee2e2',
-    padding: 8,
-    borderRadius: 6,
-  },
-  list: { paddingHorizontal: 16 },
-  emptyList: { flexGrow: 1, paddingHorizontal: 16 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 80 },
+  list: { paddingHorizontal: SPACING.md },
+  emptyList: { flexGrow: 1, paddingHorizontal: SPACING.md },
+  empty: { color: COLORS.textSecondary, textAlign: 'center', marginTop: 80 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     minHeight: 76,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: COLORS.border,
   },
   content: { flex: 1, gap: 6 },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  mention: { color: '#b45309', fontSize: 12 },
-  preview: { color: '#6b7280', fontSize: 14 },
+  title: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  mention: { color: COLORS.warning, fontSize: TYPE.caption },
+  preview: { color: COLORS.textSecondary, fontSize: 14 },
   badge: {
     minWidth: 24,
     height: 24,
     paddingHorizontal: 6,
     borderRadius: 12,
-    backgroundColor: '#dc2626',
+    backgroundColor: COLORS.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  badgeText: { color: COLORS.white, fontSize: TYPE.caption, fontWeight: '700' },
 });
