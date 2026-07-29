@@ -10,6 +10,7 @@ import {
 } from '../store/outboxStore';
 import { OP, type Envelope, type MessageType } from '../protocol/types';
 import type { Ids } from '../ports/index';
+import { buildTextMessageBody, type SendTextOptions } from './mentionPayload';
 
 export interface ChatOptions {
   /** 发出 SEND 后多久没收到 ACK 就判失败（毫秒） */
@@ -76,12 +77,12 @@ export class ChatService {
   }
 
   /** 返回 clientMsgId，供 UI 关联气泡与重发。 */
-  async sendText(cid: string, text: string): Promise<string> {
+  async sendText(cid: string, text: string, options: SendTextOptions = {}): Promise<string> {
     const row: OutboxRow = {
       clientMsgId: this.ids.uuid(),
       cid,
       type: 'TEXT',
-      body: { text },
+      body: buildTextMessageBody(text, options),
       status: 'sending',
       error: null,
       createdAt: this.ids.now(),
