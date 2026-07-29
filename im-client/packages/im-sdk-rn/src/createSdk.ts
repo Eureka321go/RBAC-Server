@@ -3,6 +3,7 @@ import {
   ChatService,
   ConnectionManager,
   Emitter,
+  GroupService,
   MessageStore,
   OutboxStore,
   SyncService,
@@ -43,6 +44,7 @@ export function createSdk(config: SdkConfig) {
   };
   const http = new AxiosHttp(config.apiBaseUrl, () => store.get(TOKEN_KEYS.access));
   const auth = new AuthService(http, store);
+  const groups = new GroupService(http);
   const transport = new WebSocketTransport();
   const lifecycle = new AppStateLifecycle();
   const connection = new ConnectionManager(
@@ -83,5 +85,5 @@ export function createSdk(config: SdkConfig) {
     if (connection.getState() === 'connected') triggerSync();
   });
 
-  return { auth, connection, chat, sync, http, ids: rnIds, ready };
+  return { auth, connection, chat, groups, sync, http, ids: rnIds, ready };
 }

@@ -27,7 +27,9 @@ export interface Transport {
 export interface Http {
   get<T>(path: string, params?: Record<string, unknown>): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
-  put(url: string, body: unknown, headers?: Record<string, string>): Promise<void>;
+  put<T = void>(url: string, body: unknown, headers?: Record<string, string>): Promise<T>;
+  patch<T>(path: string, body?: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
 }
 
 // —— 安全存储端口（M1 实现，keychain）——
