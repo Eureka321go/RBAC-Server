@@ -56,12 +56,14 @@ export class SyncService {
     return this.store.activateAccount(userId);
   }
 
-  setConversationDisplayName(cid: string, name: string): Promise<void> {
-    return this.store.setConversationDisplayName(cid, name);
+  async setConversationDisplayName(cid: string, name: string): Promise<void> {
+    await this.store.setConversationDisplayName(cid, name);
+    this.emitter.emit('conversation', { cid });
   }
 
-  removeLocalConversation(cid: string): Promise<void> {
-    return this.store.removeConversation(cid);
+  async removeLocalConversation(cid: string): Promise<void> {
+    await this.store.removeConversation(cid);
+    this.emitter.emit('conversation', { cid });
   }
 
   /** 先让服务端幂等建立双方成员关系，再进入新单聊页面。 */

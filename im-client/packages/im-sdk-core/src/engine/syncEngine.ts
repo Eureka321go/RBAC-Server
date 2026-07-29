@@ -6,7 +6,7 @@ import type { Envelope } from '../protocol/types';
 import type { Database } from '../ports/index';
 
 export interface SdkEvents extends Record<string, unknown> {
-  message: { cid: string };
+  message: { cid: string; type?: string };
   conversation: { cid: string };
   readReceipt: { cid: string; readSeq: number };
   sendError: { cid: string; clientMsgId: string; reason: string };
@@ -27,11 +27,12 @@ export interface RestMessage {
 /** 会话列表用的一行摘要文案；正文过长时截断。 */
 export function previewOf(type: string | undefined, body: Record<string, unknown> | null): string {
   switch (type) {
-    case 'TEXT':
-    case 'SYSTEM': {
+    case 'TEXT': {
       const text = typeof body?.text === 'string' ? body.text : '';
       return text.length > 50 ? `${text.slice(0, 50)}…` : text;
     }
+    case 'SYSTEM':
+      return '[群聊信息]';
     case 'IMAGE':
       return '[图片]';
     case 'AUDIO':
@@ -61,7 +62,7 @@ export class SyncEngine {
 
   async applyIncoming(m: StoredMessage): Promise<void> {
     await this.store.upsertMessage(m);
-    this.emitter.emit('message', { cid: m.cid });
+    this.emitter.emit('message', { cid: m.cid, type: m.type });
     this.emitter.emit('conversation', { cid: m.cid });
   }
 
@@ -127,7 +128,7 @@ export class SyncEngine {
       await messages.advanceSyncedSeq(cid, stored.seq);
     });
 
-    this.emitter.emit('message', { cid });
+    this.emitter.emit('message', { cid, type: stored.type });
     this.emitter.emit('conversation', { cid });
   }
 }

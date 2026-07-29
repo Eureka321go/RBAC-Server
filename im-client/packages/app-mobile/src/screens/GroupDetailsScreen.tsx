@@ -84,7 +84,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       // 成员管理仍可按 userId 展示；仅添加成员选择器不可用。
     });
     const offMessage = sdk.chat.on('message', (payload) => {
-      if (payload.cid === cid) void load();
+      if (payload.cid === cid && payload.type === 'SYSTEM') void load();
     });
     return () => {
       mountedRef.current = false;
