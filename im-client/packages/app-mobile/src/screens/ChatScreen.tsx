@@ -17,6 +17,7 @@ import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 import { formatGroupSystemMessage } from '../group/systemMessage';
+import { buildContactDirectory } from '../contact/directory';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -36,6 +37,9 @@ export function ChatScreen({ route, navigation }: Props) {
   const myId = useAppStore((s) => s.myId);
   const [items, setItems] = useState<ChatMessage[]>([]);
   const [displayTitle, setDisplayTitle] = useState(title);
+  const [systemNamesById, setSystemNamesById] = useState<ReadonlyMap<number, string>>(
+    () => new Map(),
+  );
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [banner, setBanner] = useState<string | null>(null);
@@ -95,13 +99,25 @@ export function ChatScreen({ route, navigation }: Props) {
   useFocusEffect(useCallback(() => {
     if (conversationType !== 'GROUP' || groupId == null) {
       setDisplayTitle(title);
+      setSystemNamesById(new Map());
       return;
     }
     let active = true;
-    void sdk.groups.getGroup(groupId).then((group) => {
-      if (active) setDisplayTitle(group.name);
-    }).catch(() => {
-      if (active) setDisplayTitle(title);
+    void Promise.all([
+      sdk.groups.getGroup(groupId).catch(() => null),
+      sdk.groups.getMembers(groupId).catch(() => []),
+      sdk.contacts.getDirectory().catch(() => null),
+    ]).then(([group, members, directory]) => {
+      if (!active) return;
+      setDisplayTitle(group?.name ?? title);
+      const names = directory == null
+        ? new Map<number, string>()
+        : new Map(buildContactDirectory(directory).namesById);
+      members.forEach((member) => {
+        const name = member.displayName?.trim();
+        if (name) names.set(member.userId, name);
+      });
+      setSystemNamesById(names);
     });
     return () => {
       active = false;
@@ -178,7 +194,9 @@ export function ChatScreen({ route, navigation }: Props) {
           if (item.type === 'SYSTEM') {
             return (
               <View style={styles.systemRow}>
-                <Text style={styles.systemText}>{formatGroupSystemMessage(item)}</Text>
+                <Text style={styles.systemText}>
+                  {formatGroupSystemMessage(item, systemNamesById)}
+                </Text>
               </View>
             );
           }
