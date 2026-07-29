@@ -5,7 +5,7 @@ meta:
 
 # 如何在新窗口继续开发 IM 前端
 
-本文记录 `feat/im` 分支在 2026-07-29 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。群聊 @ 提及、聊天气泡配色、图片与文件富媒体代码已完成，等待用户手动验收；下一项开发目标是客户端语音消息。
+本文记录 `feat/im` 分支在 2026-07-29 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。群聊 @ 提及、聊天气泡配色、图片/文件富媒体与语音消息代码已完成，等待用户手动验收；下一项开发目标是链接卡片。
 
 ## 协作与提交约定
 
@@ -16,7 +16,7 @@ meta:
 
 ## 当前接手点
 
-当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本交接文档提交后，当前分支比 `origin/feat/im` 领先 14 个提交，未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 注释改动，富媒体提交未包含也未覆盖它。
+当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本交接文档提交前，当前分支比 `origin/feat/im` 领先 11 个提交，未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 与 `backend/src/main/java/com/rbac/im/service/ConversationService.java` 改动，本轮提交未包含也未覆盖它们。
 
 本轮已完成以下功能：
 
@@ -50,11 +50,27 @@ meta:
 - 图片消息支持气泡展示、临时 URL 自动刷新和全屏预览；文件打开前始终刷新临时 GET URL
 - 本地路径和上传进度仅留在 outbox/UI，发送帧会移除这些字段；最终 PUSH 落库后才清理发送端本地副本
 - 后端只签发对象存储地址，不中转文件字节；完成 Multipart 时以 S3 `ListParts` 为权威依据
+- Android/iOS 支持按住录音、上滑 80px 进入取消区、松开发送，最短 1 秒、最长 60 秒且自动结束只发送一次
+- 录音使用 AAC-LC、16 kHz、32 kbps、单声道、`.m4a`/`audio/mp4`，100ms 采集原生 metering 并重采样为 48 点真实振幅波形
+- AUDIO 复用现有直传、断点恢复、失败重试、取消、ACK/PUSH 和撤回链路，客户端与服务端上限均为 20 MiB
+- 播放器全局单实例，支持点击播放/暂停/继续和切换消息；来电、后台、耳机断开及撤回会暂停或停止且不自动恢复
+- 接收语音只有完整播放结束才写入 SQLite `voice_heard` 并消除本地未听点，状态按账号隔离且不上传服务端
 
 关键提交如下：
 
 | 提交 | 内容 |
 | --- | --- |
+| `511c7a0` | 统一语音录音文件扩展名 |
+| `3110714` | 接入语音录制发送与播放交互 |
+| `1fecbb4` | 实现按住录音与振幅浮层 |
+| `8b7d6ba` | 实现语音波形播放与未听状态 |
+| `38e9ea8` | 实现语音原生适配层 |
+| `e10cab0` | 校验服务端语音消息元数据 |
+| `5494a6d` | 持久化语音上传与已听状态 |
+| `cdfb72b` | 定义语音录播与波形契约 |
+| `1ba050a` | 接入语音录播原生依赖 |
+| `6c402a2` | 规划语音消息实施步骤 |
+| `69e8f2b` | 设计语音录制发送与播放 |
 | `4d32006` | 展示并操作图片文件消息 |
 | `df16d32` | 接入图片文件原生能力 |
 | `2a4f0ea` | 持久化并恢复富媒体上传任务 |
@@ -112,6 +128,11 @@ meta:
 - `src/components/AttachmentPickerSheet.tsx`：拍照、相册和文件入口
 - `src/components/MediaMessageContent.tsx`：图片/文件气泡、进度和下载状态
 - `src/components/ImagePreviewModal.tsx`：图片全屏预览
+- `src/voice/useVoiceRecording.ts`：录音权限、60 秒截止、真实振幅采样与 AUDIO 入队
+- `src/voice/voicePlaybackCoordinator.ts`：全局单实例播放、下载缓存、系统中断与已听结算
+- `src/components/VoiceComposerControl.tsx`：键盘/语音切换、按住录音和上滑取消手势
+- `src/components/VoiceRecordingOverlay.tsx`：录音时长、取消区和实时振幅浮层
+- `src/components/VoiceMessageContent.tsx`：48 点波形、播放进度和本地未听点
 - `packages/im-sdk-core/src/media/`：上传任务 SQLite 存储、大小分流和断点续传状态机
 - `packages/im-sdk-rn/src/adapters/rnMedia*.ts`：原生选择、持久副本、分片传输、下载和文件打开
 - `src/components/ConnectionStatusBar.tsx`：顶部连接状态安全区
@@ -199,7 +220,7 @@ npm run android -- --deviceId emulator-5554 --no-packager
 
 后续排查发现：应用在后台超过 Redis 在线路由的 120 秒生存时间后，React Native 的心跳定时器可能暂停，但 WebSocket 仍保留 `connected` 状态。此时消息能到达后端并落库，网关也能收到出站事件，却因用户路由已过期而无法下发最终 `PUSH`，界面会停留在 `acked` 转圈状态。`62ef0ee` 已在前台恢复时立即重启心跳并发送 `PING`，让紧随其后的 `SEND` 之前先重建路由。该修复尚待用户按下文步骤手动验证。
 
-图片与文件富媒体完成后再次执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此没有运行 Jest、Vitest、JUnit 或 E2E，新窗口只需说明建议手测项，由用户执行：
+语音消息完成后再次执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此没有运行 Jest、Vitest、JUnit 或 E2E，新窗口只需说明建议手测项，由用户执行：
 
 ```bash
 cd /Users/xxmm/work/RBAC-Server/im-client
@@ -210,11 +231,11 @@ git diff --check
 
 ```bash
 cd /Users/xxmm/work/RBAC-Server
-mvn -f backend/pom.xml -Dmaven.test.skip=true clean package
+mvn -f backend/pom.xml -Dmaven.test.skip=true package
 mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 ```
 
-新增原生依赖后执行了 `npm audit --omit=dev`。当前报告 7 个 moderate，均来自 React Native CLI 20.1.1 间接依赖的 `fast-xml-parser`；自动修复需要 `--force` 升级到声明范围外的 CLI 20.2.0，因此未执行破坏性升级。iOS 尚未运行 CocoaPods 安装；首次 iOS 构建前需在 `im-client/packages/app-mobile/ios` 执行 `bundle exec pod install`。
+新增原生依赖后执行了 `npm audit --omit=dev --workspace packages/app-mobile`。当前报告 7 个 moderate，均来自 React Native CLI 20.1.1 间接依赖的 `fast-xml-parser`；自动修复需要 `--force` 升级到声明范围外的 CLI 20.2.0，因此未执行破坏性升级。安全关键字扫描未发现 `console.log`、`api_key`、`secret` 或 `sk-`。iOS `bundle exec pod install` 因本机未安装项目要求的 `cocoapods (>= 1.13, != 1.15.0, != 1.15.1)` gem 而未执行成功；首次 iOS 构建前需先安装 Bundler 依赖，再重新运行该命令。
 
 ## 下一窗口优先处理的边界
 
@@ -224,8 +245,8 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 2. @ 提及：代码已完成，等待用户手动验收。
 3. 聊天气泡配色：代码已完成，等待用户确认己方淡绿色、对端白色、正文黑色和提及浅蓝色。
 4. 图片与文件消息：代码已完成，等待用户手动验收。
-5. 语音消息：下一项开发目标，需单独设计录音权限、波形/时长与播放状态。
-6. 链接卡片：语音之后处理。
+5. 语音消息：代码已完成，等待 Android/iOS 用户手动验收。
+6. 链接卡片：下一项开发目标。
 
 @ 提及的设计和实施记录位于：
 
@@ -269,13 +290,33 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 14. 切换账号时不显示也不恢复上一账号的上传任务，切回原账号后可恢复。
 15. 已发送图片/文件可在两分钟窗口内撤回，双端正文不再展示。
 
+语音消息设计和实施记录位于：
+
+- `docs/superpowers/specs/2026-07-29-im-client-voice-message-design.md`
+- `docs/superpowers/plans/2026-07-29-im-client-voice-message.md`
+
+语音消息手测需要覆盖：
+
+1. Android/iOS 首次授权、拒绝、永久拒绝和从设置恢复。
+2. 按住录音、上滑取消、移回恢复、松开发送和低于 1 秒提示。
+3. 录满 60 秒自动发送且只发送一次，之后松手不产生重复消息。
+4. 安静、正常和大声录音时，实时浮层与最终消息波形有明显差异。
+5. 单聊、群聊、实时接收和离线恢复后的语音元数据与播放一致。
+6. 上传进度、断网重试、杀应用后恢复、主动取消和源文件丢失提示。
+7. 播放、暂停、继续、切换另一条，以及播放完成后进度归零。
+8. 已下载缓存复用、临时 URL 刷新，以及下载或解码失败后重试。
+9. 未听点只在完整播放后消失；暂停、切换和失败不消失；切换账号不串号。
+10. 播放时开始录音、退后台、耳机断开和来电等系统打断不会自动续播。
+11. 两分钟内撤回语音，双端停止播放并显示撤回占位。
+12. 键盘/语音模式往返切换后，尚未发送的文字草稿保持不变。
+
 相关实现现状：
 
 - 服务端已实现 `POST /api/im/upload/presign`，请求字段为 `cid/type/filename/mime/size`，响应为 `objectKey/uploadUrl/expiresIn`。
 - 服务端新增 `/api/im/upload/multipart/**` 初始化、状态、分片签名、完成、取消接口和 `/api/im/upload/download/presign` 下载刷新接口。
 - Flyway `V5__im_media_upload.sql` 持久化服务端 Multipart 会话，并有五分钟一次的过期 abort 清理任务。
-- SDK Core 已实现 `MediaUploadService` 与 `media_upload_task` SQLite 表；音频选择、录制和播放端口仍未实现。
-- React Native 已安装图片选择器、文件选择器、文件访问、二进制传输和系统文件打开依赖；尚无录音依赖。
+- SDK Core 已实现 `MediaUploadService`、AUDIO 元数据白名单、`media_upload_task.metadata_json` 与 `voice_heard` SQLite 表。
+- React Native 已安装并装配 Nitro Sound 0.2.15、Nitro Audio Manager 0.3.5、Nitro Modules 0.36.1 与 react-native-permissions 5.6.1；iOS Pods 仍待本机补齐 CocoaPods gem 后安装。
 - 后端富媒体设计与实施记录位于 `docs/superpowers/specs/2026-07-22-im-chat-mvp-design.md` 和 `docs/superpowers/plans/2026-07-24-im-mvp-phase4-rich-media.md`。
 
 ## 已知限制
@@ -300,9 +341,9 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 继续开发 IM 前端。先完整阅读：
 docs/superpowers/plans/2026-07-29-im-client-HANDOFF.md
 
-当前分支是 feat/im，比 origin/feat/im 领先 14 个本地提交，未 push。群聊 @ 提及、最新气泡配色、图片与文件富媒体等待手动验收。
+当前分支是 feat/im，本地语音消息提交尚未 push。群聊 @ 提及、最新气泡配色、图片/文件富媒体与语音消息等待手动验收。
 不要新增或运行测试；每完成一项功能，只告诉我需要手测哪些场景。
 先检查工作区和最近提交，再从交接文档的“下一窗口优先处理的边界”继续。
-先让用户按文档清单手测图片与文件；通过后单独设计语音录制、发送、播放和断点上传。
+先让用户按文档清单手测语音录制、发送、播放和未听状态；通过后设计链接卡片。
 修改完成后先查看 git diff，再提交代码，不要主动 push。
 ```
