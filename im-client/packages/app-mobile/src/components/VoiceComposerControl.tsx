@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, StyleSheet, Text, View } from 'react-native';
 import { IconButton } from './IconButton';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
@@ -73,20 +73,20 @@ export function VoiceComposerControl({
         color={COLORS.primary}
         onPress={onToggleMode}
       />
-      <Pressable
+      <View
         accessible
         accessibilityRole="button"
         accessibilityLabel="按住说话"
-        disabled={disabled && !active}
+        accessibilityState={{ disabled: disabled && !active }}
         {...panResponder.panHandlers}
-        style={({ pressed }) => [
+        style={[
           styles.holdButton,
-          (pressed || active) && styles.holdButtonActive,
+          active && styles.holdButtonActive,
           disabled && styles.disabled,
         ]}
       >
         <Text style={styles.holdText}>{active ? '松开发送' : '按住说话'}</Text>
-      </Pressable>
+      </View>
     </View>
   );
 }
