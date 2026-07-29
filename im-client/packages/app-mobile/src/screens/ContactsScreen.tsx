@@ -13,29 +13,13 @@ import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
-
-interface UserRow {
-  id: number;
-  username: string;
-  nickname: string;
-}
-
-interface ApiResult<T> {
-  code: number;
-  message: string;
-  data: T;
-}
-
-interface PageResult<T> {
-  records: T[];
-  total: number;
-}
+import { listSelectableUsers, userDisplayName, type SelectableUser } from '../services/users';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Contacts'>;
 
 export function ContactsScreen({ navigation }: Props) {
   const myId = useAppStore((s) => s.myId);
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [users, setUsers] = useState<SelectableUser[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [manualId, setManualId] = useState('');
   const [openingPeerId, setOpeningPeerId] = useState<number | null>(null);
@@ -50,7 +34,12 @@ export function ContactsScreen({ navigation }: Props) {
         const cid = await sdk.sync.createSingleConversation(peerId);
         if (!mountedRef.current) return;
         setOpeningPeerId(null);
-        navigation.replace('Chat', { cid, title: peerName, syncOnOpen: true });
+        navigation.replace('Chat', {
+          cid,
+          title: peerName,
+          conversationType: 'SINGLE',
+          syncOnOpen: true,
+        });
       } catch (cause) {
         if (!mountedRef.current) return;
         setHint(`创建会话失败：${cause instanceof Error ? cause.message : 'unknown'}`);
@@ -64,12 +53,8 @@ export function ContactsScreen({ navigation }: Props) {
     mountedRef.current = true;
     (async () => {
       try {
-        const res = await sdk.http.get<ApiResult<PageResult<UserRow>>>('/system/users', {
-          page: 1,
-          pageSize: 50,
-        });
+        const list = await listSelectableUsers(myId);
         if (!mountedRef.current) return;
-        const list = (res.data?.records ?? []).filter((u) => u.id !== myId);
         setUsers(list);
         if (list.length === 0) {
           setHint('没有可选联系人（可能受数据权限过滤），可在下方直接输入对端 userId。');
@@ -97,9 +82,9 @@ export function ContactsScreen({ navigation }: Props) {
             <Pressable
               disabled={openingPeerId != null}
               style={[styles.row, openingPeerId != null && styles.disabled]}
-              onPress={() => void openChat(item.id, item.nickname || item.username)}
+              onPress={() => void openChat(item.id, userDisplayName(item))}
             >
-              <Text style={styles.name}>{item.nickname || item.username}</Text>
+              <Text style={styles.name}>{userDisplayName(item)}</Text>
               <Text style={styles.sub}>#{item.id}</Text>
             </Pressable>
           )}

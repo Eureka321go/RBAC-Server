@@ -14,6 +14,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { ContactsScreen } from './src/screens/ContactsScreen';
 import { ConversationsScreen } from './src/screens/ConversationsScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { CreateGroupScreen } from './src/screens/CreateGroupScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
 
@@ -55,6 +56,11 @@ function App() {
               <Stack.Screen
                 name="Contacts"
                 component={ContactsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="CreateGroup"
+                component={CreateGroupScreen}
                 options={{ headerShown: false }}
               />
               <Stack.Screen

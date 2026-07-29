@@ -9,6 +9,8 @@ import type { RootStackParamList } from '../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
 
 function titleOf(row: ConversationRow, myId: number | null): string {
+  const displayName = row.displayName?.trim();
+  if (displayName) return displayName;
   if (row.type === 'GROUP') return `群聊 #${row.groupId ?? row.cid.slice(2)}`;
   const peerName = row.peerName?.trim();
   if (peerName) return peerName;
@@ -93,7 +95,14 @@ export function ConversationsScreen({ navigation }: Props) {
             style={({ pressed }) => [styles.newButton, pressed && styles.buttonPressed]}
             onPress={() => navigation.navigate('Contacts')}
           >
-            <Text style={styles.newButtonText}>＋ 新建</Text>
+            <Text style={styles.newButtonText}>单聊</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.newButton, pressed && styles.buttonPressed]}
+            onPress={() => navigation.navigate('CreateGroup')}
+          >
+            <Text style={styles.newButtonText}>群聊</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -123,7 +132,13 @@ export function ConversationsScreen({ navigation }: Props) {
           return (
             <Pressable
               style={styles.row}
-              onPress={() => navigation.navigate('Chat', { cid: item.cid, title, syncOnOpen: true })}
+              onPress={() => navigation.navigate('Chat', {
+                cid: item.cid,
+                title,
+                conversationType: item.type,
+                groupId: item.groupId ?? undefined,
+                syncOnOpen: true,
+              })}
             >
               <View style={styles.content}>
                 <View style={styles.titleLine}>
