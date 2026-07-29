@@ -16,10 +16,18 @@ export interface ChatOptions {
   ackTimeoutMs?: number;
   /** 收到 ACK 后多久没收到最终 PUSH 就判失败（毫秒） */
   pushTimeoutMs?: number;
+  /** 发出 RECALL 后多久没收到 PUSH/ERROR 就释放等待（毫秒） */
+  recallTimeoutMs?: number;
 }
 
 const DEFAULT_ACK_TIMEOUT_MS = 15000;
 const DEFAULT_PUSH_TIMEOUT_MS = 30000;
+const DEFAULT_RECALL_TIMEOUT_MS = 10000;
+
+interface PendingRecall {
+  targetSeq: number;
+  timer: ReturnType<typeof setTimeout>;
+}
 
 /**
  * 发送编排 + 下行帧路由。
@@ -28,8 +36,10 @@ const DEFAULT_PUSH_TIMEOUT_MS = 30000;
 export class ChatService {
   private readonly ackTimeoutMs: number;
   private readonly pushTimeoutMs: number;
+  private readonly recallTimeoutMs: number;
   private readonly ackTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pendingRecalls = new Map<string, PendingRecall>();
   private readonly offs: Array<() => void> = [];
   // 下行帧串行链：RN 的原生事件桥会在同一 JS turn 批量投递多帧，
   // fire-and-forget 会让第二帧在第一帧的 db.tx 未提交时插入，
@@ -47,6 +57,7 @@ export class ChatService {
   ) {
     this.ackTimeoutMs = opts.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
     this.pushTimeoutMs = opts.pushTimeoutMs ?? DEFAULT_PUSH_TIMEOUT_MS;
+    this.recallTimeoutMs = opts.recallTimeoutMs ?? DEFAULT_RECALL_TIMEOUT_MS;
     this.offs.push(
       this.connection.on('ack', ({ clientMsgId }) => this.enqueue(() => this.onAck(clientMsgId))),
       this.connection.on('envelope', (env) => this.enqueue(() => this.onEnvelope(env))),
@@ -90,6 +101,40 @@ export class ChatService {
     await this.dispatch({ ...row, status: 'sending', error: null });
   }
 
+  /** 撤回由服务端 PUSH/ERROR 最终确认；同一会话同时只允许一个待确认请求。 */
+  async recall(cid: string, targetSeq: number): Promise<void> {
+    if (cid === '' || !Number.isSafeInteger(targetSeq) || targetSeq <= 0) {
+      throw new Error('INVALID_RECALL_TARGET');
+    }
+    if (this.connection.getState() !== 'connected') {
+      throw new Error('OFFLINE');
+    }
+    if (this.pendingRecalls.has(cid)) {
+      throw new Error('RECALL_PENDING');
+    }
+
+    const timer = setTimeout(() => {
+      this.enqueue(async () => {
+        const pending = this.pendingRecalls.get(cid);
+        if (pending?.targetSeq !== targetSeq) return;
+        this.pendingRecalls.delete(cid);
+        this.emitter.emit('recallResult', { cid, targetSeq, status: 'timeout' });
+      });
+    }, this.recallTimeoutMs);
+    this.pendingRecalls.set(cid, { targetSeq, timer });
+
+    try {
+      this.connection.send({
+        op: OP.RECALL,
+        cid,
+        body: { targetSeq },
+      });
+    } catch (cause) {
+      this.clearPendingRecall(cid, targetSeq);
+      throw cause;
+    }
+  }
+
   async getChatMessages(cid: string): Promise<ChatMessage[]> {
     const [persisted, pending] = await Promise.all([
       this.messages.getMessages(cid),
@@ -125,6 +170,8 @@ export class ChatService {
     this.ackTimers.clear();
     this.pushTimers.forEach((t) => clearTimeout(t));
     this.pushTimers.clear();
+    this.pendingRecalls.forEach(({ timer }) => clearTimeout(timer));
+    this.pendingRecalls.clear();
   }
 
   private async dispatch(row: OutboxRow): Promise<void> {
@@ -197,6 +244,9 @@ export class ChatService {
       if (env.clientMsgId) {
         this.clearPushTimer(env.clientMsgId);
       }
+      if (env.type === 'RECALL') {
+        this.onRecallPush(env);
+      }
       return;
     }
     if (env.op === OP.ERROR) {
@@ -225,8 +275,11 @@ export class ChatService {
    */
   private async onError(env: Envelope): Promise<void> {
     const clientMsgId = env.clientMsgId;
-    if (!clientMsgId) return;
     const reason = typeof env.body?.reason === 'string' ? env.body.reason : 'UNKNOWN';
+    if (!clientMsgId) {
+      this.onRecallError(env, reason);
+      return;
+    }
     this.clearAckTimer(clientMsgId);
     this.clearPushTimer(clientMsgId);
     const before = await this.outbox.get(clientMsgId);
@@ -237,6 +290,37 @@ export class ChatService {
       this.emitter.emit('message', { cid: before.cid });
       this.emitter.emit('sendError', { cid: before.cid, clientMsgId, reason });
     }
+  }
+
+  private onRecallPush(env: Envelope): void {
+    const cid = env.cid;
+    const targetSeq = env.body?.targetSeq;
+    if (typeof cid !== 'string' || cid === '') return;
+    if (typeof targetSeq !== 'number' || !Number.isSafeInteger(targetSeq) || targetSeq <= 0) return;
+    if (!this.clearPendingRecall(cid, targetSeq)) return;
+    this.emitter.emit('recallResult', { cid, targetSeq, status: 'succeeded' });
+  }
+
+  private onRecallError(env: Envelope, reason: string): void {
+    const cid = env.cid;
+    if (typeof cid !== 'string' || cid === '') return;
+    const pending = this.pendingRecalls.get(cid);
+    if (pending == null) return;
+    this.clearPendingRecall(cid, pending.targetSeq);
+    this.emitter.emit('recallResult', {
+      cid,
+      targetSeq: pending.targetSeq,
+      status: 'failed',
+      reason,
+    });
+  }
+
+  private clearPendingRecall(cid: string, targetSeq: number): boolean {
+    const pending = this.pendingRecalls.get(cid);
+    if (pending?.targetSeq !== targetSeq) return false;
+    clearTimeout(pending.timer);
+    this.pendingRecalls.delete(cid);
+    return true;
   }
 
   private async fail(cid: string, clientMsgId: string, reason: string): Promise<void> {

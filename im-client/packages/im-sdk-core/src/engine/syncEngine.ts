@@ -5,10 +5,18 @@ import { parseCid } from '../protocol/cid';
 import type { Envelope } from '../protocol/types';
 import type { Database } from '../ports/index';
 
+export type RecallResultStatus = 'succeeded' | 'failed' | 'timeout';
+
 export interface SdkEvents extends Record<string, unknown> {
   message: { cid: string; type?: string };
   conversation: { cid: string };
   readReceipt: { cid: string; readSeq: number };
+  recallResult: {
+    cid: string;
+    targetSeq: number;
+    status: RecallResultStatus;
+    reason?: string;
+  };
   sendError: { cid: string; clientMsgId: string; reason: string };
   syncState: { running: boolean; error: string | null };
 }
