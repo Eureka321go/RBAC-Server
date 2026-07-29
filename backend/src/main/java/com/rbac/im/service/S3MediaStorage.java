@@ -12,15 +12,23 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 /** {@link MediaStorage} 的 AWS SDK v2 实现；endpoint override 使其对 MinIO/阿里云 OSS 通用。 */
@@ -95,6 +103,62 @@ public class S3MediaStorage implements MediaStorage {
                 .bucket(props.getBucket()).key(objectKey).build();
         return presigner.presignGetObject(b -> b.signatureDuration(ttl).getObjectRequest(get))
                 .url().toString();
+    }
+
+    @Override
+    public MultipartSession createMultipart(String objectKey, String contentType) {
+        CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
+                .bucket(props.getBucket())
+                .key(objectKey)
+                .contentType(contentType)
+                .build();
+        String uploadId = s3.createMultipartUpload(request).uploadId();
+        return new MultipartSession(uploadId);
+    }
+
+    @Override
+    public String presignUploadPart(String objectKey, String uploadId, int partNumber,
+                                    long contentLength, Duration ttl) {
+        UploadPartRequest request = UploadPartRequest.builder()
+                .bucket(props.getBucket())
+                .key(objectKey)
+                .uploadId(uploadId)
+                .partNumber(partNumber)
+                .contentLength(contentLength)
+                .build();
+        return presigner.presignUploadPart(b -> b.signatureDuration(ttl).uploadPartRequest(request))
+                .url().toString();
+    }
+
+    @Override
+    public List<UploadedPart> listParts(String objectKey, String uploadId) {
+        ListPartsRequest request = ListPartsRequest.builder()
+                .bucket(props.getBucket()).key(objectKey).uploadId(uploadId).build();
+        return s3.listPartsPaginator(request).parts().stream()
+                .map(part -> new UploadedPart(part.partNumber(), part.eTag(), part.size()))
+                .toList();
+    }
+
+    @Override
+    public void completeMultipart(String objectKey, String uploadId, List<UploadedPart> parts) {
+        List<CompletedPart> completedParts = parts.stream()
+                .map(part -> CompletedPart.builder()
+                        .partNumber(part.partNumber()).eTag(part.eTag()).build())
+                .toList();
+        CompleteMultipartUploadRequest request = CompleteMultipartUploadRequest.builder()
+                .bucket(props.getBucket())
+                .key(objectKey)
+                .uploadId(uploadId)
+                .multipartUpload(CompletedMultipartUpload.builder().parts(completedParts).build())
+                .build();
+        s3.completeMultipartUpload(request);
+    }
+
+    @Override
+    public void abortMultipart(String objectKey, String uploadId) {
+        AbortMultipartUploadRequest request = AbortMultipartUploadRequest.builder()
+                .bucket(props.getBucket()).key(objectKey).uploadId(uploadId).build();
+        s3.abortMultipartUpload(request);
     }
 
     @Override
