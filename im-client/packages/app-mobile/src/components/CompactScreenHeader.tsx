@@ -4,10 +4,12 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 interface Props {
   title: string;
   onBack: () => void;
+  rightLabel?: string;
+  onRightPress?: () => void;
 }
 
 /** 替代 Android edge-to-edge 下过高的 native-stack Header。 */
-export function CompactScreenHeader({ title, onBack }: Props) {
+export function CompactScreenHeader({ title, onBack, rightLabel, onRightPress }: Props) {
   return (
     <View style={styles.header}>
       <Pressable
@@ -20,7 +22,18 @@ export function CompactScreenHeader({ title, onBack }: Props) {
         <Text style={styles.backText}>‹</Text>
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>{title}</Text>
-      <View style={styles.balance} />
+      {rightLabel && onRightPress ? (
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
+          style={({ pressed }) => [styles.right, pressed && styles.pressed]}
+          onPress={onRightPress}
+        >
+          <Text style={styles.rightText}>{rightLabel}</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.balance} />
+      )}
     </View>
   );
 }
@@ -57,4 +70,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   balance: { width: 44 },
+  right: {
+    minWidth: 44,
+    height: 44,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rightText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
 });

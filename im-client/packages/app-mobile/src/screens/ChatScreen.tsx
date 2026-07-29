@@ -15,6 +15,7 @@ import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
+import { formatGroupSystemMessage } from '../group/systemMessage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -24,7 +25,13 @@ function textOf(m: ChatMessage): string {
 }
 
 export function ChatScreen({ route, navigation }: Props) {
-  const { cid, title, syncOnOpen = true } = route.params;
+  const {
+    cid,
+    title,
+    conversationType,
+    groupId,
+    syncOnOpen = true,
+  } = route.params;
   const myId = useAppStore((s) => s.myId);
   const [items, setItems] = useState<ChatMessage[]>([]);
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
@@ -136,13 +143,27 @@ export function ChatScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <CompactScreenHeader title={title} onBack={() => navigation.goBack()} />
+      <CompactScreenHeader
+        title={title}
+        onBack={() => navigation.goBack()}
+        rightLabel={conversationType === 'GROUP' && groupId != null ? '群资料' : undefined}
+        onRightPress={conversationType === 'GROUP' && groupId != null
+          ? () => navigation.navigate('GroupDetails', { cid, groupId, title })
+          : undefined}
+      />
       {banner ? <Text style={styles.banner}>{banner}</Text> : null}
       <FlatList
         inverted
         data={data}
         keyExtractor={(m) => (m.seq != null ? `s:${m.seq}` : `c:${m.clientMsgId}`)}
         renderItem={({ item }) => {
+          if (item.type === 'SYSTEM') {
+            return (
+              <View style={styles.systemRow}>
+                <Text style={styles.systemText}>{formatGroupSystemMessage(item)}</Text>
+              </View>
+            );
+          }
           const mine = item.seq == null || item.senderId === myId;
           return (
             <View style={[styles.rowWrap, mine ? styles.rowMine : styles.rowPeer]}>
@@ -150,7 +171,7 @@ export function ChatScreen({ route, navigation }: Props) {
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer]}>
                   <Text style={mine ? styles.textMine : styles.textPeer}>{textOf(item)}</Text>
                 </View>
-                {mine && item.seq != null ? (
+                {conversationType === 'SINGLE' && mine && item.seq != null ? (
                   <Text style={styles.deliveryStatus}>
                     {peerReadSeq != null && item.seq <= peerReadSeq ? '已读' : '已发送'}
                   </Text>
@@ -195,6 +216,16 @@ const styles = StyleSheet.create({
   textMine: { color: '#fff', fontSize: 15 },
   textPeer: { color: '#111827', fontSize: 15 },
   deliveryStatus: { alignSelf: 'flex-end', color: '#94a3b8', fontSize: 11, marginTop: 2 },
+  systemRow: { alignItems: 'center', paddingHorizontal: 24, paddingVertical: 8 },
+  systemText: {
+    color: '#64748b',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   retry: { color: '#dc2626', fontSize: 18, fontWeight: '700', paddingHorizontal: 4 },
   composer: {
     flexDirection: 'row',
