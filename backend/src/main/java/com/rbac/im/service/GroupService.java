@@ -213,11 +213,14 @@ public class GroupService {
 
     public List<ImGroupMemberVO> listMembers(long groupId, long requesterId) {
         requireMember(groupId, requesterId);
-        return groupMemberMapper.selectList(new LambdaQueryWrapper<ImGroupMember>()
-                        .eq(ImGroupMember::getGroupId, groupId))
-                .stream().map(m -> {
+        List<ImGroupMember> members = groupMemberMapper.selectList(
+                new LambdaQueryWrapper<ImGroupMember>().eq(ImGroupMember::getGroupId, groupId));
+        Map<Long, String> names = conversationService.displayNames(
+                members.stream().map(ImGroupMember::getUserId).toList());
+        return members.stream().map(m -> {
                     ImGroupMemberVO vo = new ImGroupMemberVO();
                     vo.setUserId(m.getUserId());
+                    vo.setDisplayName(names.get(m.getUserId()));
                     vo.setRole(m.getRole());
                     vo.setMuted(m.getMuted() != null && m.getMuted() == 1);
                     return vo;
@@ -282,8 +285,19 @@ public class GroupService {
         Map<String, Object> body = new HashMap<>();
         body.put("event", event);
         body.put("operatorId", operatorId);
+        LinkedHashSet<Long> nameIds = new LinkedHashSet<>();
+        nameIds.add(operatorId);
+        if (targetIds != null) {
+            nameIds.addAll(targetIds);
+        }
+        Map<Long, String> names = conversationService.displayNames(nameIds);
+        String operatorName = names.get(operatorId);
+        if (operatorName != null) {
+            body.put("operatorName", operatorName);
+        }
         if (targetIds != null) {
             body.put("targetIds", targetIds);
+            body.put("targetNames", targetIds.stream().map(names::get).toList());
         }
         if (extra != null) {
             body.put("extra", extra);

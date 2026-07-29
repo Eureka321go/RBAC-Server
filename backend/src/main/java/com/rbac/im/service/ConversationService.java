@@ -13,6 +13,7 @@ import com.rbac.system.user.mapper.SysUserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -248,5 +249,22 @@ public class ConversationService {
         }
         return user.getUsername() == null || user.getUsername().isBlank()
                 ? null : user.getUsername().trim();
+    }
+
+    /** 批量解析聊天展示名；调用方可复用，避免逐用户查询。 */
+    public Map<Long, String> displayNames(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = userIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return userMapper.selectByIds(ids).stream()
+                .filter(user -> displayName(user) != null)
+                .collect(Collectors.toMap(SysUser::getId, ConversationService::displayName));
     }
 }

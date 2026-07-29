@@ -1,12 +1,23 @@
 import type { ChatMessage } from '@im/sdk-core';
 
-function userLabel(value: unknown): string {
-  return typeof value === 'number' ? `用户 #${value}` : '有成员';
+function userLabel(
+  name: unknown,
+  userId: unknown,
+  namesById: ReadonlyMap<number, string>,
+): string {
+  if (typeof name === 'string' && name.trim() !== '') return name.trim();
+  if (typeof userId === 'number') return namesById.get(userId) ?? `用户 #${userId}`;
+  return '有成员';
 }
 
 function firstTarget(body: Record<string, unknown>): unknown {
   const targets = body.targetIds;
   return Array.isArray(targets) ? targets[0] : null;
+}
+
+function firstTargetName(body: Record<string, unknown>): unknown {
+  const names = body.targetNames;
+  return Array.isArray(names) ? names[0] : null;
 }
 
 function extraOf(body: Record<string, unknown>): Record<string, unknown> {
@@ -15,11 +26,14 @@ function extraOf(body: Record<string, unknown>): Record<string, unknown> {
     : {};
 }
 
-export function formatGroupSystemMessage(message: ChatMessage): string {
+export function formatGroupSystemMessage(
+  message: ChatMessage,
+  namesById: ReadonlyMap<number, string> = new Map(),
+): string {
   const body = message.body ?? {};
   const event = body.event;
-  const operator = userLabel(body.operatorId);
-  const target = userLabel(firstTarget(body));
+  const operator = userLabel(body.operatorName, body.operatorId, namesById);
+  const target = userLabel(firstTargetName(body), firstTarget(body), namesById);
   const extra = extraOf(body);
 
   switch (event) {

@@ -13,6 +13,7 @@ export interface GroupDetail {
 
 export interface GroupMember {
   userId: number;
+  displayName: string | null;
   role: GroupRole;
   muted: boolean;
 }
