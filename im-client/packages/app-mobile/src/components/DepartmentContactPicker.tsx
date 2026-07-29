@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ContactMember } from '@im/sdk-core';
 import type { ContactDirectoryModel } from '../contact/directory';
+import { InitialAvatar } from './Avatar';
 
 type Location = number | 'unassigned' | null;
 
@@ -190,6 +191,7 @@ export function DepartmentContactPicker({
                   <Text style={styles.checkmark}>{selected ? '✓' : ''}</Text>
                 </View>
               ) : null}
+              <InitialAvatar name={member.displayName} userId={member.userId} size={38} />
               <View style={styles.grow}>
                 <Text style={styles.memberName}>{member.displayName}</Text>
                 <Text style={styles.meta}>#{member.userId}{unavailable ? ' · 不可选择' : ''}</Text>
