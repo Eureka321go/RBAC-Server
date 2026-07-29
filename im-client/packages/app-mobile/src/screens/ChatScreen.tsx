@@ -5,6 +5,8 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Alert,
+  AppState,
   Pressable,
   StyleSheet,
 } from 'react-native';
@@ -30,6 +32,14 @@ import { StatusNotice } from '../components/StatusNotice';
 import { AttachmentPickerSheet } from '../components/AttachmentPickerSheet';
 import { MediaMessageContent } from '../components/MediaMessageContent';
 import { ImagePreviewModal } from '../components/ImagePreviewModal';
+import { VoiceComposerControl } from '../components/VoiceComposerControl';
+import { VoiceMessageContent } from '../components/VoiceMessageContent';
+import { VoiceRecordingOverlay } from '../components/VoiceRecordingOverlay';
+import { useVoiceRecording } from '../voice/useVoiceRecording';
+import {
+  voiceMessageKey,
+  voicePlaybackCoordinator,
+} from '../voice/voicePlaybackCoordinator';
 import {
   applyMentionTextChange,
   findInsertedMentionTrigger,
@@ -108,6 +118,21 @@ function mediaErrorText(reason?: string): string {
   }
 }
 
+function voiceErrorText(reason?: string): string {
+  switch (reason) {
+    case 'VOICE_PERMISSION_DENIED': return '请允许应用使用麦克风后再录音';
+    case 'VOICE_PERMISSION_BLOCKED': return '麦克风权限已关闭，请前往系统设置开启';
+    case 'VOICE_PERMISSION_UNAVAILABLE': return '当前设备无法使用麦克风';
+    case 'VOICE_TOO_SHORT': return '说话时间太短';
+    case 'VOICE_METERING_MISSING': return '没有检测到有效声音，请重试';
+    case 'VOICE_RECORDING_BUSY': return '正在处理上一段录音，请稍候';
+    case 'VOICE_RECORDING_FAILED': return '录音失败，请稍后重试';
+    case 'VOICE_METADATA_INVALID': return '语音信息不完整，无法发送';
+    case 'VOICE_PLAYBACK_FAILED': return '语音播放失败，请重试';
+    default: return mediaErrorText(reason);
+  }
+}
+
 function emptyMentionDraft(): MentionDraftState {
   return { text: '', ranges: [] };
 }
@@ -143,6 +168,8 @@ export function ChatScreen({ route, navigation }: Props) {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [downloadingObjectKey, setDownloadingObjectKey] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [heardVoiceSeqs, setHeardVoiceSeqs] = useState<Set<number>>(() => new Set());
 
   // 组件是否仍处于挂载状态；卸载后用它守卫所有异步回调里的 setState，避免对已卸载组件调用。
   const mountedRef = useRef(true);
@@ -164,12 +191,14 @@ export function ChatScreen({ route, navigation }: Props) {
   }, []);
 
   const reload = useCallback(async () => {
-    const [list, readState] = await Promise.all([
+    const [list, readState, heardSeqs] = await Promise.all([
       sdk.chat.getChatMessages(cid),
       sdk.chat.getReadState(cid),
+      myId == null ? Promise.resolve(new Set<number>()) : sdk.voice.heard.listHeardSeqs(myId, cid),
     ]);
     if (!mountedRef.current || activeCidRef.current !== cid) return;
     setItems(list);
+    setHeardVoiceSeqs(heardSeqs);
     setPeerReadSeq((current) => {
       if (readState.peerReadSeq == null) return current;
       return Math.max(current ?? 0, readState.peerReadSeq);
@@ -187,7 +216,7 @@ export function ChatScreen({ route, navigation }: Props) {
         }
       }
     }
-  }, [cid, showBanner]);
+  }, [cid, myId, showBanner]);
 
   const safeReload = useCallback(() => {
     void reload().catch((cause) => {
@@ -196,6 +225,41 @@ export function ChatScreen({ route, navigation }: Props) {
       }
     });
   }, [cid, reload, showBanner]);
+
+  const reloadHeardVoiceSeqs = useCallback(() => {
+    if (myId == null) {
+      setHeardVoiceSeqs(new Set());
+      return;
+    }
+    void sdk.voice.heard.listHeardSeqs(myId, cid).then((seqs) => {
+      if (mountedRef.current && activeCidRef.current === cid) setHeardVoiceSeqs(seqs);
+    }).catch(() => {});
+  }, [cid, myId]);
+
+  const showVoiceError = useCallback((reason: string) => {
+    showBanner(voiceErrorText(reason));
+  }, [showBanner]);
+
+  const voiceRecording = useVoiceRecording({
+    cid,
+    onEnqueued: safeReload,
+    onError: showVoiceError,
+  });
+
+  useFocusEffect(useCallback(() => () => {
+    void voiceRecording.cancel();
+    void voicePlaybackCoordinator.pause();
+  }, [voiceRecording.cancel]));
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        void voiceRecording.cancel();
+        void voicePlaybackCoordinator.pause();
+      }
+    });
+    return () => subscription.remove();
+  }, [voiceRecording.cancel]);
 
   useFocusEffect(useCallback(() => {
     if (conversationType !== 'GROUP' || groupId == null) {
@@ -259,6 +323,8 @@ export function ChatScreen({ route, navigation }: Props) {
     setPreviewUri(null);
     setDownloadingObjectKey(null);
     setDownloadProgress(0);
+    setVoiceMode(false);
+    setHeardVoiceSeqs(new Set());
     if (syncOnOpen) {
       void sdk.sync.syncConversation(cid).then(safeReload).catch((cause) => {
         if (!mountedRef.current || activeCidRef.current !== cid) return;
@@ -315,8 +381,10 @@ export function ChatScreen({ route, navigation }: Props) {
       offConnection();
       offErr();
       offRecall();
+      void voiceRecording.cancel();
+      void voicePlaybackCoordinator.stop();
     };
-  }, [cid, safeReload, showBanner, syncOnOpen]);
+  }, [cid, safeReload, showBanner, syncOnOpen, voiceRecording.cancel]);
 
   // inverted 列表要倒序数据：最新的在数组头部。
   const { data, recallOperators } = useMemo(() => {
@@ -330,6 +398,14 @@ export function ChatScreen({ route, navigation }: Props) {
     return { data: visible.reverse(), recallOperators: operators };
   }, [items]);
 
+  useEffect(() => {
+    const activeKey = voicePlaybackCoordinator.getSnapshot().key;
+    if (activeKey == null) return;
+    const activeMessage = items.find((item) => item.type === 'AUDIO'
+      && voiceMessageKey(item) === activeKey);
+    if (activeMessage?.recalled) void voicePlaybackCoordinator.stop();
+  }, [items]);
+
   const send = useCallback(async () => {
     const { text } = draft;
     if (text.trim() === '') return;
@@ -340,6 +416,38 @@ export function ChatScreen({ route, navigation }: Props) {
     setMentionPickerVisible(false);
     await sdk.chat.sendText(cid, text, options);
   }, [cid, draft]);
+
+  const toggleVoiceMode = useCallback(async () => {
+    if (voiceMode) {
+      setVoiceMode(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    let permission;
+    try {
+      permission = await voiceRecording.ensurePermission();
+    } catch {
+      showVoiceError('VOICE_PERMISSION_UNAVAILABLE');
+      return;
+    }
+    if (permission === 'granted') {
+      inputRef.current?.blur();
+      setVoiceMode(true);
+      return;
+    }
+    if (permission === 'blocked') {
+      Alert.alert(
+        '需要麦克风权限',
+        voiceErrorText('VOICE_PERMISSION_BLOCKED'),
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '前往设置', onPress: () => void sdk.voice.permission.openSettings() },
+        ],
+      );
+      return;
+    }
+    showVoiceError(`VOICE_PERMISSION_${permission.toUpperCase()}`);
+  }, [showVoiceError, voiceMode, voiceRecording.ensurePermission]);
 
   const excludedMentionUserIds = useMemo(
     () => new Set(toSendTextOptions(draft).mentions ?? []),
@@ -571,7 +679,16 @@ export function ChatScreen({ route, navigation }: Props) {
                     pressed && recallable && styles.bubblePressed,
                   ]}
                 >
-                  {item.type === 'IMAGE' || item.type === 'FILE' ? (
+                  {item.type === 'AUDIO' && myId != null ? (
+                    <VoiceMessageContent
+                      message={item}
+                      accountId={myId}
+                      mine={mine}
+                      heard={item.seq != null && heardVoiceSeqs.has(item.seq)}
+                      onHeard={reloadHeardVoiceSeqs}
+                      onError={showVoiceError}
+                    />
+                  ) : item.type === 'IMAGE' || item.type === 'FILE' ? (
                     <MediaMessageContent
                       message={item}
                       onPreview={setPreviewUri}
@@ -621,28 +738,45 @@ export function ChatScreen({ route, navigation }: Props) {
           <IconButton
             name="add-circle-outline"
             accessibilityLabel="添加图片或文件"
+            disabled={voiceRecording.state.active || voiceRecording.state.starting}
             color={COLORS.primary}
             onPress={() => setAttachmentPickerVisible(true)}
           />
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholder="说点什么"
-            placeholderTextColor={COLORS.textMuted}
-            value={draft.text}
-            selection={draftSelection}
-            onChangeText={changeDraftText}
-            onSelectionChange={(event) => setDraftSelection(event.nativeEvent.selection)}
-            onSubmitEditing={() => void send()}
+          <VoiceComposerControl
+            voiceMode={voiceMode}
+            disabled={false}
+            active={voiceRecording.state.active || voiceRecording.state.starting}
+            onToggleMode={() => void toggleVoiceMode()}
+            onStart={voiceRecording.start}
+            onCancellingChange={voiceRecording.setCancelling}
+            onFinish={voiceRecording.finish}
           />
-          <IconButton
-            name="send"
-            accessibilityLabel="发送"
-            disabled={draft.text.trim() === ''}
-            color={COLORS.white}
-            backgroundColor={draft.text.trim() === '' ? COLORS.textMuted : COLORS.primary}
-            onPress={() => void send()}
-          />
+          {!voiceMode ? (
+            <>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder="说点什么"
+                placeholderTextColor={COLORS.textMuted}
+                value={draft.text}
+                selection={draftSelection}
+                editable={!voiceRecording.state.active && !voiceRecording.state.starting}
+                onChangeText={changeDraftText}
+                onSelectionChange={(event) => setDraftSelection(event.nativeEvent.selection)}
+                onSubmitEditing={() => void send()}
+              />
+              <IconButton
+                name="send"
+                accessibilityLabel="发送"
+                disabled={draft.text.trim() === ''
+                  || voiceRecording.state.active
+                  || voiceRecording.state.starting}
+                color={COLORS.white}
+                backgroundColor={draft.text.trim() === '' ? COLORS.textMuted : COLORS.primary}
+                onPress={() => void send()}
+              />
+            </>
+          ) : null}
         </View>
       </SafeAreaView>
       <MessageActionSheet
@@ -665,6 +799,7 @@ export function ChatScreen({ route, navigation }: Props) {
         onSelect={(kind) => void selectAttachment(kind)}
       />
       <ImagePreviewModal uri={previewUri} onClose={() => setPreviewUri(null)} />
+      <VoiceRecordingOverlay {...voiceRecording.state} />
     </View>
   );
 }

@@ -25,8 +25,8 @@ export function VoiceComposerControl({
   const cancellingRef = useRef(false);
   const gestureActiveRef = useRef(false);
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => voiceMode && !disabled,
-    onMoveShouldSetPanResponder: () => voiceMode && !disabled,
+    onStartShouldSetPanResponder: () => voiceMode && !disabled && !active,
+    onMoveShouldSetPanResponder: () => voiceMode && !disabled && !active,
     onPanResponderGrant: () => {
       gestureActiveRef.current = true;
       cancellingRef.current = false;
@@ -50,33 +50,43 @@ export function VoiceComposerControl({
       void onFinish(true);
     },
     onPanResponderTerminationRequest: () => false,
-  }), [disabled, onCancellingChange, onFinish, onStart, voiceMode]);
+  }), [active, disabled, onCancellingChange, onFinish, onStart, voiceMode]);
 
-  return (
-    <View style={styles.wrap}>
+  if (!voiceMode) {
+    return (
       <IconButton
-        name={voiceMode ? 'keypad-outline' : 'mic-outline'}
-        accessibilityLabel={voiceMode ? '切换到文字输入' : '切换到语音输入'}
+        name="mic-outline"
+        accessibilityLabel="切换到语音输入"
         disabled={disabled || active}
         color={COLORS.primary}
         onPress={onToggleMode}
       />
-      {voiceMode ? (
-        <Pressable
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel="按住说话"
-          disabled={disabled}
-          {...panResponder.panHandlers}
-          style={({ pressed }) => [
-            styles.holdButton,
-            (pressed || active) && styles.holdButtonActive,
-            disabled && styles.disabled,
-          ]}
-        >
-          <Text style={styles.holdText}>{active ? '松开发送' : '按住说话'}</Text>
-        </Pressable>
-      ) : null}
+    );
+  }
+
+  return (
+    <View style={styles.wrap}>
+      <IconButton
+        name="keypad-outline"
+        accessibilityLabel="切换到文字输入"
+        disabled={disabled || active}
+        color={COLORS.primary}
+        onPress={onToggleMode}
+      />
+      <Pressable
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="按住说话"
+        disabled={disabled && !active}
+        {...panResponder.panHandlers}
+        style={({ pressed }) => [
+          styles.holdButton,
+          (pressed || active) && styles.holdButtonActive,
+          disabled && styles.disabled,
+        ]}
+      >
+        <Text style={styles.holdText}>{active ? '松开发送' : '按住说话'}</Text>
+      </Pressable>
     </View>
   );
 }

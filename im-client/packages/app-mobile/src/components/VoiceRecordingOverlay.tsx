@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     padding: SPACING.lg,
     borderRadius: RADIUS.lg,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    backgroundColor: COLORS.recordingOverlay,
   },
   cardCancelling: { backgroundColor: COLORS.danger },
   waveform: { height: 50, flexDirection: 'row', alignItems: 'center', gap: 3 },

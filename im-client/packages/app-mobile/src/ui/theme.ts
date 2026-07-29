@@ -18,6 +18,10 @@ export const COLORS = {
   warningSoft: '#FFF6E5',
   danger: '#DC2F2F',
   dangerSoft: '#FFF0F0',
+  voiceWavePlayed: '#2F6BEE',
+  voiceWaveIdle: '#94A3B8',
+  voiceUnread: '#DC2F2F',
+  recordingOverlay: 'rgba(15, 23, 42, 0.88)',
   overlay: 'rgba(15, 23, 42, 0.36)',
   white: '#FFFFFF',
 } as const;

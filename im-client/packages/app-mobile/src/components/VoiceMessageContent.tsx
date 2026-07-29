@@ -62,9 +62,9 @@ export function VoiceMessageContent({
     >
       <View style={styles.control}>
         {status === 'downloading' ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={COLORS.voiceWavePlayed} />
         ) : (
-          <Ionicons name={icon} size={22} color={COLORS.primary} />
+          <Ionicons name={icon} size={22} color={COLORS.voiceWavePlayed} />
         )}
       </View>
       <View style={styles.waveform}>
@@ -77,7 +77,7 @@ export function VoiceMessageContent({
                 styles.bar,
                 {
                   height: 6 + (value / 100) * 22,
-                  backgroundColor: played ? COLORS.primary : COLORS.textSecondary,
+                  backgroundColor: played ? COLORS.voiceWavePlayed : COLORS.voiceWaveIdle,
                 },
               ]}
             />
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.danger,
+    backgroundColor: COLORS.voiceUnread,
   },
   pressed: { opacity: 0.68 },
 });

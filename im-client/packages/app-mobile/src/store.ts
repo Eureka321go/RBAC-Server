@@ -75,6 +75,9 @@ export const useAppStore = create<AppState>((set) => {
       }
     },
     async logout() {
+      await sdk.voice.recording.cancel().catch(() => {});
+      await sdk.voice.player.stop().catch(() => {});
+      await sdk.voice.audioSession.deactivate().catch(() => {});
       sdk.connection.stop();
       await sdk.auth.logout();
       set({ loggedIn: false, myId: null, displayName: null });
