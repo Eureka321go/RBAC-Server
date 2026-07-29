@@ -7,4 +7,8 @@ export * from './adapters/opSqliteDatabase';
 export * from './adapters/rnMediaPicker';
 export * from './adapters/rnMediaBinary';
 export * from './adapters/rnMediaOpener';
+export * from './adapters/rnVoicePermission';
+export * from './adapters/rnVoiceAudioSession';
+export * from './adapters/rnVoiceRecorder';
+export * from './adapters/rnVoicePlayer';
 export * from './createSdk';

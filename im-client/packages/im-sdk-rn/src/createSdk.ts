@@ -12,6 +12,8 @@ import {
   SyncService,
   SyncEngine,
   TOKEN_KEYS,
+  VoiceHeardStore,
+  VoiceRecordingController,
   runMigrations,
   type SdkEvents,
 } from '@im/sdk-core';
@@ -24,6 +26,10 @@ import { rnIds } from './adapters/rnIds';
 import { RnMediaPicker } from './adapters/rnMediaPicker';
 import { RnMediaBinary } from './adapters/rnMediaBinary';
 import { RnMediaOpener } from './adapters/rnMediaOpener';
+import { RnVoicePermission } from './adapters/rnVoicePermission';
+import { RnVoiceAudioSession } from './adapters/rnVoiceAudioSession';
+import { RnVoiceRecorder } from './adapters/rnVoiceRecorder';
+import { RnVoicePlayer } from './adapters/rnVoicePlayer';
 
 const DEVICE_ID_KEY = 'im.installationDeviceId';
 
@@ -94,6 +100,15 @@ export function createSdk(config: SdkConfig) {
     emitter,
     () => auth.getMyId(),
   );
+  const voiceRecorder = new RnVoiceRecorder();
+  const voice = {
+    permission: new RnVoicePermission(),
+    audioSession: new RnVoiceAudioSession(),
+    recorder: voiceRecorder,
+    recording: new VoiceRecordingController(voiceRecorder),
+    player: new RnVoicePlayer(),
+    heard: new VoiceHeardStore(db),
+  };
   engine.onClientMessageSettled((clientMsgId) => media.settle(clientMsgId));
 
   // 建表是异步的；调用方必须先 await ready 再用 chat。
@@ -116,5 +131,5 @@ export function createSdk(config: SdkConfig) {
     }
   });
 
-  return { auth, connection, chat, contacts, groups, sync, media, http, ids: rnIds, ready };
+  return { auth, connection, chat, contacts, groups, sync, media, voice, http, ids: rnIds, ready };
 }
