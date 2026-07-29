@@ -154,39 +154,56 @@ public class ConversationService {
         return n != null && n > 0;
     }
 
-    /** 当前用户参与的会话列表（含未读数）。 */
+    /**
+     * 当前用户参与的会话列表（含未读数）。
+     *
+     * <p>未读数 = 会话最新消息序号 lastMsgSeq - 我的已读水位 lastReadSeq；
+     * 单聊额外带出对端的已读水位（用于「已读/未读」回执）与对端昵称。
+     *
+     * <p>查询按「批量 + 内存聚合」组织，全流程固定 3 次 DB 查询（我的成员行、
+     * 会话行、单聊对端成员行 + 对端用户），避免按会话逐条查询的 N+1。
+     */
     public List<ImConversationVO> listMyConversations(long userId) {
+        // 1. 我参与的所有会话成员行：既给出会话范围（cid 列表），也给出我的已读/@水位
         List<ImConversationMember> members = memberMapper.selectList(
                 new LambdaQueryWrapper<ImConversationMember>()
                         .eq(ImConversationMember::getUserId, userId));
         if (members.isEmpty()) {
             return List.of();
         }
+        // cid -> 我的已读水位（null 视为 0，即一条都没读过）
         Map<String, Long> readSeqByCid = members.stream()
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
                         (a, b) -> a));
+        // cid -> 最近一次 @我 的消息序号（用于「有人@我」红点）
         Map<String, Long> mentionSeqByCid = members.stream()
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getMentionSeq() == null ? 0L : m.getMentionSeq(),
                         (a, b) -> a));
+        // 2. 批量取会话本体（类型、群 id、最新消息序号与预览）
         List<String> cids = members.stream().map(ImConversationMember::getCid).toList();
         List<ImConversation> convs = conversationMapper.selectList(
                 new LambdaQueryWrapper<ImConversation>().in(ImConversation::getCid, cids));
+        // 3. 只有单聊才需要对端信息，先筛出单聊 cid
         List<String> singleCids = convs.stream()
                 .filter(c -> "SINGLE".equals(c.getType()))
                 .map(ImConversation::getCid).toList();
+        // 单聊里排除我自己，剩下的就是对端成员行
         List<ImConversationMember> peerMembers = singleCids.isEmpty() ? List.of()
                 : memberMapper.selectList(new LambdaQueryWrapper<ImConversationMember>()
                 .in(ImConversationMember::getCid, singleCids)
                 .ne(ImConversationMember::getUserId, userId));
+        // cid -> 对端已读水位：我发的消息 seq <= 该值即显示「已读」
         Map<String, Long> peerReadByCid = peerMembers.stream()
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
                         (a, b) -> a));
+        // cid -> 对端 userId
         Map<String, Long> peerIdByCid = peerMembers.stream()
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         ImConversationMember::getUserId, (a, b) -> a));
+        // 4. 批量补齐对端用户资料，用于展示会话标题（昵称/用户名）
         List<Long> peerIds = peerMembers.stream()
                 .map(ImConversationMember::getUserId)
                 .distinct()
@@ -194,6 +211,7 @@ public class ConversationService {
         Map<Long, SysUser> usersById = peerIds.isEmpty() ? Map.of()
                 : userMapper.selectByIds(peerIds).stream()
                 .collect(Collectors.toMap(SysUser::getId, Function.identity()));
+        // 5. 组装 VO：会话本体 + 我的水位 + （单聊）对端信息
         return convs.stream().map(c -> {
             long lastMsgSeq = c.getLastMsgSeq() == null ? 0L : c.getLastMsgSeq();
             long lastReadSeq = readSeqByCid.getOrDefault(c.getCid(), 0L);
@@ -205,13 +223,16 @@ public class ConversationService {
             vo.setLastMsgSeq(lastMsgSeq);
             vo.setLastMsgPreview(c.getLastMsgPreview());
             vo.setLastReadSeq(lastReadSeq);
+            // 已读水位可能因并发/回填短暂超过 lastMsgSeq，兜底不出现负数未读
             vo.setUnreadCount(Math.max(0L, lastMsgSeq - lastReadSeq));
             vo.setMentionSeq(mentionSeq);
+            // @我 的消息还没被读到 => 展示 @ 提醒
             vo.setHasMention(mentionSeq > lastReadSeq);
             if ("SINGLE".equals(c.getType())) {
                 vo.setPeerReadSeq(peerReadByCid.getOrDefault(c.getCid(), 0L));
                 Long peerId = peerIdByCid.get(c.getCid());
                 vo.setPeerId(peerId);
+                // 对端成员行缺失（脏数据）时留空，不影响列表整体返回
                 vo.setPeerName(displayName(peerId == null ? null : usersById.get(peerId)));
             }
             return vo;
