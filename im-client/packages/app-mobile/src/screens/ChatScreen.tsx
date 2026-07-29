@@ -18,6 +18,7 @@ import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 import { formatGroupSystemMessage } from '../group/systemMessage';
 import { buildContactDirectory } from '../contact/directory';
+import { InitialAvatar } from '../components/Avatar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -35,9 +36,10 @@ export function ChatScreen({ route, navigation }: Props) {
     syncOnOpen = true,
   } = route.params;
   const myId = useAppStore((s) => s.myId);
+  const myDisplayName = useAppStore((s) => s.displayName);
   const [items, setItems] = useState<ChatMessage[]>([]);
   const [displayTitle, setDisplayTitle] = useState(title);
-  const [systemNamesById, setSystemNamesById] = useState<ReadonlyMap<number, string>>(
+  const [namesById, setNamesById] = useState<ReadonlyMap<number, string>>(
     () => new Map(),
   );
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
@@ -99,7 +101,7 @@ export function ChatScreen({ route, navigation }: Props) {
   useFocusEffect(useCallback(() => {
     if (conversationType !== 'GROUP' || groupId == null) {
       setDisplayTitle(title);
-      setSystemNamesById(new Map());
+      setNamesById(new Map());
       return;
     }
     let active = true;
@@ -117,7 +119,7 @@ export function ChatScreen({ route, navigation }: Props) {
         const name = member.displayName?.trim();
         if (name) names.set(member.userId, name);
       });
-      setSystemNamesById(names);
+      setNamesById(names);
     });
     return () => {
       active = false;
@@ -195,15 +197,29 @@ export function ChatScreen({ route, navigation }: Props) {
             return (
               <View style={styles.systemRow}>
                 <Text style={styles.systemText}>
-                  {formatGroupSystemMessage(item, systemNamesById)}
+                  {formatGroupSystemMessage(item, namesById)}
                 </Text>
               </View>
             );
           }
           const mine = item.seq == null || item.senderId === myId;
+          const senderId = mine ? myId : item.senderId;
+          const senderName = mine
+            ? myDisplayName?.trim() || (myId == null ? '我' : `用户 #${myId}`)
+            : conversationType === 'GROUP'
+              ? (item.senderId == null
+                ? '未知用户'
+                : namesById.get(item.senderId)?.trim() || `用户 #${item.senderId}`)
+              : displayTitle;
           return (
             <View style={[styles.rowWrap, mine ? styles.rowMine : styles.rowPeer]}>
+              {!mine ? (
+                <InitialAvatar name={senderName} userId={senderId} size={36} />
+              ) : null}
               <View style={styles.messageContent}>
+                {conversationType === 'GROUP' && !mine ? (
+                  <Text style={styles.senderName} numberOfLines={1}>{senderName}</Text>
+                ) : null}
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer]}>
                   <Text style={mine ? styles.textMine : styles.textPeer}>{textOf(item)}</Text>
                 </View>
@@ -220,6 +236,9 @@ export function ChatScreen({ route, navigation }: Props) {
                 <Pressable onPress={() => sdk.chat.resend(item.clientMsgId!)}>
                   <Text style={styles.retry}>!</Text>
                 </Pressable>
+              ) : null}
+              {mine ? (
+                <InitialAvatar name={senderName} userId={senderId} size={36} />
               ) : null}
             </View>
           );
@@ -242,10 +261,11 @@ export function ChatScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   banner: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: 8, textAlign: 'center' },
-  rowWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 4 },
+  rowWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 12, paddingVertical: 4 },
   rowMine: { justifyContent: 'flex-end' },
   rowPeer: { justifyContent: 'flex-start' },
-  messageContent: { maxWidth: '75%' },
+  messageContent: { maxWidth: '70%' },
+  senderName: { color: '#64748b', fontSize: 12, marginLeft: 4, marginBottom: 3 },
   bubble: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   bubbleMine: { backgroundColor: '#2563eb' },
   bubblePeer: { backgroundColor: '#e5e7eb' },
