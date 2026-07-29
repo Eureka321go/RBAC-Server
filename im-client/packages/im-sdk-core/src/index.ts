@@ -15,5 +15,8 @@ export * from './chat/mentionPayload';
 export * from './media/mediaTypes';
 export * from './media/mediaUploadStore';
 export * from './media/mediaUploadService';
+export * from './voice/voiceTypes';
+export * from './voice/voiceWaveform';
+export * from './voice/voiceRecordingController';
 export * from './group/groupService';
 export * from './contact/contactService';
