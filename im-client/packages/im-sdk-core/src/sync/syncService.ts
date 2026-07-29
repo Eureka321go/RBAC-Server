@@ -2,6 +2,7 @@ import type { ApiResult } from '../auth/authService';
 import type { Emitter } from '../events/emitter';
 import type { RestMessage, SdkEvents, SyncEngine } from '../engine/syncEngine';
 import type { Http } from '../ports/index';
+import type { GroupService } from '../group/groupService';
 import {
   MessageStore,
   type ConversationRow,
@@ -44,6 +45,7 @@ export class SyncService {
     private readonly engine: SyncEngine,
     private readonly store: MessageStore,
     private readonly emitter: Emitter<SdkEvents>,
+    private readonly groups?: GroupService,
   ) {}
 
   getConversations(): Promise<ConversationRow[]> {
@@ -52,6 +54,14 @@ export class SyncService {
 
   activateAccount(userId: number): Promise<void> {
     return this.store.activateAccount(userId);
+  }
+
+  setConversationDisplayName(cid: string, name: string): Promise<void> {
+    return this.store.setConversationDisplayName(cid, name);
+  }
+
+  removeLocalConversation(cid: string): Promise<void> {
+    return this.store.removeConversation(cid);
   }
 
   /** 先让服务端幂等建立双方成员关系，再进入新单聊页面。 */
@@ -105,10 +115,19 @@ export class SyncService {
           ...item,
           peerId: item.peerId ?? null,
           peerName: item.peerName ?? null,
+          displayName: null,
           lastMsgPreview: item.lastMsgPreview ?? null,
           peerReadSeq: item.peerReadSeq ?? null,
           updatedAt: now - index,
         });
+        if (item.type === 'GROUP' && item.groupId != null && this.groups != null) {
+          try {
+            const group = await this.groups.getGroup(item.groupId);
+            await this.store.setConversationDisplayName(item.cid, group.name);
+          } catch {
+            // 群详情暂时不可用时保留 SQLite 旧群名，不阻断其他会话与消息同步。
+          }
+        }
         this.emitter.emit('conversation', { cid: item.cid });
       }
 

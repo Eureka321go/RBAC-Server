@@ -61,7 +61,7 @@ export function createSdk(config: SdkConfig) {
   const emitter = new Emitter<SdkEvents>();
   const engine = new SyncEngine(db, emitter);
   const messages = new MessageStore(db);
-  const sync = new SyncService(http, engine, messages, emitter);
+  const sync = new SyncService(http, engine, messages, emitter, groups);
   const chat = new ChatService(
     connection,
     engine,

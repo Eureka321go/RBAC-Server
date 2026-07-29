@@ -20,6 +20,7 @@ export interface ConversationRow {
   groupId: number | null;
   peerId: number | null;
   peerName: string | null;
+  displayName: string | null;
   lastMsgSeq: number;
   lastMsgPreview: string | null;
   lastReadSeq: number;
@@ -145,14 +146,17 @@ export class MessageStore {
   async upsertConversationSnapshot(c: ConversationRow): Promise<void> {
     await this.db.exec(
       `INSERT INTO conversations
-         (cid, type, group_id, peer_id, peer_name, last_msg_seq, last_msg_preview,
-          last_read_seq, peer_read_seq, mention_seq, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
+          last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          type = excluded.type,
          group_id = excluded.group_id,
          peer_id = excluded.peer_id,
          peer_name = excluded.peer_name,
+         display_name = CASE
+           WHEN excluded.display_name IS NULL OR excluded.display_name = ''
+           THEN conversations.display_name ELSE excluded.display_name END,
          last_msg_preview = CASE
            WHEN excluded.last_msg_seq >= conversations.last_msg_seq
            THEN excluded.last_msg_preview ELSE conversations.last_msg_preview END,
@@ -170,6 +174,7 @@ export class MessageStore {
         c.groupId,
         c.peerId,
         c.peerName,
+        c.displayName,
         c.lastMsgSeq,
         c.lastMsgPreview,
         c.lastReadSeq,
@@ -183,8 +188,8 @@ export class MessageStore {
   /** UI 只读 SQLite；未读与 @ 状态从已经前向合并的本地位点实时派生。 */
   async getConversationRows(): Promise<ConversationRow[]> {
     const rows = await this.db.query<Row>(
-      `SELECT cid, type, group_id, peer_id, peer_name, last_msg_seq, last_msg_preview,
-              last_read_seq, peer_read_seq, mention_seq, updated_at
+      `SELECT cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
+              last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at
          FROM conversations ORDER BY updated_at DESC`,
     );
     return rows.map((r) => {
@@ -197,6 +202,7 @@ export class MessageStore {
         groupId: (r.group_id as number | null) ?? null,
         peerId: (r.peer_id as number | null) ?? null,
         peerName: (r.peer_name as string | null) ?? null,
+        displayName: (r.display_name as string | null) ?? null,
         lastMsgSeq,
         lastMsgPreview: (r.last_msg_preview as string | null) ?? null,
         lastReadSeq,
@@ -206,6 +212,25 @@ export class MessageStore {
         peerReadSeq: (r.peer_read_seq as number | null) ?? null,
         updatedAt: r.updated_at as number,
       };
+    });
+  }
+
+  async setConversationDisplayName(cid: string, name: string): Promise<void> {
+    const normalized = name.trim();
+    if (normalized === '') return;
+    await this.db.exec(
+      `UPDATE conversations SET display_name = ?, updated_at = MAX(updated_at, ?) WHERE cid = ?`,
+      [normalized, Date.now(), cid],
+    );
+  }
+
+  /** 退出或解散群聊后只清理目标 cid；重复调用保持幂等。 */
+  async removeConversation(cid: string): Promise<void> {
+    await this.db.tx(async (tx) => {
+      await tx.exec(`DELETE FROM outbox WHERE cid = ?`, [cid]);
+      await tx.exec(`DELETE FROM messages WHERE cid = ?`, [cid]);
+      await tx.exec(`DELETE FROM conversations WHERE cid = ?`, [cid]);
+      await tx.exec(`DELETE FROM sync_meta WHERE cid = ?`, [cid]);
     });
   }
 
