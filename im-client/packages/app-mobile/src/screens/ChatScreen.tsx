@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
-  bubbleMine: { backgroundColor: COLORS.surface },
+  bubbleMine: { backgroundColor: COLORS.successSoft },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
   bubblePressed: { opacity: 0.72 },
   deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
