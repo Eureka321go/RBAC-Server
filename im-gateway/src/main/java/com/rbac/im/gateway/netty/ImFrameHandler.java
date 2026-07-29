@@ -43,10 +43,12 @@ public class ImFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFra
             ctx.writeAndFlush(new TextWebSocketFrame(mapper.writeValueAsString(pong)));
             return;
         }
-        if ("SEND".equals(env.getOp())) {
+        if ("SEND".equals(env.getOp()) || "READ".equals(env.getOp())) {
             env.setSenderId(userId);       // 以连接身份为准，忽略客户端伪造
             env.setDeviceId(deviceId);
             inboundProducer.send(env);
+        }
+        if ("SEND".equals(env.getOp())) {
             // 立即回执：告诉客户端服务器已接收（seq 稍后由推送带回）
             Envelope ack = new Envelope();
             ack.setOp("ACK");

@@ -8,6 +8,7 @@ import type { Database } from '../ports/index';
 export interface SdkEvents extends Record<string, unknown> {
   message: { cid: string };
   conversation: { cid: string };
+  readReceipt: { cid: string; readSeq: number };
   sendError: { cid: string; clientMsgId: string; reason: string };
   syncState: { running: boolean; error: string | null };
 }

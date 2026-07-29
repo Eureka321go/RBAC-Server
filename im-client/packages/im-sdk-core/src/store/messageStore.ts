@@ -1,4 +1,5 @@
 import type { Database, Row } from '../ports/index';
+import { parseCid } from '../protocol/cid';
 
 export interface StoredMessage {
   cid: string;
@@ -27,6 +28,11 @@ export interface ConversationRow {
   hasMention: boolean;
   peerReadSeq: number | null;
   updatedAt: number;
+}
+
+export interface ConversationReadState {
+  lastReadSeq: number;
+  peerReadSeq: number | null;
 }
 
 export class MessageStore {
@@ -201,6 +207,44 @@ export class MessageStore {
         updatedAt: r.updated_at as number,
       };
     });
+  }
+
+  async getConversationReadState(cid: string): Promise<ConversationReadState> {
+    const rows = await this.db.query<Row>(
+      `SELECT last_read_seq, peer_read_seq FROM conversations WHERE cid = ?`,
+      [cid],
+    );
+    if (rows.length === 0) {
+      return { lastReadSeq: 0, peerReadSeq: null };
+    }
+    return {
+      lastReadSeq: rows[0].last_read_seq as number,
+      peerReadSeq: (rows[0].peer_read_seq as number | null) ?? null,
+    };
+  }
+
+  /** 当前账号自己的阅读位点，只允许前向推进。 */
+  async advanceReadSeq(cid: string, readSeq: number): Promise<void> {
+    await this.db.exec(
+      `UPDATE conversations
+          SET last_read_seq = MAX(last_read_seq, ?)
+        WHERE cid = ?`,
+      [readSeq, cid],
+    );
+  }
+
+  /** 单聊对端的阅读位点，只允许前向推进；READ 帧与 REST 快照不会互相回退。 */
+  async advancePeerReadSeq(cid: string, readSeq: number): Promise<void> {
+    const { type, groupId } = parseCid(cid);
+    await this.db.exec(
+      `INSERT INTO conversations (cid, type, group_id, peer_read_seq, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(cid) DO UPDATE SET
+         peer_read_seq = CASE
+            WHEN peer_read_seq IS NULL THEN ?
+            ELSE MAX(peer_read_seq, ?) END`,
+      [cid, type, groupId, readSeq, Date.now(), readSeq, readSeq],
+    );
   }
 
   async getSyncedSeq(cid: string): Promise<number> {

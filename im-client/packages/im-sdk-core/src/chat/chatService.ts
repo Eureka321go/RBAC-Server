@@ -1,7 +1,7 @@
 import type { Emitter } from '../events/emitter';
 import type { ConnectionManager } from '../connection/connectionManager';
 import type { SdkEvents, SyncEngine } from '../engine/syncEngine';
-import type { MessageStore } from '../store/messageStore';
+import type { ConversationReadState, MessageStore } from '../store/messageStore';
 import {
   mergeChatMessages,
   type ChatMessage,
@@ -98,6 +98,26 @@ export class ChatService {
     return mergeChatMessages(persisted, pending);
   }
 
+  getReadState(cid: string): Promise<ConversationReadState> {
+    return this.messages.getConversationReadState(cid);
+  }
+
+  /**
+   * 页面确认已展示到 readSeq：先推进本地位点消除未读，再在线上报服务端。
+   * 离线时不跨账号缓存；聊天页会在连接恢复后用当前最大 seq 再次调用。
+   */
+  async markRead(cid: string, readSeq: number): Promise<void> {
+    if (cid === '' || !Number.isFinite(readSeq) || readSeq <= 0) return;
+    await this.messages.advanceReadSeq(cid, readSeq);
+    this.emitter.emit('conversation', { cid });
+    if (this.connection.getState() !== 'connected') return;
+    this.connection.send({
+      op: OP.READ,
+      cid,
+      body: { readSeq },
+    });
+  }
+
   /** 登出 / 卸载时调用：解绑 ConnectionManager 监听 + 清空计时器，避免旧实例继续消费帧。 */
   stop(): void {
     this.offs.splice(0).forEach((off) => off());
@@ -181,8 +201,21 @@ export class ChatService {
     }
     if (env.op === OP.ERROR) {
       await this.onError(env);
+      return;
     }
-    // 其余 op（READ 等）留给后续里程碑，这里忽略不动。
+    if (env.op === OP.READ) {
+      await this.onRead(env);
+    }
+  }
+
+  private async onRead(env: Envelope): Promise<void> {
+    const cid = env.cid;
+    const readSeq = env.body?.readSeq;
+    if (typeof cid !== 'string' || cid === '') return;
+    if (typeof readSeq !== 'number' || !Number.isFinite(readSeq) || readSeq < 0) return;
+    await this.messages.advancePeerReadSeq(cid, readSeq);
+    this.emitter.emit('readReceipt', { cid, readSeq });
+    this.emitter.emit('conversation', { cid });
   }
 
   /**
