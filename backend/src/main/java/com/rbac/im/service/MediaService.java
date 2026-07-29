@@ -104,8 +104,32 @@ public class MediaService {
         if (!mimeAllowed(limit.getMimes(), stat.contentType())) {
             throw new MediaValidationException("MIME_NOT_ALLOWED");
         }
+        if ("AUDIO".equals(type)) {
+            validateAudioMetadata(body);
+        }
         body.put("size", stat.size());
         body.put("mime", stat.contentType());
+    }
+
+    private static void validateAudioMetadata(Map<String, Object> body) {
+        Object duration = body.get("duration");
+        Object waveform = body.get("waveform");
+        if (!(duration instanceof Number durationNumber)
+                || durationNumber.doubleValue() != durationNumber.longValue()
+                || durationNumber.longValue() < 1
+                || durationNumber.longValue() > 60
+                || !(waveform instanceof List<?> points)
+                || points.size() != 48) {
+            throw new MediaValidationException("INVALID_AUDIO_METADATA");
+        }
+        for (Object point : points) {
+            if (!(point instanceof Number pointNumber)
+                    || pointNumber.doubleValue() != pointNumber.longValue()
+                    || pointNumber.longValue() < 0
+                    || pointNumber.longValue() > 100) {
+                throw new MediaValidationException("INVALID_AUDIO_METADATA");
+            }
+        }
     }
 
     /**

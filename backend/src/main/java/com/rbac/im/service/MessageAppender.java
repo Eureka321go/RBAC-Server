@@ -89,6 +89,9 @@ public class MessageAppender {
         if ("RECALL".equals(type)) {
             return "[撤回了一条消息]";
         }
+        if ("AUDIO".equals(type)) {
+            return "[语音]";
+        }
         return "[" + type + "]";
     }
 }
