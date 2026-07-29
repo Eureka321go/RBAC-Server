@@ -26,15 +26,15 @@
 **Interfaces:**
 - Produces: `InitialAvatar({ name, userId, size? })` and `GroupAvatar({ size? })` React components.
 
-- [ ] **Step 1: Implement `InitialAvatar`**
+- [x] **Step 1: Implement `InitialAvatar`**
 
 Normalize `name`, take `Array.from(name)[0]`, uppercase Latin letters, and fall back to `U`. Choose one of six fixed colors with `Math.abs(userId ?? 0) % palette.length`. Derive the font size from the optional avatar size, defaulting to 42.
 
-- [ ] **Step 2: Implement `GroupAvatar`**
+- [x] **Step 2: Implement `GroupAvatar`**
 
 Render a fixed blue circular container with two overlapping white head-and-shoulder silhouettes made from nested `View` elements. Do not derive the icon from group name or group ID.
 
-- [ ] **Step 3: Type-check and commit**
+- [x] **Step 3: Type-check and commit**
 
 Run: `cd im-client && npx --no-install tsc -p packages/app-mobile --noEmit`
 
@@ -54,15 +54,15 @@ git commit -m "feat(im-client): add reusable identity avatars"
 - Consumes: `InitialAvatar` and `GroupAvatar` from Task 1.
 - Uses: `ConversationRow.peerId`, `peerName`, `displayName`, and `type`.
 
-- [ ] **Step 1: Add avatars to the list**
+- [x] **Step 1: Add avatars to the list**
 
 Calculate each row title once. Render `GroupAvatar` before group rows; render `InitialAvatar` with the calculated title and `peerId` before single-chat rows. Keep unread badges, previews, mentions, and navigation unchanged.
 
-- [ ] **Step 2: Reuse `InitialAvatar` for the signed-in profile**
+- [x] **Step 2: Reuse `InitialAvatar` for the signed-in profile**
 
 Remove the screen-local letter helper and profile-circle styles. Render the shared avatar with the signed-in display name and user ID.
 
-- [ ] **Step 3: Type-check and commit**
+- [x] **Step 3: Type-check and commit**
 
 Run: `cd im-client && npx --no-install tsc -p packages/app-mobile --noEmit`
 
@@ -82,11 +82,11 @@ git commit -m "feat(im-client): show avatars in conversation list"
 - Consumes: `InitialAvatar` from Task 1.
 - Uses: `ContactMember.displayName` and `ContactMember.userId`.
 
-- [ ] **Step 1: Add user avatars to member rows**
+- [x] **Step 1: Add user avatars to member rows**
 
 Render a compact `InitialAvatar` before the member text. In multi-select mode keep the checkbox first, followed by the avatar and member details. Preserve disabled opacity, selection highlighting, press behavior, and department rows.
 
-- [ ] **Step 2: Type-check and commit**
+- [x] **Step 2: Type-check and commit**
 
 Run: `cd im-client && npx --no-install tsc -p packages/app-mobile --noEmit`
 
@@ -106,19 +106,19 @@ git commit -m "feat(im-client): show avatars in contact directory"
 - Consumes: `InitialAvatar` from Task 1.
 - Uses: authenticated `displayName`, existing group/directory name map, and `ChatMessage.senderId`.
 
-- [ ] **Step 1: Generalize the group name map**
+- [x] **Step 1: Generalize the group name map**
 
 Rename `systemNamesById` to `namesById` because regular messages also consume it. Continue merging directory names first and group-member names second so current membership wins.
 
-- [ ] **Step 2: Resolve sender identity**
+- [x] **Step 2: Resolve sender identity**
 
 Read the signed-in display name from Zustand. Resolve own messages from signed-in state and peer messages from `namesById`; fall back to `用户 #ID` or `未知用户`.
 
-- [ ] **Step 3: Render aligned avatars and group names**
+- [x] **Step 3: Render aligned avatars and group names**
 
 For peer messages render avatar then message content. For own messages render message content then avatar. Show the sender-name label above peer bubbles only in group chats. Keep delivery state, spinner, retry, and system rows intact.
 
-- [ ] **Step 4: Type-check and commit**
+- [x] **Step 4: Type-check and commit**
 
 Run: `cd im-client && npx --no-install tsc -p packages/app-mobile --noEmit`
 
@@ -137,18 +137,29 @@ git commit -m "feat(im-client): identify message senders"
 **Interfaces:**
 - Verifies all prior tasks without installing dependencies or running tests.
 
-- [ ] **Step 1: Run both TypeScript checks**
+- [x] **Step 1: Run both TypeScript checks**
 
 Run from `im-client`: `npx --no-install tsc -p packages/im-sdk-core --noEmit` and `npx --no-install tsc -p packages/app-mobile --noEmit`.
 
 Expected: both commands exit 0.
 
-- [ ] **Step 2: Verify boundaries and formatting**
+- [x] **Step 2: Verify boundaries and formatting**
 
 Run the existing SDK platform-import scan and `git diff a358787..HEAD --check`.
 
 Expected: platform scan has no matches; diff check exits 0.
 
-- [ ] **Step 3: Record completion and commit**
+- [x] **Step 3: Record completion and commit**
 
 Mark every plan checkbox complete, record exact verification outcomes, and commit with `docs(im-client): complete avatar implementation plan`.
+
+## Execution Record
+
+- Added shared initial and fixed-group avatar components without external dependencies.
+- Added avatars to the signed-in profile, conversation rows, contact members, and both sides of message rows.
+- Added sender names above received group-message bubbles with group-member, directory, and user-ID fallback resolution.
+- `npx --no-install tsc -p packages/im-sdk-core --noEmit`: exit 0.
+- `npx --no-install tsc -p packages/app-mobile --noEmit`: exit 0.
+- SDK platform-import scan: no matches, expected exit 1.
+- `git diff a358787..HEAD --check`: exit 0.
+- Tests were not added or run, per the project instruction.
