@@ -30,6 +30,8 @@ const DEVICE_ID_KEY = 'im.installationDeviceId';
 export interface SdkConfig {
   apiBaseUrl: string; // 例：http://10.0.2.2:8080/api
   wsBaseUrl: string;  // 例：ws://10.0.2.2:9001/im
+  /** 客户端实际可达的对象存储地址；仅在它与预签名地址不同时用于路由传输。 */
+  mediaTransportBaseUrl?: string;
   deviceId?: string;
   dbName?: string;
 }
@@ -83,7 +85,7 @@ export function createSdk(config: SdkConfig) {
   );
   const media = new MediaUploadService(
     http,
-    new RnMediaBinary(),
+    new RnMediaBinary(config.mediaTransportBaseUrl),
     new RnMediaOpener(),
     new RnMediaPicker(),
     mediaUploads,

@@ -10,12 +10,13 @@ import {
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import type { ChatMessage } from '@im/sdk-core';
 import { displayableImageUri, formatBytes, safeFilename } from '../media/mediaPresentation';
+import { routeMediaUrl } from '../sdk';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
 interface Props {
   message: ChatMessage;
   onPreview: (uri: string) => void;
-  onRefreshImage: (objectKey: string) => Promise<string>;
+  onRefreshImage: (objectKey: string, filename: string) => Promise<string>;
   onOpenFile: (message: ChatMessage) => void;
   downloading: boolean;
   downloadProgress: number;
@@ -36,7 +37,11 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
   'message' | 'onPreview' | 'onRefreshImage'
 >) {
   const objectKey = typeof message.body?.objectKey === 'string' ? message.body.objectKey : null;
-  const initialUri = displayableImageUri(message.body?.localUri ?? message.body?.url);
+  const filename = safeFilename(message.body?.filename);
+  // 有 objectKey 的远程图片统一先落缓存，避免把短期预签名 URL 直接交给原生图片管线。
+  const initialUri = displayableImageUri(
+    message.body?.localUri ?? (objectKey == null ? message.body?.url : null),
+  );
   const [uri, setUri] = useState(initialUri);
   const failedUriRef = useRef<string | null>(null);
   useEffect(() => {
@@ -56,8 +61,10 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
   const refresh = useCallback(() => {
     if (objectKey == null || (uri != null && failedUriRef.current === uri)) return;
     failedUriRef.current = uri ?? '__missing__';
-    void onRefreshImage(objectKey).then((next) => setUri(next)).catch(() => {});
-  }, [objectKey, onRefreshImage, uri]);
+    void onRefreshImage(objectKey, filename)
+      .then((next) => setUri(displayableImageUri(next)))
+      .catch(() => {});
+  }, [filename, objectKey, onRefreshImage, uri]);
 
   useEffect(() => {
     if (uri == null && objectKey != null) refresh();
@@ -72,7 +79,12 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
       style={[styles.imageWrap, dimensions]}
     >
       {uri != null ? (
-        <Image source={{ uri }} resizeMode="cover" style={StyleSheet.absoluteFill} onError={refresh} />
+        <Image
+          source={routeMediaUrl(uri)}
+          resizeMode="cover"
+          style={StyleSheet.absoluteFill}
+          onError={refresh}
+        />
       ) : (
         <Ionicons name="image-outline" size={34} color={COLORS.textMuted} />
       )}

@@ -207,9 +207,18 @@ export class MediaUploadService {
     mime: string,
     onProgress: (done: number, total: number) => void,
   ): Promise<void> {
-    const url = await this.refreshDownloadUrl(cid, objectKey);
-    const localUri = await this.binary.download(url, filename, onProgress);
+    const localUri = await this.downloadToCache(cid, objectKey, filename, onProgress);
     await this.opener.open(localUri, mime);
+  }
+
+  async downloadToCache(
+    cid: string,
+    objectKey: string,
+    filename: string,
+    onProgress: (done: number, total: number) => void = () => {},
+  ): Promise<string> {
+    const url = await this.refreshDownloadUrl(cid, objectKey);
+    return this.binary.download(url, filename, onProgress);
   }
 
   /** 自己的最终 PUSH 已落库：此时才安全删除上传任务与发送端本地副本。 */

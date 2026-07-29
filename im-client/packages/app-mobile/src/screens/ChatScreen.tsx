@@ -447,8 +447,8 @@ export function ChatScreen({ route, navigation }: Props) {
     }
   }, [safeReload, showBanner]);
 
-  const refreshImageUrl = useCallback((objectKey: string) => (
-    sdk.media.refreshDownloadUrl(cid, objectKey)
+  const refreshImageUrl = useCallback((objectKey: string, filename: string) => (
+    sdk.media.downloadToCache(cid, objectKey, filename)
   ), [cid]);
 
   const openFile = useCallback(async (message: ChatMessage) => {

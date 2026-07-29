@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { routeMediaUrl } from '../sdk';
 import { IconButton } from './IconButton';
 import { COLORS, SPACING } from '../ui/theme';
 
@@ -24,7 +25,9 @@ export function ImagePreviewModal({ uri, onClose }: Props) {
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
-        {uri != null ? <Image source={{ uri }} resizeMode="contain" style={styles.image} /> : null}
+        {uri != null ? (
+          <Image source={routeMediaUrl(uri)} resizeMode="contain" style={styles.image} />
+        ) : null}
         <IconButton
           name="close"
           accessibilityLabel="关闭图片预览"
