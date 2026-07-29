@@ -12,5 +12,8 @@ export * from './auth/authService';
 export * from './connection/connectionManager';
 export * from './chat/chatService';
 export * from './chat/mentionPayload';
+export * from './media/mediaTypes';
+export * from './media/mediaUploadStore';
+export * from './media/mediaUploadService';
 export * from './group/groupService';
 export * from './contact/contactService';

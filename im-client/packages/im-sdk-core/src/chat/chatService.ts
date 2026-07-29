@@ -11,6 +11,8 @@ import {
 import { OP, type Envelope, type MessageType } from '../protocol/types';
 import type { Ids } from '../ports/index';
 import { buildTextMessageBody, type SendTextOptions } from './mentionPayload';
+import type { MediaUploadStore } from '../media/mediaUploadStore';
+import { mediaTaskToChatMessage } from '../media/mediaTypes';
 
 export interface ChatOptions {
   /** 发出 SEND 后多久没收到 ACK 就判失败（毫秒） */
@@ -55,6 +57,8 @@ export class ChatService {
     private readonly ids: Ids,
     private readonly emitter: Emitter<SdkEvents>,
     opts: ChatOptions = {},
+    private readonly mediaUploads?: MediaUploadStore,
+    private readonly getAccountId: () => number | null = () => null,
   ) {
     this.ackTimeoutMs = opts.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS;
     this.pushTimeoutMs = opts.pushTimeoutMs ?? DEFAULT_PUSH_TIMEOUT_MS;
@@ -91,6 +95,38 @@ export class ChatService {
     this.emitter.emit('message', { cid });
     await this.dispatch(row);
     return row.clientMsgId;
+  }
+
+  /** 对象已经上传完成后进入与文本完全相同的 outbox ACK/PUSH 结算链路。 */
+  async sendMedia(
+    cid: string,
+    type: 'IMAGE' | 'FILE',
+    body: Record<string, unknown>,
+    clientMsgId = this.ids.uuid(),
+  ): Promise<string> {
+    if (typeof body.objectKey !== 'string' || body.objectKey === '') {
+      throw new Error('UPLOAD_OBJECT_MISSING');
+    }
+    const existing = await this.outbox.get(clientMsgId);
+    if (existing != null) {
+      await this.outbox.setStatus(clientMsgId, 'sending', null);
+      await this.dispatch({ ...existing, status: 'sending', error: null });
+      this.emitter.emit('message', { cid: existing.cid });
+      return clientMsgId;
+    }
+    const row: OutboxRow = {
+      clientMsgId,
+      cid,
+      type,
+      body,
+      status: 'sending',
+      error: null,
+      createdAt: this.ids.now(),
+    };
+    await this.outbox.insert(row);
+    this.emitter.emit('message', { cid });
+    await this.dispatch(row);
+    return clientMsgId;
   }
 
   /** 复用同一 clientMsgId 重发；服务端对 clientMsgId 幂等，不会产生重复消息。 */
@@ -137,11 +173,17 @@ export class ChatService {
   }
 
   async getChatMessages(cid: string): Promise<ChatMessage[]> {
-    const [persisted, pending] = await Promise.all([
+    const [persisted, pending, uploads] = await Promise.all([
       this.messages.getMessages(cid),
       this.outbox.listByCid(cid),
+      this.mediaUploads?.listByCid(cid, this.getAccountId()) ?? Promise.resolve([]),
     ]);
-    return mergeChatMessages(persisted, pending);
+    const pendingIds = new Set(pending.map((row) => row.clientMsgId));
+    const waiting = uploads
+      .filter((task) => !pendingIds.has(task.clientMsgId))
+      .map(mediaTaskToChatMessage);
+    return [...mergeChatMessages(persisted, pending), ...waiting]
+      .sort((a, b) => a.ts - b.ts);
   }
 
   getReadState(cid: string): Promise<ConversationReadState> {
