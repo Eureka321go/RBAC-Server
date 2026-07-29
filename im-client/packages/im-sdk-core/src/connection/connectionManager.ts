@@ -4,7 +4,8 @@ import type { AppLifecycle, Transport, TransportState } from '../ports/index';
 
 export interface ConnectionOptions {
   wsBaseUrl: string;
-  deviceId: string;
+  /** 固定设备标识，或用于从平台安全存储异步恢复设备标识的提供器。 */
+  deviceId: string | (() => Promise<string>);
   heartbeatMs?: number;
   backoffBaseMs?: number;
   backoffMaxMs?: number;
@@ -99,9 +100,13 @@ export class ConnectionManager {
       this.setState('closed');
       return;
     }
+    const deviceId =
+      typeof this.opts.deviceId === 'string'
+        ? this.opts.deviceId
+        : await this.opts.deviceId();
     const url =
       `${this.opts.wsBaseUrl}?token=${encodeURIComponent(token)}` +
-      `&deviceId=${encodeURIComponent(this.opts.deviceId)}`;
+      `&deviceId=${encodeURIComponent(deviceId)}`;
     this.setState('connecting');
     this.transport.connect(url);
     this.connectTimer = setTimeout(() => this.onConnectTimeout(), this.connectTimeoutMs);

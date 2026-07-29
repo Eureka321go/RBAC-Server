@@ -7,5 +7,4 @@ const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 export const sdk = createSdk({
   apiBaseUrl: `http://${host}:8080/api`,
   wsBaseUrl: `ws://${host}:9001/im`,
-  deviceId: 'rn-dev-1',
 });
