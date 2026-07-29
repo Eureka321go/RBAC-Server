@@ -12,7 +12,7 @@
 
 ## 依赖选择
 
-React Native 原生音频采用 `react-native-nitro-sound`。它同时覆盖录音、录音计量、播放和进度回调，适合在一次录音中采集真实振幅；依赖只出现在 `@im/sdk-rn`，SDK Core 与移动端页面不直接导入第三方音频包。麦克风授权状态与跳转系统设置由 `react-native-permissions` 统一适配，避免页面分别维护 Android 与 iOS 权限分支。
+React Native 原生音频采用 `react-native-nitro-sound`。它同时覆盖录音、录音计量、播放和进度回调，适合在一次录音中采集真实振幅；依赖只出现在 `@im/sdk-rn`，SDK Core 与移动端页面不直接导入第三方音频包。麦克风授权状态与跳转系统设置由 `react-native-permissions` 统一适配，音频焦点、系统中断与耳机/蓝牙路由变化由 `react-native-nitro-audio-manager` 统一适配；Nitro Sound 本身不暴露后两类系统事件，不能只依赖播放器回调推断。
 
 没有选择 `react-native-audio-api`，因为本期不需要完整 Web Audio 图、PCM 管线或复杂音频处理；没有自建 Kotlin/Swift 音频桥，因为两端长期维护成本与本期收益不匹配。
 
