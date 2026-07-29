@@ -212,6 +212,15 @@ export class MediaUploadService {
     await this.opener.open(localUri, mime);
   }
 
+  /** 自己的最终 PUSH 已落库：此时才安全删除上传任务与发送端本地副本。 */
+  async settle(clientMsgId: string): Promise<void> {
+    const task = await this.store.getByClientMsgId(clientMsgId);
+    if (task == null) return;
+    await this.store.delete(task.taskId);
+    await this.binary.remove(task.localUri).catch(() => {});
+    this.notify(task.cid);
+  }
+
   private schedule(taskId: string): void {
     if (this.running.has(taskId)) return;
     this.running.add(taskId);
@@ -229,6 +238,14 @@ export class MediaUploadService {
       return;
     }
     try {
+      if (task.status === 'sending' && task.objectKey != null) {
+        await this.chat.sendMedia(task.cid, task.type, {
+          ...mediaBody(task),
+          localUri: task.localUri,
+          progress: 1,
+        }, task.clientMsgId);
+        return;
+      }
       await this.store.update(taskId, { status: 'preparing', error: null });
       this.notify(task.cid);
       this.ensureActive(task);
@@ -239,9 +256,11 @@ export class MediaUploadService {
       this.ensureActive(task);
       await this.store.update(taskId, { status: 'sending', progress: 1, error: null });
       this.notify(task.cid);
-      await this.chat.sendMedia(task.cid, task.type, mediaBody(task), task.clientMsgId);
-      await this.store.delete(taskId);
-      await this.binary.remove(task.localUri).catch(() => {});
+      await this.chat.sendMedia(task.cid, task.type, {
+        ...mediaBody(task),
+        localUri: task.localUri,
+        progress: 1,
+      }, task.clientMsgId);
       this.notify(task.cid);
     } catch (cause) {
       const current = await this.store.get(taskId);

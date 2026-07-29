@@ -222,12 +222,18 @@ export class ChatService {
       await this.fail(row.cid, row.clientMsgId, 'OFFLINE');
       return;
     }
+    const body = row.body == null ? {} : { ...row.body };
+    if (row.type === 'IMAGE' || row.type === 'FILE' || row.type === 'AUDIO') {
+      delete body.localUri;
+      delete body.uploadTaskId;
+      delete body.progress;
+    }
     this.connection.send({
       op: OP.SEND,
       cid: row.cid,
       clientMsgId: row.clientMsgId,
       type: row.type as MessageType,
-      body: row.body ?? {},
+      body,
     });
     this.armAckTimer(row.cid, row.clientMsgId);
   }

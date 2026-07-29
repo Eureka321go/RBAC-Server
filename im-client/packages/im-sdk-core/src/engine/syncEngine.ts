@@ -60,12 +60,17 @@ export function previewOf(type: string | undefined, body: Record<string, unknown
  */
 export class SyncEngine {
   private readonly store: MessageStore;
+  private clientMessageSettled: ((clientMsgId: string) => Promise<void>) | null = null;
 
   constructor(
     private readonly db: Database,
     private readonly emitter: Emitter<SdkEvents>,
   ) {
     this.store = new MessageStore(db);
+  }
+
+  onClientMessageSettled(handler: (clientMsgId: string) => Promise<void>): void {
+    this.clientMessageSettled = handler;
   }
 
   async applyIncoming(m: StoredMessage): Promise<void> {
@@ -152,5 +157,8 @@ export class SyncEngine {
 
     this.emitter.emit('message', { cid, type: stored.type });
     this.emitter.emit('conversation', { cid });
+    if (stored.clientMsgId != null && this.clientMessageSettled != null) {
+      await this.clientMessageSettled(stored.clientMsgId).catch(() => {});
+    }
   }
 }

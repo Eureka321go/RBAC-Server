@@ -27,6 +27,9 @@ import {
 } from '../components/MentionPickerSheet';
 import { MentionText } from '../components/MentionText';
 import { StatusNotice } from '../components/StatusNotice';
+import { AttachmentPickerSheet } from '../components/AttachmentPickerSheet';
+import { MediaMessageContent } from '../components/MediaMessageContent';
+import { ImagePreviewModal } from '../components/ImagePreviewModal';
 import {
   applyMentionTextChange,
   findInsertedMentionTrigger,
@@ -86,6 +89,25 @@ function sendErrorText(reason: string): string {
   }
 }
 
+function mediaErrorText(reason?: string): string {
+  switch (reason) {
+    case 'MEDIA_TOO_LARGE': return '文件超过大小上限';
+    case 'MEDIA_INVALID': return '无法读取所选文件';
+    case 'CAMERA_PERMISSION_DENIED': return '请先允许应用使用相机';
+    case 'PHOTO_PERMISSION_DENIED': return '请先允许应用访问相册';
+    case 'CAMERA_FAILED': return '拍照失败，请稍后重试';
+    case 'PHOTO_PICK_FAILED': return '选择图片失败，请稍后重试';
+    case 'UPLOAD_SOURCE_MISSING': return '本地文件已不存在，请重新选择';
+    case 'UPLOAD_SESSION_EXPIRED': return '上传会话已过期，请点击重试';
+    case 'NO_FILE_HANDLER': return '设备上没有可打开此文件的应用';
+    case 'NOT_AUTHENTICATED': return '登录状态已失效，请重新登录';
+    default:
+      if (reason?.startsWith('DOWNLOAD_HTTP_')) return '文件下载失败，请稍后重试';
+      if (reason?.startsWith('UPLOAD_HTTP_')) return '文件上传失败，请点击重试';
+      return '富媒体操作失败，请稍后重试';
+  }
+}
+
 function emptyMentionDraft(): MentionDraftState {
   return { text: '', ranges: [] };
 }
@@ -117,6 +139,10 @@ export function ChatScreen({ route, navigation }: Props) {
   const [banner, setBanner] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const [recallingSeq, setRecallingSeq] = useState<number | null>(null);
+  const [attachmentPickerVisible, setAttachmentPickerVisible] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [downloadingObjectKey, setDownloadingObjectKey] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   // 组件是否仍处于挂载状态；卸载后用它守卫所有异步回调里的 setState，避免对已卸载组件调用。
   const mountedRef = useRef(true);
@@ -229,6 +255,10 @@ export function ChatScreen({ route, navigation }: Props) {
     setDraftSelection({ start: 0, end: 0 });
     setMentionTrigger(null);
     setMentionPickerVisible(false);
+    setAttachmentPickerVisible(false);
+    setPreviewUri(null);
+    setDownloadingObjectKey(null);
+    setDownloadProgress(0);
     if (syncOnOpen) {
       void sdk.sync.syncConversation(cid).then(safeReload).catch((cause) => {
         if (!mountedRef.current || activeCidRef.current !== cid) return;
@@ -376,6 +406,82 @@ export function ChatScreen({ route, navigation }: Props) {
     }
   }, [cid, conversationType, myGroupRole, myId, selectedMessage, showBanner]);
 
+  const selectAttachment = useCallback(async (kind: 'camera' | 'library' | 'file') => {
+    setAttachmentPickerVisible(false);
+    try {
+      const picked = kind === 'camera'
+        ? await sdk.media.pickCameraImage()
+        : kind === 'library'
+          ? await sdk.media.pickLibraryImage()
+          : await sdk.media.pickFile();
+      if (picked == null) return;
+      await sdk.media.enqueue(cid, kind === 'file' ? 'FILE' : 'IMAGE', picked);
+      safeReload();
+    } catch (cause) {
+      showBanner(mediaErrorText(cause instanceof Error ? cause.message : undefined));
+    }
+  }, [cid, safeReload, showBanner]);
+
+  const retryMessage = useCallback(async (message: ChatMessage) => {
+    const uploadTaskId = message.body?.uploadTaskId;
+    try {
+      if (typeof uploadTaskId === 'string') {
+        await sdk.media.retry(uploadTaskId);
+      } else if (message.clientMsgId != null) {
+        await sdk.chat.resend(message.clientMsgId);
+      }
+      safeReload();
+    } catch (cause) {
+      showBanner(mediaErrorText(cause instanceof Error ? cause.message : undefined));
+    }
+  }, [safeReload, showBanner]);
+
+  const cancelUpload = useCallback(async (message: ChatMessage) => {
+    const uploadTaskId = message.body?.uploadTaskId;
+    if (typeof uploadTaskId !== 'string') return;
+    try {
+      await sdk.media.cancel(uploadTaskId);
+      safeReload();
+    } catch (cause) {
+      showBanner(mediaErrorText(cause instanceof Error ? cause.message : undefined));
+    }
+  }, [safeReload, showBanner]);
+
+  const refreshImageUrl = useCallback((objectKey: string) => (
+    sdk.media.refreshDownloadUrl(cid, objectKey)
+  ), [cid]);
+
+  const openFile = useCallback(async (message: ChatMessage) => {
+    const objectKey = message.body?.objectKey;
+    const filename = message.body?.filename;
+    const mime = message.body?.mime;
+    if (typeof objectKey !== 'string' || typeof filename !== 'string' || typeof mime !== 'string') {
+      showBanner('文件信息不完整，无法打开');
+      return;
+    }
+    setDownloadingObjectKey(objectKey);
+    setDownloadProgress(0);
+    try {
+      await sdk.media.downloadAndOpen(
+        cid,
+        objectKey,
+        filename,
+        mime,
+        (done, total) => {
+          if (!mountedRef.current || total <= 0) return;
+          setDownloadProgress(Math.max(0, Math.min(1, done / total)));
+        },
+      );
+    } catch (cause) {
+      showBanner(mediaErrorText(cause instanceof Error ? cause.message : undefined));
+    } finally {
+      if (mountedRef.current) {
+        setDownloadingObjectKey(null);
+        setDownloadProgress(0);
+      }
+    }
+  }, [cid, showBanner]);
+
   return (
     <View style={styles.wrap}>
       <CompactScreenHeader
@@ -461,10 +567,22 @@ export function ChatScreen({ route, navigation }: Props) {
                   style={({ pressed }) => [
                     styles.bubble,
                     mine ? styles.bubbleMine : styles.bubblePeer,
+                    item.type === 'IMAGE' && styles.imageBubble,
                     pressed && recallable && styles.bubblePressed,
                   ]}
                 >
-                  <MentionText body={item.body} />
+                  {item.type === 'IMAGE' || item.type === 'FILE' ? (
+                    <MediaMessageContent
+                      message={item}
+                      onPreview={setPreviewUri}
+                      onRefreshImage={refreshImageUrl}
+                      onOpenFile={(message) => void openFile(message)}
+                      downloading={item.body?.objectKey === downloadingObjectKey}
+                      downloadProgress={downloadProgress}
+                    />
+                  ) : (
+                    <MentionText body={item.body} />
+                  )}
                 </Pressable>
                 {conversationType === 'SINGLE' && mine && item.seq != null ? (
                   <Text style={styles.deliveryStatus}>
@@ -475,12 +593,20 @@ export function ChatScreen({ route, navigation }: Props) {
               {item.status === 'sending' || item.status === 'acked' || recallingSeq === item.seq ? (
                 <ActivityIndicator size="small" />
               ) : null}
+              {item.status === 'uploading' && typeof item.body?.uploadTaskId === 'string' ? (
+                <IconButton
+                  name="close-circle-outline"
+                  accessibilityLabel="取消上传"
+                  color={COLORS.textSecondary}
+                  onPress={() => void cancelUpload(item)}
+                />
+              ) : null}
               {item.status === 'failed' && item.clientMsgId ? (
                 <IconButton
                   name="alert-circle"
                   accessibilityLabel="重新发送"
                   color={COLORS.danger}
-                  onPress={() => sdk.chat.resend(item.clientMsgId!)}
+                  onPress={() => void retryMessage(item)}
                 />
               ) : null}
               {mine ? (
@@ -492,6 +618,12 @@ export function ChatScreen({ route, navigation }: Props) {
       />
       <SafeAreaView edges={['bottom']} style={styles.composerSafeArea}>
         <View style={styles.composer}>
+          <IconButton
+            name="add-circle-outline"
+            accessibilityLabel="添加图片或文件"
+            color={COLORS.primary}
+            onPress={() => setAttachmentPickerVisible(true)}
+          />
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -527,6 +659,12 @@ export function ChatScreen({ route, navigation }: Props) {
         onClose={closeMentionPicker}
         onConfirm={confirmMentionSelection}
       />
+      <AttachmentPickerSheet
+        visible={attachmentPickerVisible}
+        onClose={() => setAttachmentPickerVisible(false)}
+        onSelect={(kind) => void selectAttachment(kind)}
+      />
+      <ImagePreviewModal uri={previewUri} onClose={() => setPreviewUri(null)} />
     </View>
   );
 }
@@ -550,6 +688,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
+  imageBubble: { paddingHorizontal: 2, paddingVertical: 2 },
   bubbleMine: { backgroundColor: COLORS.messageMine },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
   bubblePressed: { opacity: 0.72 },

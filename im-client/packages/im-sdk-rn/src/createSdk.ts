@@ -92,6 +92,7 @@ export function createSdk(config: SdkConfig) {
     emitter,
     () => auth.getMyId(),
   );
+  engine.onClientMessageSettled((clientMsgId) => media.settle(clientMsgId));
 
   // 建表是异步的；调用方必须先 await ready 再用 chat。
   const ready = runMigrations(db);

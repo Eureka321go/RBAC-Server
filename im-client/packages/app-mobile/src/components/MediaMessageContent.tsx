@@ -1,0 +1,173 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Ionicons } from '@react-native-vector-icons/ionicons/static';
+import type { ChatMessage } from '@im/sdk-core';
+import { displayableImageUri, formatBytes, safeFilename } from '../media/mediaPresentation';
+import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+
+interface Props {
+  message: ChatMessage;
+  onPreview: (uri: string) => void;
+  onRefreshImage: (objectKey: string) => Promise<string>;
+  onOpenFile: (message: ChatMessage) => void;
+  downloading: boolean;
+  downloadProgress: number;
+}
+
+function positiveNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function progressOf(message: ChatMessage): number {
+  const value = message.body?.progress;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.min(1, value))
+    : 0;
+}
+
+function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
+  'message' | 'onPreview' | 'onRefreshImage'
+>) {
+  const objectKey = typeof message.body?.objectKey === 'string' ? message.body.objectKey : null;
+  const initialUri = displayableImageUri(message.body?.localUri ?? message.body?.url);
+  const [uri, setUri] = useState(initialUri);
+  const failedUriRef = useRef<string | null>(null);
+  useEffect(() => {
+    setUri(initialUri);
+    failedUriRef.current = null;
+  }, [initialUri, objectKey]);
+  const dimensions = useMemo(() => {
+    const width = positiveNumber(message.body?.width) ?? 4;
+    const height = positiveNumber(message.body?.height) ?? 3;
+    const ratio = width / height;
+    if (ratio >= 1) return { width: 220, height: Math.max(120, Math.min(280, 220 / ratio)) };
+    return { width: Math.max(140, Math.min(220, 280 * ratio)), height: 280 };
+  }, [message.body?.height, message.body?.width]);
+  const uploading = message.status === 'uploading';
+  const progress = progressOf(message);
+
+  const refresh = useCallback(() => {
+    if (objectKey == null || (uri != null && failedUriRef.current === uri)) return;
+    failedUriRef.current = uri ?? '__missing__';
+    void onRefreshImage(objectKey).then((next) => setUri(next)).catch(() => {});
+  }, [objectKey, onRefreshImage, uri]);
+
+  useEffect(() => {
+    if (uri == null && objectKey != null) refresh();
+  }, [objectKey, refresh, uri]);
+
+  return (
+    <Pressable
+      accessibilityRole="imagebutton"
+      accessibilityLabel="查看图片"
+      disabled={uri == null}
+      onPress={() => uri != null && onPreview(uri)}
+      style={[styles.imageWrap, dimensions]}
+    >
+      {uri != null ? (
+        <Image source={{ uri }} resizeMode="cover" style={StyleSheet.absoluteFill} onError={refresh} />
+      ) : (
+        <Ionicons name="image-outline" size={34} color={COLORS.textMuted} />
+      )}
+      {uploading ? (
+        <View style={styles.uploadOverlay}>
+          <Text style={styles.uploadText}>{Math.round(progress * 100)}%</Text>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          </View>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function FileMessage({ message, onOpenFile, downloading, downloadProgress }: Pick<Props,
+  'message' | 'onOpenFile' | 'downloading' | 'downloadProgress'
+>) {
+  const uploadProgress = progressOf(message);
+  const progress = downloading ? downloadProgress : uploadProgress;
+  const busy = downloading || message.status === 'uploading';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`打开文件 ${safeFilename(message.body?.filename)}`}
+      disabled={message.status === 'uploading'}
+      onPress={() => onOpenFile(message)}
+      style={({ pressed }) => [styles.fileCard, pressed && styles.pressed]}
+    >
+      <View style={styles.fileIcon}>
+        {downloading ? (
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        ) : (
+          <Ionicons name="document-text-outline" size={28} color={COLORS.primary} />
+        )}
+      </View>
+      <View style={styles.fileMeta}>
+        <Text style={styles.filename} numberOfLines={2}>{safeFilename(message.body?.filename)}</Text>
+        <Text style={styles.fileSize}>{formatBytes(message.body?.size)}</Text>
+        {busy ? (
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+export function MediaMessageContent(props: Props) {
+  if (props.message.type === 'IMAGE') {
+    return <ImageMessage {...props} />;
+  }
+  return <FileMessage {...props} />;
+}
+
+const styles = StyleSheet.create({
+  imageWrap: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  uploadOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(15,23,42,0.42)',
+  },
+  uploadText: { color: COLORS.white, fontSize: TYPE.caption, fontWeight: '800' },
+  progressTrack: {
+    width: '100%',
+    height: 4,
+    overflow: 'hidden',
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.borderStrong,
+  },
+  progressFill: { height: '100%', borderRadius: RADIUS.pill, backgroundColor: COLORS.primary },
+  fileCard: { minWidth: 210, maxWidth: 250, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  fileIcon: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySoft,
+  },
+  fileMeta: { flex: 1, gap: SPACING.xxs },
+  filename: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
+  fileSize: { color: COLORS.textSecondary, fontSize: TYPE.caption },
+  pressed: { opacity: 0.68 },
+});

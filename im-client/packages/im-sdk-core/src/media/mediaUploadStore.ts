@@ -62,6 +62,14 @@ export class MediaUploadStore {
     return rows.length === 0 ? null : toTask(rows[0]);
   }
 
+  async getByClientMsgId(clientMsgId: string): Promise<MediaUploadTask | null> {
+    const rows = await this.db.query<Row>(
+      `SELECT ${COLUMNS} FROM media_upload_task WHERE client_msg_id = ?`,
+      [clientMsgId],
+    );
+    return rows.length === 0 ? null : toTask(rows[0]);
+  }
+
   async listByCid(cid: string, accountId: number | null): Promise<MediaUploadTask[]> {
     if (accountId == null) return [];
     const rows = await this.db.query<Row>(
