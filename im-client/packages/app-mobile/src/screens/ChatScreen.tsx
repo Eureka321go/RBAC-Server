@@ -266,7 +266,7 @@ export function ChatScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   banner: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: 8, textAlign: 'center' },
-  rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 12, paddingVertical: 4 },
+  rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 12, paddingVertical: 8 },
   rowMine: { justifyContent: 'flex-end' },
   rowPeer: { justifyContent: 'flex-start' },
   rowWithSenderName: { paddingTop: 24 },
