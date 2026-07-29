@@ -115,6 +115,20 @@ export class SyncEngine {
     await this.db.tx(async (tx) => {
       const messages = new MessageStore(tx);
       await messages.upsertMessage(stored);
+      const targetSeq = stored.type === 'RECALL'
+        && typeof stored.body?.targetSeq === 'number'
+        && Number.isSafeInteger(stored.body.targetSeq)
+        && stored.body.targetSeq > 0
+        ? stored.body.targetSeq
+        : null;
+      if (targetSeq != null) {
+        await messages.markMessageRecalled(cid, targetSeq);
+      } else if (stored.type !== 'RECALL' && !stored.recalled) {
+        const recallOperatorId = await messages.findRecallOperatorId(cid, stored.seq);
+        if (recallOperatorId != null) {
+          await messages.markMessageRecalled(cid, stored.seq);
+        }
+      }
       if (stored.clientMsgId) {
         await new OutboxStore(tx).delete(stored.clientMsgId);
       }

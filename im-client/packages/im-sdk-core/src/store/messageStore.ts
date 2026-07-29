@@ -109,6 +109,42 @@ export class MessageStore {
     }));
   }
 
+  /** 撤回目标只保留占位元数据；正文必须与 recalled 标记在同一条 UPDATE 中清除。 */
+  async markMessageRecalled(cid: string, targetSeq: number): Promise<void> {
+    await this.db.exec(
+      `UPDATE messages
+          SET recalled = 1, body_json = NULL
+        WHERE cid = ? AND seq = ?`,
+      [cid, targetSeq],
+    );
+  }
+
+  /**
+   * 查找某条消息对应的撤回操作者。
+   * 不依赖 SQLite JSON 扩展，保持 SDK Core 对不同数据库适配器的兼容性。
+   */
+  async findRecallOperatorId(cid: string, targetSeq: number): Promise<number | null> {
+    const rows = await this.db.query<Row>(
+      `SELECT sender_id, body_json
+         FROM messages
+        WHERE cid = ? AND type = 'RECALL'
+        ORDER BY seq DESC`,
+      [cid],
+    );
+    for (const row of rows) {
+      if (row.body_json == null) continue;
+      try {
+        const body = JSON.parse(row.body_json as string) as Record<string, unknown>;
+        if (body.targetSeq === targetSeq) {
+          return (row.sender_id as number | null) ?? null;
+        }
+      } catch {
+        // 单条损坏的控制消息不能阻断后续同步。
+      }
+    }
+    return null;
+  }
+
   async upsertConversation(c: {
     cid: string;
     type: string;
