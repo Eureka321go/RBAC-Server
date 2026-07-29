@@ -13,6 +13,11 @@ function basename(filename: string): string {
   return (leaf || 'file').slice(-180);
 }
 
+function cacheName(cacheKey: string, filename: string): string {
+  const safeKey = cacheKey.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${(safeKey || 'media').slice(-140)}--${basename(filename)}`.slice(-240);
+}
+
 async function ensureDir(path: string): Promise<void> {
   if (!(await FileSystem.exists(path))) await FileSystem.mkdir(path);
 }
@@ -50,6 +55,8 @@ export function routeSignedUrl(url: string, transportBaseUrl?: string): RoutedSi
 }
 
 export class RnMediaBinary implements MediaBinaryPort {
+  private readonly downloads = new Map<string, Promise<string>>();
+
   constructor(private readonly transportBaseUrl?: string) {}
 
   async persist(source: PickedMedia, taskId: string): Promise<PickedMedia> {
@@ -89,13 +96,38 @@ export class RnMediaBinary implements MediaBinaryPort {
     return { eTag: responseHeader(info.headers, 'etag') };
   }
 
-  async download(
+  async getCachedDownload(cacheKey: string, filename: string): Promise<string | null> {
+    const target = `${DOWNLOAD_DIR}/${cacheName(cacheKey, filename)}`;
+    if (!(await FileSystem.exists(target))) return null;
+    const stat = await FileSystem.stat(target);
+    return stat.size > 0 ? target : null;
+  }
+
+  download(
     url: string,
+    cacheKey: string,
+    filename: string,
+    onProgress: (done: number, total: number) => void,
+  ): Promise<string> {
+    const current = this.downloads.get(cacheKey);
+    if (current != null) return current;
+
+    const pending = this.downloadOnce(url, cacheKey, filename, onProgress)
+      .finally(() => this.downloads.delete(cacheKey));
+    this.downloads.set(cacheKey, pending);
+    return pending;
+  }
+
+  private async downloadOnce(
+    url: string,
+    cacheKey: string,
     filename: string,
     onProgress: (done: number, total: number) => void,
   ): Promise<string> {
     await ensureDir(DOWNLOAD_DIR);
-    const target = `${DOWNLOAD_DIR}/${Date.now()}-${basename(filename)}`;
+    const target = `${DOWNLOAD_DIR}/${cacheName(cacheKey, filename)}`;
+    const cached = await this.getCachedDownload(cacheKey, filename);
+    if (cached != null) return cached;
     const routed = routeSignedUrl(url, this.transportBaseUrl);
     const result = await FileSystem.fetch(
       routed.url,

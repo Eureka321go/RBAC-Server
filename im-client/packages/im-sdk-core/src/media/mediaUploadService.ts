@@ -217,8 +217,10 @@ export class MediaUploadService {
     filename: string,
     onProgress: (done: number, total: number) => void = () => {},
   ): Promise<string> {
+    const cached = await this.binary.getCachedDownload(objectKey, filename);
+    if (cached != null) return cached;
     const url = await this.refreshDownloadUrl(cid, objectKey);
-    return this.binary.download(url, filename, onProgress);
+    return this.binary.download(url, objectKey, filename, onProgress);
   }
 
   /** 自己的最终 PUSH 已落库：此时才安全删除上传任务与发送端本地副本。 */

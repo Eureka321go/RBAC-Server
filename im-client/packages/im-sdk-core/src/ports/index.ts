@@ -66,8 +66,10 @@ export interface MediaBinaryPort {
     contentType: string,
     contentLength: number,
   ): Promise<{ eTag: string | null }>;
+  getCachedDownload(cacheKey: string, filename: string): Promise<string | null>;
   download(
     url: string,
+    cacheKey: string,
     filename: string,
     onProgress: (done: number, total: number) => void,
   ): Promise<string>;
