@@ -13,6 +13,7 @@ export const COLORS = {
   borderStrong: '#CBD5E1',
   success: '#168A55',
   successSoft: '#E8F7F0',
+  messageMine: '#D5F0E2',
   warning: '#B76A00',
   warningSoft: '#FFF6E5',
   danger: '#DC2F2F',
