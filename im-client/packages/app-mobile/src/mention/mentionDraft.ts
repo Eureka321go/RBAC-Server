@@ -146,7 +146,7 @@ export function insertMentionSelection(
       !existingUserIds.has(candidate.userId),
   );
   const insertedText = selectingAll
-    ? '@所有人'
+    ? '@所有人 '
     : candidates.map((candidate) => `@${candidate.displayName} `).join('');
   const nextText =
     state.text.slice(0, trigger.start) + insertedText + state.text.slice(trigger.end);
