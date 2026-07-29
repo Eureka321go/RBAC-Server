@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ConversationRow } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
+import { GroupAvatar, InitialAvatar } from '../components/Avatar';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
@@ -20,11 +21,6 @@ function titleOf(row: ConversationRow, myId: number | null): string {
   const left = Number(matched[1]);
   const right = Number(matched[2]);
   return `用户 #${left === myId ? right : left}`;
-}
-
-function avatarLetter(displayName: string | null): string {
-  const name = displayName?.trim();
-  return name ? (Array.from(name)[0]?.toLocaleUpperCase() ?? 'U') : 'U';
 }
 
 export function ConversationsScreen({ navigation }: Props) {
@@ -79,9 +75,7 @@ export function ConversationsScreen({ navigation }: Props) {
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.profile}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatarLetter(displayName)}</Text>
-          </View>
+          <InitialAvatar name={displayName} userId={myId} size={44} />
           <View style={styles.profileText}>
             <Text style={styles.displayName} numberOfLines={1}>
               {displayName || `用户 #${myId ?? ''}`}
@@ -140,6 +134,11 @@ export function ConversationsScreen({ navigation }: Props) {
                 syncOnOpen: true,
               })}
             >
+              {item.type === 'GROUP' ? (
+                <GroupAvatar size={48} />
+              ) : (
+                <InitialAvatar name={title} userId={item.peerId} size={48} />
+              )}
               <View style={styles.content}>
                 <View style={styles.titleLine}>
                   <Text style={styles.title}>{title}</Text>
@@ -183,15 +182,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   profile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2563eb',
-  },
-  avatarText: { color: '#ffffff', fontSize: 19, fontWeight: '700' },
   profileText: { flex: 1, minWidth: 0 },
   displayName: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
   sectionName: { color: '#64748b', fontSize: 12, marginTop: 2 },
@@ -229,6 +219,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     minHeight: 76,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
