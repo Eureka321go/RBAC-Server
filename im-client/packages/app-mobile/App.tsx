@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { DefaultTheme } from '@react-navigation/native';
@@ -56,7 +56,8 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <ConnectionStatusBar />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+      {loggedIn ? <ConnectionStatusBar /> : null}
       <NavigationContainer theme={navigationTheme}>
         <Stack.Navigator>
           {!loggedIn ? (

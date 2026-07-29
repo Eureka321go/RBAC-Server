@@ -1,9 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
@@ -29,7 +25,10 @@ export function ContactsScreen({ navigation }: Props) {
 
   const openChat = useCallback(
     async (peerId: number, peerName: string) => {
-      if (myId == null || peerId === myId || !Number.isFinite(peerId)) return;
+      if (myId == null || peerId === myId || !Number.isSafeInteger(peerId) || peerId <= 0) {
+        setHint('请输入有效的对端 userId。');
+        return;
+      }
       setOpeningPeerId(peerId);
       setHint('正在创建会话…');
       try {

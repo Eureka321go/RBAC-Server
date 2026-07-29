@@ -113,17 +113,37 @@ export function DepartmentContactPicker({
   return (
     <View style={styles.wrap}>
       <View style={styles.breadcrumbs}>
-        <Pressable onPress={() => setLocation(null)}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="返回通讯录根目录"
+          disabled={location == null}
+          hitSlop={8}
+          onPress={() => setLocation(null)}
+        >
           <Text style={[styles.crumb, location == null && styles.crumbCurrent]}>通讯录</Text>
         </Pressable>
-        {breadcrumbs.map((crumb) => (
-          <React.Fragment key={String(crumb.id)}>
-            <Text style={styles.separator}>/</Text>
-            <Pressable onPress={() => setLocation(crumb.id)}>
-              <Text style={styles.crumb}>{crumb.name}</Text>
-            </Pressable>
-          </React.Fragment>
-        ))}
+        {breadcrumbs.map((crumb, index) => {
+          const current = index === breadcrumbs.length - 1;
+          return (
+            <React.Fragment key={String(crumb.id)}>
+              <Ionicons
+                name="chevron-forward"
+                size={15}
+                color={COLORS.textMuted}
+                style={styles.separator}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={current ? `当前目录：${crumb.name}` : `返回${crumb.name}`}
+                disabled={current}
+                hitSlop={8}
+                onPress={() => setLocation(crumb.id)}
+              >
+                <Text style={[styles.crumb, current && styles.crumbCurrent]}>{crumb.name}</Text>
+              </Pressable>
+            </React.Fragment>
+          );
+        })}
       </View>
 
       <FlatList
@@ -213,10 +233,10 @@ export function DepartmentContactPicker({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, minHeight: 180, backgroundColor: COLORS.surface },
-  breadcrumbs: { minHeight: 46, paddingHorizontal: SPACING.sm, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  crumb: { color: COLORS.primary, fontSize: 13, paddingVertical: 5 },
+  breadcrumbs: { minHeight: 52, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  crumb: { color: COLORS.primary, fontSize: TYPE.body, lineHeight: 22, fontWeight: '500', paddingVertical: 5 },
   crumbCurrent: { color: COLORS.text, fontWeight: '700' },
-  separator: { color: COLORS.textMuted },
+  separator: { marginHorizontal: SPACING.xs },
   departmentRow: { minHeight: 64, paddingHorizontal: SPACING.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   departmentOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   departmentIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primarySoft },

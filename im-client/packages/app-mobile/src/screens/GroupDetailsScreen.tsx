@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   addMembers: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, paddingHorizontal: SPACING.xs },
   addMembersText: { color: COLORS.primary, fontSize: TYPE.body, fontWeight: '700' },
   memberRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border, marginLeft: SPACING.md },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border },
   memberInfo: { flex: 1, minWidth: 0 },
   memberName: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '700' },
   memberMeta: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 3 },

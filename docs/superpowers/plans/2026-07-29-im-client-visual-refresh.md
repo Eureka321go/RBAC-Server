@@ -136,9 +136,11 @@
 **Interfaces:**
 - Uses the selected reference at `/Users/xxmm/.codex/generated_images/019fab9c-4d95-7ae1-8da2-d0fb86e27ea5/exec-3a51703b-1a10-45ea-b944-784674266b90.png`.
 
-- [ ] Run SDK Core and App TypeScript checks; both must exit 0.
-- [ ] Run the SDK platform-import scan; expect no matches and exit 1.
-- [ ] Run `git diff dd45f24..HEAD --check`; expect exit 0.
+- [x] Run SDK Core and App TypeScript checks; both must exit 0.
+- [x] Run the SDK platform-import scan; expect no matches and exit 1.
+- [x] Run `git diff dd45f24..HEAD --check`; expect exit 0.
 - [ ] Build/run the current native app if the available simulator environment permits, capture the group-details screen at the same state, and compare it with the selected reference.
-- [ ] Record hierarchy, typography, spacing, icon, interaction-target, and remaining polish findings in `im-client/design-qa.md`; set `final result: passed` only when no P0/P1/P2 issue remains. If capture is unavailable, record `final result: blocked` and report that limitation without claiming visual verification.
+- [x] Record hierarchy, typography, spacing, icon, interaction-target, and remaining polish findings in `im-client/design-qa.md`; visual verification is explicitly delegated to the user and remains pending without a pass claim.
 - [ ] Mark this plan complete and commit documentation as `docs(im-client): complete visual refresh plan`.
+
+Visual completion is intentionally pending: on 2026-07-29 the user asked Codex not to perform screenshot comparison and will execute the checklist in `im-client/design-qa.md` personally.
