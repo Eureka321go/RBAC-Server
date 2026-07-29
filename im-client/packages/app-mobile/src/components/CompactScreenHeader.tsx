@@ -1,15 +1,26 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import { COLORS, SPACING, TYPE } from '../ui/theme';
 
 interface Props {
   title: string;
   onBack: () => void;
   rightLabel?: string;
+  rightIcon?: IoniconsIconName;
+  rightAccessibilityLabel?: string;
   onRightPress?: () => void;
 }
 
 /** 替代 Android edge-to-edge 下过高的 native-stack Header。 */
-export function CompactScreenHeader({ title, onBack, rightLabel, onRightPress }: Props) {
+export function CompactScreenHeader({
+  title,
+  onBack,
+  rightLabel,
+  rightIcon,
+  rightAccessibilityLabel,
+  onRightPress,
+}: Props) {
   return (
     <View style={styles.header}>
       <Pressable
@@ -19,17 +30,19 @@ export function CompactScreenHeader({ title, onBack, rightLabel, onRightPress }:
         style={({ pressed }) => [styles.back, pressed && styles.pressed]}
         onPress={onBack}
       >
-        <Text style={styles.backText}>‹</Text>
+        <Ionicons name="chevron-back" size={28} color={COLORS.text} />
       </Pressable>
       <Text style={styles.title} numberOfLines={1}>{title}</Text>
-      {rightLabel && onRightPress ? (
+      {(rightLabel || rightIcon) && onRightPress ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={rightAccessibilityLabel ?? rightLabel}
           hitSlop={8}
           style={({ pressed }) => [styles.right, pressed && styles.pressed]}
           onPress={onRightPress}
         >
-          <Text style={styles.rightText}>{rightLabel}</Text>
+          {rightIcon ? <Ionicons name={rightIcon} size={23} color={COLORS.primary} /> : null}
+          {rightLabel ? <Text style={styles.rightText}>{rightLabel}</Text> : null}
         </Pressable>
       ) : (
         <View style={styles.balance} />
@@ -40,18 +53,13 @@ export function CompactScreenHeader({ title, onBack, rightLabel, onRightPress }:
 
 const styles = StyleSheet.create({
   header: {
-    height: 60,
-    paddingHorizontal: 12,
+    height: 58,
+    paddingHorizontal: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-    elevation: 2,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
+    borderBottomColor: COLORS.border,
   },
   back: {
     width: 44,
@@ -60,13 +68,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { backgroundColor: '#f1f5f9' },
-  backText: { color: '#0f172a', fontSize: 38, lineHeight: 40, marginTop: -3 },
+  pressed: { backgroundColor: COLORS.surfaceMuted },
   title: {
     flex: 1,
     textAlign: 'center',
-    color: '#0f172a',
-    fontSize: 18,
+    color: COLORS.text,
+    fontSize: TYPE.subtitle,
     fontWeight: '700',
   },
   balance: { width: 44 },
@@ -77,5 +84,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rightText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  rightText: { color: COLORS.primary, fontSize: 14, fontWeight: '600' },
 });

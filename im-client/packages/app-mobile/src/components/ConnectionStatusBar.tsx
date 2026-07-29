@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '../store';
+import { COLORS } from '../ui/theme';
 
-const COLORS: Record<string, string> = {
-  connected: '#16a34a',
-  connecting: '#d97706',
-  reconnecting: '#d97706',
-  closed: '#dc2626',
+const STATUS_COLORS: Record<string, { background: string; foreground: string }> = {
+  connected: { background: COLORS.successSoft, foreground: COLORS.success },
+  connecting: { background: COLORS.warningSoft, foreground: COLORS.warning },
+  reconnecting: { background: COLORS.warningSoft, foreground: COLORS.warning },
+  closed: { background: COLORS.dangerSoft, foreground: COLORS.danger },
 };
 
 const LABELS: Record<string, string> = {
@@ -19,12 +20,12 @@ const LABELS: Record<string, string> = {
 
 export function ConnectionStatusBar() {
   const s = useAppStore((x) => x.connState);
-  const backgroundColor = COLORS[s] ?? '#6b7280';
+  const colors = STATUS_COLORS[s] ?? { background: COLORS.surfaceMuted, foreground: COLORS.textSecondary };
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor }}>
+    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
       <View style={styles.bar}>
-        <View style={styles.dot} />
-        <Text style={styles.text}>{LABELS[s] ?? s}</Text>
+        <View style={[styles.dot, { backgroundColor: colors.foreground }]} />
+        <Text style={[styles.text, { color: colors.foreground }]}>{LABELS[s] ?? s}</Text>
       </View>
     </SafeAreaView>
   );
@@ -32,12 +33,12 @@ export function ConnectionStatusBar() {
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 28,
+    minHeight: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ffffff' },
-  text: { color: '#fff', fontSize: 13 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  text: { fontSize: 12, fontWeight: '600' },
 });

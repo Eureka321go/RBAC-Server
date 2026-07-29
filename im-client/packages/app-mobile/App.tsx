@@ -8,6 +8,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from './src/store';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -18,8 +19,21 @@ import { CreateGroupScreen } from './src/screens/CreateGroupScreen';
 import { GroupDetailsScreen } from './src/screens/GroupDetailsScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
+import { COLORS } from './src/ui/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: COLORS.page,
+    card: COLORS.surface,
+    text: COLORS.text,
+    border: COLORS.border,
+    primary: COLORS.primary,
+  },
+};
 
 function App() {
   const booted = useAppStore((x) => x.booted);
@@ -43,7 +57,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <ConnectionStatusBar />
-      <NavigationContainer>
+      <NavigationContainer theme={navigationTheme}>
         <Stack.Navigator>
           {!loggedIn ? (
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -83,7 +97,7 @@ function App() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.page },
 });
 
 export default App;
