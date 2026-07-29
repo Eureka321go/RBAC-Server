@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 图片上限 10 MiB，文件上限 100 MiB；图片最长边 2048、质量 0.82，压缩后仍超限则拒绝。
+- 图片上限 10 MiB，文件上限 100 MiB；图片最长边 2048、质量 0.8，压缩后仍超限则拒绝。
 - 小于 5 MiB 使用现有单 PUT；达到 5 MiB 使用 S3 Multipart，分片大小固定 5 MiB且顺序上传。
 - Spring Boot 不接收文件字节；所有对象均由客户端通过预签名 URL 直传 MinIO/S3。
 - MongoDB 消息正文只保存 `objectKey` 和元数据，不保存本地 URI，不持久化临时 GET URL。
@@ -256,7 +256,7 @@ iOS 添加 `NSCameraUsageDescription` 和 `NSPhotoLibraryUsageDescription`；Pod
 
 - [ ] **Step 2: 实现拍照/相册/文件选择与持久副本**
 
-图片选项固定 `{mediaType:'photo', maxWidth:2048, maxHeight:2048, quality:0.82, selectionLimit:1}`。文档选择后立刻复制到应用 Documents 目录；任何临时 URI 在任务入库前转换为应用持久 URI。
+图片选项固定 `{mediaType:'photo', maxWidth:2048, maxHeight:2048, quality:0.8, selectionLimit:1}`。文档选择后立刻复制到应用 Documents 目录；任何临时 URI 在任务入库前转换为应用持久 URI。
 
 - [ ] **Step 3: 实现分片 PUT、下载和系统打开**
 

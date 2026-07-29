@@ -4,4 +4,7 @@ export * from './adapters/keychainSecureStore';
 export * from './adapters/appStateLifecycle';
 export * from './adapters/rnIds';
 export * from './adapters/opSqliteDatabase';
+export * from './adapters/rnMediaPicker';
+export * from './adapters/rnMediaBinary';
+export * from './adapters/rnMediaOpener';
 export * from './createSdk';

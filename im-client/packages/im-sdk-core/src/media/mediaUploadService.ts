@@ -7,6 +7,7 @@ import type {
   Ids,
   MediaBinaryPort,
   MediaOpenPort,
+  MediaPicker,
   PickedMedia,
 } from '../ports/index';
 import type { MediaUploadTask, MediaMessageType } from './mediaTypes';
@@ -85,12 +86,25 @@ export class MediaUploadService {
     private readonly http: Http,
     private readonly binary: MediaBinaryPort,
     private readonly opener: MediaOpenPort,
+    private readonly picker: MediaPicker,
     private readonly store: MediaUploadStore,
     private readonly chat: ChatService,
     private readonly ids: Ids,
     private readonly emitter: Emitter<SdkEvents>,
     private readonly getAccountId: () => number | null,
   ) {}
+
+  pickCameraImage(): Promise<PickedMedia | null> {
+    return this.picker.pickCameraImage();
+  }
+
+  pickLibraryImage(): Promise<PickedMedia | null> {
+    return this.picker.pickLibraryImage();
+  }
+
+  pickFile(): Promise<PickedMedia | null> {
+    return this.picker.pickFile();
+  }
 
   async enqueue(cid: string, type: MediaMessageType, source: PickedMedia): Promise<string> {
     const accountId = this.getAccountId();

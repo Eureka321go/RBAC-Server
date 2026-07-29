@@ -6,6 +6,8 @@ import {
   Emitter,
   GroupService,
   MessageStore,
+  MediaUploadService,
+  MediaUploadStore,
   OutboxStore,
   SyncService,
   SyncEngine,
@@ -19,6 +21,9 @@ import { KeychainSecureStore } from './adapters/keychainSecureStore';
 import { AppStateLifecycle } from './adapters/appStateLifecycle';
 import { OpSqliteDatabase } from './adapters/opSqliteDatabase';
 import { rnIds } from './adapters/rnIds';
+import { RnMediaPicker } from './adapters/rnMediaPicker';
+import { RnMediaBinary } from './adapters/rnMediaBinary';
+import { RnMediaOpener } from './adapters/rnMediaOpener';
 
 const DEVICE_ID_KEY = 'im.installationDeviceId';
 
@@ -63,6 +68,7 @@ export function createSdk(config: SdkConfig) {
   const emitter = new Emitter<SdkEvents>();
   const engine = new SyncEngine(db, emitter);
   const messages = new MessageStore(db);
+  const mediaUploads = new MediaUploadStore(db);
   const sync = new SyncService(http, engine, messages, emitter, groups);
   const chat = new ChatService(
     connection,
@@ -71,6 +77,20 @@ export function createSdk(config: SdkConfig) {
     new OutboxStore(db),
     rnIds,
     emitter,
+    {},
+    mediaUploads,
+    () => auth.getMyId(),
+  );
+  const media = new MediaUploadService(
+    http,
+    new RnMediaBinary(),
+    new RnMediaOpener(),
+    new RnMediaPicker(),
+    mediaUploads,
+    chat,
+    rnIds,
+    emitter,
+    () => auth.getMyId(),
   );
 
   // 建表是异步的；调用方必须先 await ready 再用 chat。
@@ -81,11 +101,17 @@ export function createSdk(config: SdkConfig) {
     void ready.then(() => sync.syncAll()).catch(() => {});
   };
   connection.on('state', (state) => {
-    if (state === 'connected') triggerSync();
+    if (state === 'connected') {
+      triggerSync();
+      void ready.then(() => media.resumeAll()).catch(() => {});
+    }
   });
   lifecycle.onForeground(() => {
-    if (connection.getState() === 'connected') triggerSync();
+    if (connection.getState() === 'connected') {
+      triggerSync();
+      void ready.then(() => media.resumeAll()).catch(() => {});
+    }
   });
 
-  return { auth, connection, chat, contacts, groups, sync, http, ids: rnIds, ready };
+  return { auth, connection, chat, contacts, groups, sync, media, http, ids: rnIds, ready };
 }
