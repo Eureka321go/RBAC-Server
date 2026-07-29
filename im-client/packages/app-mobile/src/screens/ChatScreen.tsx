@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import type { ChatMessage, GroupRole } from '@im/sdk-core';
+import type { ChatMessage, GroupMember, GroupRole } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
@@ -21,17 +21,25 @@ import { buildContactDirectory } from '../contact/directory';
 import { InitialAvatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import { MessageActionSheet } from '../components/MessageActionSheet';
+import {
+  MentionPickerSheet,
+  type MentionPickerSelection,
+} from '../components/MentionPickerSheet';
+import { MentionText } from '../components/MentionText';
 import { StatusNotice } from '../components/StatusNotice';
+import {
+  applyMentionTextChange,
+  findInsertedMentionTrigger,
+  insertMentionSelection,
+  toSendTextOptions,
+  type MentionDraftState,
+  type MentionTrigger,
+} from '../mention/mentionDraft';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 const RECALL_WINDOW_MS = 120_000;
-
-function textOf(m: ChatMessage): string {
-  const t = m.body?.text;
-  return typeof t === 'string' ? t : '';
-}
 
 function targetSeqOf(message: ChatMessage): number | null {
   const value = message.body?.targetSeq;
@@ -70,6 +78,18 @@ function recallErrorText(reason?: string): string {
   }
 }
 
+function sendErrorText(reason: string): string {
+  switch (reason) {
+    case 'MENTION_NOT_MEMBER': return '提及的成员已不在群聊中';
+    case 'MENTION_ALL_FORBIDDEN': return '只有群主或管理员可以@所有人';
+    default: return `发送失败：${reason}`;
+  }
+}
+
+function emptyMentionDraft(): MentionDraftState {
+  return { text: '', ranges: [] };
+}
+
 export function ChatScreen({ route, navigation }: Props) {
   const {
     cid,
@@ -85,9 +105,15 @@ export function ChatScreen({ route, navigation }: Props) {
   const [namesById, setNamesById] = useState<ReadonlyMap<number, string>>(
     () => new Map(),
   );
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersLoadFailed, setMembersLoadFailed] = useState(false);
   const [myGroupRole, setMyGroupRole] = useState<GroupRole | null>(null);
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState<MentionDraftState>(emptyMentionDraft);
+  const [draftSelection, setDraftSelection] = useState({ start: 0, end: 0 });
+  const [mentionTrigger, setMentionTrigger] = useState<MentionTrigger | null>(null);
+  const [mentionPickerVisible, setMentionPickerVisible] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const [recallingSeq, setRecallingSeq] = useState<number | null>(null);
@@ -99,6 +125,7 @@ export function ChatScreen({ route, navigation }: Props) {
   activeCidRef.current = cid;
   // 横幅自动消失的定时器；每次新错误到来时需要清掉旧的，重新计时 3 秒。
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const showBanner = useCallback((message: string) => {
     if (!mountedRef.current) return;
@@ -148,18 +175,30 @@ export function ChatScreen({ route, navigation }: Props) {
     if (conversationType !== 'GROUP' || groupId == null) {
       setDisplayTitle(title);
       setNamesById(new Map());
+      setGroupMembers([]);
+      setMembersLoading(false);
+      setMembersLoadFailed(false);
       setMyGroupRole(null);
       return;
     }
+    setGroupMembers([]);
+    setMembersLoading(true);
+    setMembersLoadFailed(false);
     setMyGroupRole(null);
     let active = true;
     void Promise.all([
       sdk.groups.getGroup(groupId).catch(() => null),
-      sdk.groups.getMembers(groupId).catch(() => []),
+      sdk.groups.getMembers(groupId)
+        .then((members) => ({ members, failed: false }))
+        .catch(() => ({ members: [] as GroupMember[], failed: true })),
       sdk.contacts.getDirectory().catch(() => null),
-    ]).then(([group, members, directory]) => {
+    ]).then(([group, memberResult, directory]) => {
       if (!active) return;
+      const { members } = memberResult;
       setDisplayTitle(group?.name ?? title);
+      setGroupMembers(members);
+      setMembersLoading(false);
+      setMembersLoadFailed(memberResult.failed);
       setMyGroupRole(
         group?.myRole
           ?? members.find((member) => member.userId === myId)?.role
@@ -186,6 +225,10 @@ export function ChatScreen({ route, navigation }: Props) {
     setBanner(null);
     setSelectedMessage(null);
     setRecallingSeq(null);
+    setDraft(emptyMentionDraft());
+    setDraftSelection({ start: 0, end: 0 });
+    setMentionTrigger(null);
+    setMentionPickerVisible(false);
     if (syncOnOpen) {
       void sdk.sync.syncConversation(cid).then(safeReload).catch((cause) => {
         if (!mountedRef.current || activeCidRef.current !== cid) return;
@@ -207,7 +250,7 @@ export function ChatScreen({ route, navigation }: Props) {
     });
     const offErr = sdk.chat.on('sendError', (p) => {
       if (p.cid !== cid) return;
-      showBanner(`发送失败：${p.reason}`);
+      showBanner(sendErrorText(p.reason));
     });
     const offRecall = sdk.chat.on('recallResult', (result) => {
       if (result.cid !== cid || !mountedRef.current || activeCidRef.current !== cid) return;
@@ -258,11 +301,61 @@ export function ChatScreen({ route, navigation }: Props) {
   }, [items]);
 
   const send = useCallback(async () => {
-    const text = draft.trim();
-    if (text === '') return;
-    setDraft('');
-    await sdk.chat.sendText(cid, text);
+    const { text } = draft;
+    if (text.trim() === '') return;
+    const options = toSendTextOptions(draft);
+    setDraft(emptyMentionDraft());
+    setDraftSelection({ start: 0, end: 0 });
+    setMentionTrigger(null);
+    setMentionPickerVisible(false);
+    await sdk.chat.sendText(cid, text, options);
   }, [cid, draft]);
+
+  const excludedMentionUserIds = useMemo(
+    () => new Set(toSendTextOptions(draft).mentions ?? []),
+    [draft],
+  );
+
+  const changeDraftText = useCallback((nextText: string) => {
+    const trigger = findInsertedMentionTrigger(draft.text, nextText);
+    setDraft(applyMentionTextChange(draft, nextText));
+    if (conversationType !== 'GROUP' || trigger == null) return;
+    if (membersLoading) {
+      showBanner('群成员正在加载，请稍后重试');
+      return;
+    }
+    if (membersLoadFailed) {
+      showBanner('群成员加载失败，请稍后重试');
+      return;
+    }
+    setMentionTrigger(trigger);
+    setMentionPickerVisible(true);
+  }, [conversationType, draft, membersLoadFailed, membersLoading, showBanner]);
+
+  const closeMentionPicker = useCallback(() => {
+    setMentionPickerVisible(false);
+    setMentionTrigger(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
+
+  const confirmMentionSelection = useCallback((selection: MentionPickerSelection) => {
+    if (mentionTrigger == null) {
+      closeMentionPicker();
+      return;
+    }
+    const mentionSelection = selection.kind === 'all'
+      ? 'all' as const
+      : selection.members.map((member) => ({
+          userId: member.userId,
+          displayName: member.displayName?.trim() || `用户 #${member.userId}`,
+        }));
+    const result = insertMentionSelection(draft, mentionTrigger, mentionSelection);
+    setDraft(result.state);
+    setDraftSelection({ start: result.cursor, end: result.cursor });
+    setMentionPickerVisible(false);
+    setMentionTrigger(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [closeMentionPicker, draft, mentionTrigger]);
 
   const recallSelected = useCallback(async () => {
     const message = selectedMessage;
@@ -371,7 +464,7 @@ export function ChatScreen({ route, navigation }: Props) {
                     pressed && recallable && styles.bubblePressed,
                   ]}
                 >
-                  <Text style={mine ? styles.textMine : styles.textPeer}>{textOf(item)}</Text>
+                  <MentionText body={item.body} mine={mine} />
                 </Pressable>
                 {conversationType === 'SINGLE' && mine && item.seq != null ? (
                   <Text style={styles.deliveryStatus}>
@@ -400,19 +493,22 @@ export function ChatScreen({ route, navigation }: Props) {
       <SafeAreaView edges={['bottom']} style={styles.composerSafeArea}>
         <View style={styles.composer}>
           <TextInput
+            ref={inputRef}
             style={styles.input}
             placeholder="说点什么"
             placeholderTextColor={COLORS.textMuted}
-            value={draft}
-            onChangeText={setDraft}
+            value={draft.text}
+            selection={draftSelection}
+            onChangeText={changeDraftText}
+            onSelectionChange={(event) => setDraftSelection(event.nativeEvent.selection)}
             onSubmitEditing={() => void send()}
           />
           <IconButton
             name="send"
             accessibilityLabel="发送"
-            disabled={draft.trim() === ''}
+            disabled={draft.text.trim() === ''}
             color={COLORS.white}
-            backgroundColor={draft.trim() === '' ? COLORS.textMuted : COLORS.primary}
+            backgroundColor={draft.text.trim() === '' ? COLORS.textMuted : COLORS.primary}
             onPress={() => void send()}
           />
         </View>
@@ -421,6 +517,15 @@ export function ChatScreen({ route, navigation }: Props) {
         visible={selectedMessage != null}
         onClose={() => setSelectedMessage(null)}
         onRecall={() => void recallSelected()}
+      />
+      <MentionPickerSheet
+        visible={mentionPickerVisible}
+        members={groupMembers}
+        myId={myId}
+        myRole={myGroupRole}
+        excludedUserIds={excludedMentionUserIds}
+        onClose={closeMentionPicker}
+        onConfirm={confirmMentionSelection}
       />
     </View>
   );
@@ -448,8 +553,6 @@ const styles = StyleSheet.create({
   bubbleMine: { backgroundColor: COLORS.primary },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
   bubblePressed: { opacity: 0.72 },
-  textMine: { color: COLORS.white, fontSize: TYPE.body, lineHeight: 21 },
-  textPeer: { color: COLORS.text, fontSize: TYPE.body, lineHeight: 21 },
   deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
   systemRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
   systemText: {
