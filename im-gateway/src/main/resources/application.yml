@@ -1,0 +1,32 @@
+server:
+  port: 8090            # 仅供 actuator，WS 走 Netty 独立端口
+spring:
+  application:
+    name: im-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:rbac_redis_123}   # 必须与 backend 一致（docker rbac-redis 启用了 requirepass）
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: im-gateway-${im.gateway.id}
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+#NettyWebSocketServer 在应用就绪后执行 bind(9001)，WebSocketChannelInitializer 又把协议路径固定为 /im
+#ws://localhost:9001/im?token=<JWT>&deviceId=<设备标识>
+im:
+  gateway:
+    id: gw1              # 每个网关实例唯一
+    ws-port: 9001
+    heartbeat-idle-seconds: 60
+
+rbac:
+  jwt:
+    # 必须与 backend 一致：本地 dev 无 RBAC_JWT_SECRET 时，默认值对齐 backend application-dev.yml
+    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}

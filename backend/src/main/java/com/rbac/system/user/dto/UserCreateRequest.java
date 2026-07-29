@@ -18,6 +18,9 @@ public class UserCreateRequest {
     @NotBlank(message = "{valid.nickname.notBlank}")
     private String nickname;
 
+    @Size(max = 500)
+    private String profile;
+
     /** 初始密码，为空则使用系统默认密码。 */
     private String password;
 

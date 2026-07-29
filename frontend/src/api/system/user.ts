@@ -12,6 +12,7 @@ export interface UserItem {
   gender?: string
   status: EnableStatus
   remark?: string
+  profile?: string
   lastLoginAt?: string
   createdAt?: string
   roleIds: number[]
@@ -37,6 +38,7 @@ export interface UserForm {
   gender?: string
   status?: EnableStatus
   remark?: string
+  profile?: string
   roleIds: number[]
   postIds: number[]
 }

@@ -1,4 +1,4 @@
-name: rbac-server
+name: rbac-server #定义 Compose 项目名
 
 # ─────────────────────────────────────────────────────────────
 # RBAC 中间件编排
@@ -6,7 +6,7 @@ name: rbac-server
 # 分层启动（用 profile 控制）：
 #   核心层（默认，无 profile）：mysql、redis
 #   扩展层（--profile extra）  ：nginx、rabbitmq
-#   完整层（--profile full）   ：kafka、elasticsearch、kibana
+#   完整层（--profile full）   ：kafka
 #
 # 常用命令：
 #   仅核心      : docker compose up -d
@@ -16,27 +16,27 @@ name: rbac-server
 #   停止并清数据: docker compose down -v
 # ─────────────────────────────────────────────────────────────
 
-services:
+services: #定义需要运行的服务
   # ==================== 核心层 ====================
   mysql:
     image: mysql:8.4
-    container_name: rbac-mysql
+    container_name: rbac-mysql # 对应 --name
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "3306:3306" # 对应 -p 3306:3306
     environment:
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-rbac_root_123}"
       MYSQL_DATABASE: "${MYSQL_DATABASE:-rbac}"
       MYSQL_USER: "${MYSQL_USER:-rbac}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD:-rbac_123}"
       TZ: Asia/Shanghai
-    command:
+    command: #启动参数
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --default-time-zone=+08:00
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./config/mysql/init:/docker-entrypoint-initdb.d
+    volumes: #数据卷挂载（左=外部存储，右=容器内路径）
+      - mysql-data:/var/lib/mysql # 我们手动实验时"缺"的那块，持久化数据
+      - ./config/mysql/init:/docker-entrypoint-initdb.d # bind mount：注入你写的初始化 SQL
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rbac_root_123}"]
       interval: 10s
@@ -58,6 +58,63 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks: [rbac-net]
+
+  # ==================== 应用层（前后端，随核心层一起起） ====================
+  # 后端 Spring Boot：本地代码构建成 jar，连容器内的 mysql / redis
+  backend:
+    build:
+      context: ../backend
+    image: rbac-backend
+    container_name: rbac-backend
+    restart: unless-stopped
+    environment: #在容器这个"操作系统环境"里设置环境变量,不是运行参数
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: "${MYSQL_USER:-rbac}"
+      DB_PASSWORD: "${MYSQL_PASSWORD:-rbac_123}"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-rbac_redis_123}"
+      RBAC_JWT_SECRET: "${RBAC_JWT_SECRET:-rbac-server-default-secret-key-please-change-in-production-0123456789}"
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [rbac-net]
+    # 不映射 8080 到宿主机，只让 frontend 容器走内网反代
+
+  # 前端 nginx：发 dist 静态文件 + 把 /api 反代给 backend
+  # 不再直接对外，改由前面的 caddy 走 HTTPS 反代（只留内网 expose）
+  frontend:
+    build:
+      context: ../frontend
+    image: rbac-frontend
+    container_name: rbac-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks: [rbac-net]
+
+  # Caddy：唯一对外入口，自动申请/续期 Let's Encrypt 证书 + HTTPS 终结
+  # 配置见 ./config/caddy/Caddyfile（把域名换成你已备案的真实域名）
+  caddy:
+    image: caddy:2.8
+    container_name: rbac-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data      # 证书持久化，重建容器不会重新申请（避免 LE 限流）
+      - caddy-config:/config
+    depends_on:
+      - frontend
     networks: [rbac-net]
 
   # ==================== 扩展层（--profile extra） ====================
@@ -114,41 +171,47 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     networks: [rbac-net]
 
-  elasticsearch:
-    image: elasticsearch:8.15.3
-    container_name: rbac-es
-    profiles: ["full"]
+  # ==================== IM 层（--profile im） ====================
+  mongodb:
+    image: mongo:7.0
+    container_name: rbac-mongodb
+    profiles: ["im"]
     restart: unless-stopped
     ports:
-      - "9200:9200"
+      - "27017:27017"
     environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-    ulimits:
-      memlock: { soft: -1, hard: -1 }
+      MONGO_INITDB_ROOT_USERNAME: rbac
+      MONGO_INITDB_ROOT_PASSWORD: rbac123456
+      MONGO_INITDB_DATABASE: rbac_im
     volumes:
-      - es-data:/usr/share/elasticsearch/data
+      - mongo-data:/data/db
     networks: [rbac-net]
 
-  kibana:
-    image: kibana:8.15.3
-    container_name: rbac-kibana
-    profiles: ["full"]
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: rbac-minio
+    profiles: ["im"]
     restart: unless-stopped
+    command: server /data --console-address ":9091"
     ports:
-      - "5601:5601"
+      - "9000:9000"        # S3 API（后端预签名直传用）
+      - "9091:9091"        # MinIO 控制台 UI（避让 im-gateway 的 WS 端口 9001）
     environment:
-      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-    depends_on: [elasticsearch]
+      MINIO_ROOT_USER: rbac
+      MINIO_ROOT_PASSWORD: rbac123456
+    volumes:
+      - minio-data:/data
     networks: [rbac-net]
 
-volumes:
+volumes: #声明持久化数据卷
   mysql-data:
   redis-data:
   rabbitmq-data:
-  es-data:
+  caddy-data:
+  caddy-config:
+  mongo-data:
+  minio-data:
 
-networks:
+networks: #声明服务通信网络
   rbac-net:
     driver: bridge

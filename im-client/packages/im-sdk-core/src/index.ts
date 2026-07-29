@@ -1,0 +1,15 @@
+export const SDK_VERSION = '0.0.0';
+export * from './protocol/types';
+export * from './protocol/cid';
+export * from './ports/index';
+export * from './store/migrations';
+export * from './store/messageStore';
+export * from './store/outboxStore';
+export * from './events/emitter';
+export * from './engine/syncEngine';
+export * from './sync/syncService';
+export * from './auth/authService';
+export * from './connection/connectionManager';
+export * from './chat/chatService';
+export * from './group/groupService';
+export * from './contact/contactService';

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import SidebarMenu from '@/components/SidebarMenu.vue'
@@ -9,15 +9,18 @@ import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
 import { useSettingsStore, type ThemeMode } from '@/stores/settings'
 import { useLocaleStore } from '@/stores/locale'
+import { useWorkflowStore } from '@/stores/workflow'
 import { SUPPORT_LOCALES, type LocaleKey } from '@/locales'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
 const settings = useSettingsStore()
 const localeStore = useLocaleStore()
+const workflowStore = useWorkflowStore()
 
 const activePath = computed(() => route.path)
 const menus = computed(() => permissionStore.menus)
@@ -55,6 +58,13 @@ async function handleLogout() {
   // 整页跳转以彻底清理已注册的动态路由
   window.location.href = '/login'
 }
+
+function openTodo() {
+  router.push('/approval/todo')
+}
+
+onMounted(() => workflowStore.startPolling())
+onUnmounted(() => workflowStore.stopPolling())
 </script>
 
 <template>
@@ -99,6 +109,13 @@ async function handleLogout() {
         </el-breadcrumb>
 
         <div class="flex items-center gap-1">
+          <!-- 待办任务 -->
+          <el-badge :value="workflowStore.todoCount" :hidden="workflowStore.todoCount === 0" :max="99">
+            <span class="header-action" :title="t('workflow.task.pendingBadge')" @click="openTodo">
+              <el-icon :size="18"><Bell /></el-icon>
+            </span>
+          </el-badge>
+
           <!-- 主题切换 -->
           <el-dropdown trigger="click" @command="handleThemeMode">
             <span class="header-action" :title="t('theme.title')">

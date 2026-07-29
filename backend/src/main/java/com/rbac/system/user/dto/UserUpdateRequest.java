@@ -2,6 +2,7 @@ package com.rbac.system.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -20,6 +21,9 @@ public class UserUpdateRequest {
 
     @Pattern(regexp = "ENABLED|DISABLED", message = "{valid.status.pattern}")
     private String status;
+
+    @Size(max=500)
+    private String profile;
 
     private String remark;
     private List<Long> roleIds = new ArrayList<>();

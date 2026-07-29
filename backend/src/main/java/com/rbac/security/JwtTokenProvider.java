@@ -1,9 +1,9 @@
 package com.rbac.security;
 
+import com.rbac.common.config.RbacProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -24,13 +24,11 @@ public class JwtTokenProvider {
     private final long accessTtlSeconds;
     private final long refreshTtlSeconds;
 
-    public JwtTokenProvider(
-            @Value("${rbac.jwt.secret}") String secret,
-            @Value("${rbac.jwt.access-ttl}") long accessTtlSeconds,
-            @Value("${rbac.jwt.refresh-ttl}") long refreshTtlSeconds) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.accessTtlSeconds = accessTtlSeconds;
-        this.refreshTtlSeconds = refreshTtlSeconds;
+    public JwtTokenProvider(RbacProperties properties) {
+        RbacProperties.Jwt jwt = properties.getJwt();
+        this.key = Keys.hmacShaKeyFor(jwt.getSecret().getBytes(StandardCharsets.UTF_8));
+        this.accessTtlSeconds = jwt.getAccessTtl();
+        this.refreshTtlSeconds = jwt.getRefreshTtl();
     }
 
     public long getAccessTtlSeconds() {

@@ -14,6 +14,7 @@ import com.rbac.system.role.mapper.SysRoleDeptMapper;
 import com.rbac.system.role.mapper.SysRoleMapper;
 import com.rbac.system.role.mapper.SysRoleMenuMapper;
 import com.rbac.system.role.vo.RoleVO;
+import com.rbac.system.menu.service.PermissionCacheService;
 import com.rbac.system.user.mapper.SysUserRoleMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,13 +33,16 @@ public class RoleService {
     private final SysRoleMenuMapper roleMenuMapper;
     private final SysRoleDeptMapper roleDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
+    private final PermissionCacheService permissionCacheService;
 
     public RoleService(SysRoleMapper roleMapper, SysRoleMenuMapper roleMenuMapper,
-                       SysRoleDeptMapper roleDeptMapper, SysUserRoleMapper userRoleMapper) {
+                       SysRoleDeptMapper roleDeptMapper, SysUserRoleMapper userRoleMapper,
+                       PermissionCacheService permissionCacheService) {
         this.roleMapper = roleMapper;
         this.roleMenuMapper = roleMenuMapper;
         this.roleDeptMapper = roleDeptMapper;
         this.userRoleMapper = userRoleMapper;
+        this.permissionCacheService = permissionCacheService;
     }
 
     public PageResult<RoleVO> page(RoleQuery query) {
@@ -108,6 +112,7 @@ public class RoleService {
         }
         roleMapper.deleteById(id);
         roleMenuMapper.delete(Wrappers.<SysRoleMenu>lambdaQuery().eq(SysRoleMenu::getRoleId, id));
+        permissionCacheService.evictAll();
     }
 
     public void updateStatus(Long id, String status) {
@@ -116,6 +121,7 @@ public class RoleService {
         update.setId(id);
         update.setStatus(status);
         roleMapper.updateById(update);
+        permissionCacheService.evictAll();
     }
 
     public List<Long> getMenuIds(Long roleId) {
@@ -124,7 +130,8 @@ public class RoleService {
     }
 
     /**
-     * 整体替换角色功能权限。修改后受影响用户的权限缓存将在其下次登录/刷新时重建。
+     * 整体替换角色功能权限。改动会影响所有绑定该角色的用户，故失效权限缓存，
+     * 保证下次请求解析到最新权限集（避免"改权限后旧缓存仍生效"的安全缺口）。
      */
     @Transactional
     public void grantMenus(Long roleId, List<Long> menuIds) {
@@ -135,6 +142,7 @@ public class RoleService {
                 roleMenuMapper.insert(new SysRoleMenu(roleId, menuId));
             }
         }
+        permissionCacheService.evictAll();
     }
 
     public List<Long> getDeptIds(Long roleId) {

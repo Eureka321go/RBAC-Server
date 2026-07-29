@@ -1,3 +1,4 @@
+#http://localhost:8080/api/im/conversations
 server:
   port: 8080
   servlet:
@@ -7,53 +8,46 @@ spring:
   application:
     name: rbac-server
 
+  # ── 激活的环境：默认 dev，可用环境变量 SPRING_PROFILES_ACTIVE 覆盖（如 prod）──
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
   # ── 国际化（Accept-Language 决定语言，默认 zh-CN）──
   messages:
     basename: i18n/messages
     encoding: UTF-8
     fallback-to-system-locale: false
 
-  # ── 数据源（对接 deploy/docker-compose.yml 里的 MySQL）──
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/rbac?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: rbac
-    password: rbac_123
-    hikari:
-      pool-name: RbacHikariPool
-      minimum-idle: 5
-      maximum-pool-size: 20
-      connection-timeout: 30000
+  # ── Flyway 数据库迁移（脚本目录 classpath:db/migration，取代 spring.sql.init）──
+  # 各环境启动时自动迁移；已有表的旧库首次迁移会被收编为 V1 基线、不重跑建表 DDL。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
 
-  # ── Redis（对接 deploy 里的 Redis）──
+  # ── IM：消息存 MongoDB（会话/成员/群元数据仍在 MySQL）──
   data:
-    redis:
-      host: localhost
-      port: 6379
-      password: rbac_redis_123
-      database: 0
-      timeout: 5000ms
-      lettuce:
-        pool:
-          max-active: 16
-          max-idle: 8
-          min-idle: 2
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://rbac:rbac123456@localhost:27017/rbac_im?authSource=admin}
 
-  # ── SQL 初始化（幂等：schema 用 IF NOT EXISTS，data 用 INSERT IGNORE）──
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:db/schema.sql
-      data-locations: classpath:db/data.sql
-      continue-on-error: false
+  # ── IM：网关↔logic 经 Kafka 解耦 ──
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: im-logic
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
-# ── MyBatis-Plus ──
+# ── MyBatis-Plus（与环境无关的公共配置；SQL 打印开关放各 profile）──
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
   type-aliases-package: com.rbac.**.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       # 逻辑删除（0 未删 / 1 已删），后续实体加 @TableLogic 生效
@@ -61,18 +55,70 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# ── RBAC 自定义配置 ──
+# ── RBAC 自定义配置：绑定到 com.rbac.common.config.RbacProperties ──
+# 这里放各环境一致的默认值；secret 由各 profile 覆盖，ttl 可被 profile 覆盖。
 rbac:
   jwt:
-    # 生产环境务必用环境变量覆盖，勿使用默认值
-    secret: ${RBAC_JWT_SECRET:rbac-server-default-secret-key-please-change-in-production-0123456789}
     # Access Token 有效期（秒），默认 2 小时
     access-ttl: 7200
     # Refresh Token 有效期（秒），默认 7 天
     refresh-ttl: 604800
+  security:
+    # 新建用户默认密码（明文，落库前加密）
+    default-password: 123456
+  # ── IM 相关阈值 ──
+  im:
+    recall-window-seconds: 120
+    mention-all-admin-only: true
+    group-max-members: 500
+    media:
+      # 连接密钥走环境变量，默认值仅供本地/测试；生产由 application-prod.yml 强制注入
+      endpoint: ${MEDIA_ENDPOINT:http://localhost:9000}
+      access-key: ${MEDIA_ACCESS_KEY:rbac}
+      secret-key: ${MEDIA_SECRET_KEY:rbac123456}
+      bucket: im-media
+      region: us-east-1
+      put-ttl-seconds: 300
+      get-ttl-seconds: 300
+      limits:
+        image:
+          max-size: 10485760
+          mimes: [image/jpeg, image/png, image/gif, image/webp]
+        audio:
+          max-size: 20971520
+          mimes: [audio/mpeg, audio/mp4, audio/aac, audio/ogg, audio/wav]
+        file:
+          max-size: 104857600
+          mimes: ["*"]
+    link:
+      enabled: true
+      connect-timeout-ms: 2000
+      request-timeout-ms: 2000
+      max-body-bytes: 524288
+      max-redirects: 3
+      allowed-ports: [80, 443]
+      user-agent: "RBAC-IM-LinkBot/1.0"
+      cache-ttl-ok: 6h
+      cache-ttl-fail: 10m
+      pool-core: 2
+      pool-max: 4
+      pool-queue: 100
 
-# ── 日志 ──
-logging:
-  level:
-    com.rbac: debug
-    org.springframework.security: info
+# ── Actuator 可观测性端点（路径在 context-path 下，即 /api/actuator/**）──
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true          # 启用 liveness / readiness 探针组
+      show-details: when-authorized   # 详情仅对已认证用户可见
+  info:
+    env:
+      enabled: true
+info:
+  app:
+    name: ${spring.application.name}
+    description: RBAC 权限管理系统

@@ -24,7 +24,7 @@ import com.rbac.system.user.mapper.SysUserMapper;
 import com.rbac.system.user.mapper.SysUserPostMapper;
 import com.rbac.system.user.mapper.SysUserRoleMapper;
 import com.rbac.system.user.vo.UserVO;
-import org.springframework.beans.factory.annotation.Value;
+import com.rbac.common.config.RbacProperties;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,7 +57,7 @@ public class UserService {
     public UserService(SysUserMapper userMapper, SysUserRoleMapper userRoleMapper, SysUserPostMapper userPostMapper,
                        SysRoleMapper roleMapper, SysDeptMapper deptMapper, SysPostMapper postMapper,
                        PasswordEncoder passwordEncoder, DataScopeService dataScopeService,
-                       @Value("${rbac.security.default-password:123456}") String defaultPassword) {
+                       RbacProperties rbacProperties) {
         this.userMapper = userMapper;
         this.userRoleMapper = userRoleMapper;
         this.userPostMapper = userPostMapper;
@@ -66,7 +66,7 @@ public class UserService {
         this.postMapper = postMapper;
         this.passwordEncoder = passwordEncoder;
         this.dataScopeService = dataScopeService;
-        this.defaultPassword = defaultPassword;
+        this.defaultPassword = rbacProperties.getSecurity().getDefaultPassword();
     }
 
     public PageResult<UserVO> page(UserQuery query) {
@@ -124,6 +124,7 @@ public class UserService {
         user.setGender(req.getGender());
         user.setStatus(req.getStatus() == null ? "ENABLED" : req.getStatus());
         user.setRemark(req.getRemark());
+        user.setProfile(req.getProfile());
         userMapper.insert(user);
         replaceRoles(user.getId(), req.getRoleIds());
         replacePosts(user.getId(), req.getPostIds());
@@ -145,6 +146,7 @@ public class UserService {
         user.setGender(req.getGender());
         user.setStatus(req.getStatus());
         user.setRemark(req.getRemark());
+        user.setProfile(req.getProfile());
         userMapper.updateById(user);
         // 超管角色不允许被改动
         if (!isSuperAdmin(id)) {

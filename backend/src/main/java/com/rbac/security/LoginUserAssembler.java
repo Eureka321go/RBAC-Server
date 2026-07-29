@@ -3,7 +3,7 @@ package com.rbac.security;
 import com.rbac.security.model.LoginUser;
 import com.rbac.system.dept.entity.SysDept;
 import com.rbac.system.dept.mapper.SysDeptMapper;
-import com.rbac.system.menu.mapper.SysMenuMapper;
+import com.rbac.system.menu.service.PermissionCacheService;
 import com.rbac.system.role.entity.SysRole;
 import com.rbac.system.role.mapper.SysRoleMapper;
 import com.rbac.system.user.entity.SysUser;
@@ -26,12 +26,13 @@ public class LoginUserAssembler {
             List.of("ALL", "CUSTOM_DEPT", "OWN_DEPT_CHILD", "OWN_DEPT", "SELF");
 
     private final SysRoleMapper roleMapper;
-    private final SysMenuMapper menuMapper;
+    private final PermissionCacheService permissionCacheService;
     private final SysDeptMapper deptMapper;
 
-    public LoginUserAssembler(SysRoleMapper roleMapper, SysMenuMapper menuMapper, SysDeptMapper deptMapper) {
+    public LoginUserAssembler(SysRoleMapper roleMapper, PermissionCacheService permissionCacheService,
+                               SysDeptMapper deptMapper) {
         this.roleMapper = roleMapper;
-        this.menuMapper = menuMapper;
+        this.permissionCacheService = permissionCacheService;
         this.deptMapper = deptMapper;
     }
 
@@ -58,8 +59,8 @@ public class LoginUserAssembler {
 
         boolean isSuper = roleCodes.contains(SUPER_ADMIN);
         List<String> perms = isSuper
-                ? menuMapper.selectAllPermissionCodes()
-                : menuMapper.selectPermissionCodesByUserId(user.getId());
+                ? permissionCacheService.loadAllPermissions()
+                : permissionCacheService.loadUserPermissions(user.getId());
         Set<String> permissions = new HashSet<>(perms);
         loginUser.setPermissions(permissions);
 

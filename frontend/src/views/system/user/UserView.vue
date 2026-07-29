@@ -103,6 +103,7 @@ const defaultForm = (): UserForm => ({
   gender: '',
   status: 'ENABLED',
   remark: '',
+  profile: '',
   roleIds: [],
   postIds: [],
 })
@@ -135,6 +136,7 @@ function openEdit(row: UserItem) {
     gender: row.gender ?? '',
     status: row.status,
     remark: row.remark ?? '',
+    profile: row.profile ?? '',
     roleIds: [...(row.roleIds ?? [])],
     postIds: [...(row.postIds ?? [])],
   })
@@ -350,6 +352,15 @@ onMounted(() => {
         </el-form-item>
         <el-form-item :label="t('common.remark')">
           <el-input v-model="form.remark" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item :label="t('user.profile')">
+          <el-input
+            v-model="form.profile"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+          />
         </el-form-item>
       </el-form>
       <template #footer>

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 /**
  * 登录用户上下文。既作为 Spring Security 的 {@link UserDetails}，
  * 也作为 Redis 会话缓存对象（Jackson 序列化）。
+ * 如何定义和给用户打上这些“权限标签”？
  */
 @Data
 @NoArgsConstructor
