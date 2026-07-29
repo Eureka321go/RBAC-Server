@@ -5,12 +5,13 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
+  Pressable,
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import type { ChatMessage } from '@im/sdk-core';
+import type { ChatMessage, GroupRole } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
@@ -19,14 +20,54 @@ import { formatGroupSystemMessage } from '../group/systemMessage';
 import { buildContactDirectory } from '../contact/directory';
 import { InitialAvatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
+import { MessageActionSheet } from '../components/MessageActionSheet';
 import { StatusNotice } from '../components/StatusNotice';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
+const RECALL_WINDOW_MS = 120_000;
+
 function textOf(m: ChatMessage): string {
   const t = m.body?.text;
   return typeof t === 'string' ? t : '';
+}
+
+function targetSeqOf(message: ChatMessage): number | null {
+  const value = message.body?.targetSeq;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
+function canRecallMessage(
+  message: ChatMessage,
+  myId: number | null,
+  conversationType: 'SINGLE' | 'GROUP',
+  myGroupRole: GroupRole | null,
+  now = Date.now(),
+): boolean {
+  if (myId == null || message.seq == null || message.status !== 'sent') return false;
+  if (message.recalled || message.type === 'SYSTEM' || message.type === 'RECALL') return false;
+  if (!Number.isFinite(message.ts) || message.ts <= 0) return false;
+  const timestamp = message.ts < 10_000_000_000 ? message.ts * 1000 : message.ts;
+  if (now - timestamp > RECALL_WINDOW_MS) return false;
+  if (message.senderId === myId) return true;
+  return conversationType === 'GROUP'
+    && (myGroupRole === 'OWNER' || myGroupRole === 'ADMIN');
+}
+
+function recallErrorText(reason?: string): string {
+  switch (reason) {
+    case 'RECALL_WINDOW_EXPIRED': return '消息已超过可撤回时间';
+    case 'RECALL_NO_PERMISSION': return '你没有权限撤回这条消息';
+    case 'RECALL_TARGET_NOT_FOUND': return '消息不存在或已被处理';
+    case 'NOT_RECALLABLE': return '这条消息不能撤回';
+    case 'NOT_MEMBER': return '你已不在当前会话中';
+    case 'OFFLINE': return '当前离线，连接恢复后重试';
+    case 'RECALL_PENDING': return '正在撤回上一条消息，请稍候';
+    default: return '撤回失败，请稍后重试';
+  }
 }
 
 export function ChatScreen({ route, navigation }: Props) {
@@ -44,9 +85,12 @@ export function ChatScreen({ route, navigation }: Props) {
   const [namesById, setNamesById] = useState<ReadonlyMap<number, string>>(
     () => new Map(),
   );
+  const [myGroupRole, setMyGroupRole] = useState<GroupRole | null>(null);
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [banner, setBanner] = useState<string | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
+  const [recallingSeq, setRecallingSeq] = useState<number | null>(null);
 
   // 组件是否仍处于挂载状态；卸载后用它守卫所有异步回调里的 setState，避免对已卸载组件调用。
   const mountedRef = useRef(true);
@@ -104,8 +148,10 @@ export function ChatScreen({ route, navigation }: Props) {
     if (conversationType !== 'GROUP' || groupId == null) {
       setDisplayTitle(title);
       setNamesById(new Map());
+      setMyGroupRole(null);
       return;
     }
+    setMyGroupRole(null);
     let active = true;
     void Promise.all([
       sdk.groups.getGroup(groupId).catch(() => null),
@@ -114,6 +160,11 @@ export function ChatScreen({ route, navigation }: Props) {
     ]).then(([group, members, directory]) => {
       if (!active) return;
       setDisplayTitle(group?.name ?? title);
+      setMyGroupRole(
+        group?.myRole
+          ?? members.find((member) => member.userId === myId)?.role
+          ?? null,
+      );
       const names = directory == null
         ? new Map<number, string>()
         : new Map(buildContactDirectory(directory).namesById);
@@ -126,13 +177,15 @@ export function ChatScreen({ route, navigation }: Props) {
     return () => {
       active = false;
     };
-  }, [conversationType, groupId, title]));
+  }, [conversationType, groupId, myId, title]));
 
   useEffect(() => {
     mountedRef.current = true;
     setItems([]);
     setPeerReadSeq(null);
     setBanner(null);
+    setSelectedMessage(null);
+    setRecallingSeq(null);
     if (syncOnOpen) {
       void sdk.sync.syncConversation(cid).then(safeReload).catch((cause) => {
         if (!mountedRef.current || activeCidRef.current !== cid) return;
@@ -156,6 +209,28 @@ export function ChatScreen({ route, navigation }: Props) {
       if (p.cid !== cid) return;
       showBanner(`发送失败：${p.reason}`);
     });
+    const offRecall = sdk.chat.on('recallResult', (result) => {
+      if (result.cid !== cid || !mountedRef.current || activeCidRef.current !== cid) return;
+      setRecallingSeq(null);
+      if (result.status === 'succeeded') {
+        safeReload();
+        return;
+      }
+      if (result.status === 'failed') {
+        showBanner(recallErrorText(result.reason));
+        return;
+      }
+      void sdk.sync.syncConversation(cid)
+        .then(() => {
+          if (!mountedRef.current || activeCidRef.current !== cid) return;
+          safeReload();
+          showBanner('撤回结果确认超时，已刷新会话');
+        })
+        .catch((cause) => {
+          if (!mountedRef.current || activeCidRef.current !== cid) return;
+          showBanner(`撤回结果确认超时，刷新失败：${cause instanceof Error ? cause.message : 'unknown'}`);
+        });
+    });
     return () => {
       mountedRef.current = false;
       if (bannerTimerRef.current != null) {
@@ -166,11 +241,21 @@ export function ChatScreen({ route, navigation }: Props) {
       offRead();
       offConnection();
       offErr();
+      offRecall();
     };
   }, [cid, safeReload, showBanner, syncOnOpen]);
 
   // inverted 列表要倒序数据：最新的在数组头部。
-  const data = useMemo(() => [...items].reverse(), [items]);
+  const { data, recallOperators } = useMemo(() => {
+    const operators = new Map<number, number | null>();
+    const visible = items.filter((item) => {
+      if (item.type !== 'RECALL') return true;
+      const targetSeq = targetSeqOf(item);
+      if (targetSeq != null) operators.set(targetSeq, item.senderId);
+      return false;
+    });
+    return { data: visible.reverse(), recallOperators: operators };
+  }, [items]);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -178,6 +263,25 @@ export function ChatScreen({ route, navigation }: Props) {
     setDraft('');
     await sdk.chat.sendText(cid, text);
   }, [cid, draft]);
+
+  const recallSelected = useCallback(async () => {
+    const message = selectedMessage;
+    if (message?.seq == null) return;
+    if (!canRecallMessage(message, myId, conversationType, myGroupRole)) {
+      setSelectedMessage(null);
+      showBanner('这条消息当前不能撤回');
+      return;
+    }
+    const targetSeq = message.seq;
+    setSelectedMessage(null);
+    setRecallingSeq(targetSeq);
+    try {
+      await sdk.chat.recall(cid, targetSeq);
+    } catch (cause) {
+      setRecallingSeq(null);
+      showBanner(recallErrorText(cause instanceof Error ? cause.message : undefined));
+    }
+  }, [cid, conversationType, myGroupRole, myId, selectedMessage, showBanner]);
 
   return (
     <View style={styles.wrap}>
@@ -197,6 +301,23 @@ export function ChatScreen({ route, navigation }: Props) {
         data={data}
         keyExtractor={(m) => (m.seq != null ? `s:${m.seq}` : `c:${m.clientMsgId}`)}
         renderItem={({ item }) => {
+          if (item.recalled) {
+            const operatorId = item.seq == null ? null : recallOperators.get(item.seq);
+            let label = '消息已撤回';
+            if (operatorId === myId) {
+              label = '你撤回了一条消息';
+            } else if (operatorId != null) {
+              const operatorName = conversationType === 'GROUP'
+                ? namesById.get(operatorId)?.trim() || `用户 #${operatorId}`
+                : displayTitle;
+              label = `${operatorName}撤回了一条消息`;
+            }
+            return (
+              <View style={styles.recalledRow}>
+                <Text style={styles.recalledText}>{label}</Text>
+              </View>
+            );
+          }
           if (item.type === 'SYSTEM') {
             return (
               <View style={styles.systemRow}>
@@ -216,6 +337,12 @@ export function ChatScreen({ route, navigation }: Props) {
                 : namesById.get(item.senderId)?.trim() || `用户 #${item.senderId}`)
               : displayTitle;
           const showSenderName = conversationType === 'GROUP' && !mine;
+          const recallable = canRecallMessage(
+            item,
+            myId,
+            conversationType,
+            myGroupRole,
+          );
           return (
             <View style={[
               styles.rowWrap,
@@ -229,16 +356,30 @@ export function ChatScreen({ route, navigation }: Props) {
                 {showSenderName ? (
                   <Text style={styles.senderName} numberOfLines={1}>{senderName}</Text>
                 ) : null}
-                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer]}>
+                <Pressable
+                  accessible
+                  accessibilityHint={recallable ? '长按打开消息操作' : undefined}
+                  delayLongPress={350}
+                  onLongPress={recallable ? () => {
+                    if (canRecallMessage(item, myId, conversationType, myGroupRole)) {
+                      setSelectedMessage(item);
+                    }
+                  } : undefined}
+                  style={({ pressed }) => [
+                    styles.bubble,
+                    mine ? styles.bubbleMine : styles.bubblePeer,
+                    pressed && recallable && styles.bubblePressed,
+                  ]}
+                >
                   <Text style={mine ? styles.textMine : styles.textPeer}>{textOf(item)}</Text>
-                </View>
+                </Pressable>
                 {conversationType === 'SINGLE' && mine && item.seq != null ? (
                   <Text style={styles.deliveryStatus}>
                     {peerReadSeq != null && item.seq <= peerReadSeq ? '已读' : '已发送'}
                   </Text>
                 ) : null}
               </View>
-              {item.status === 'sending' || item.status === 'acked' ? (
+              {item.status === 'sending' || item.status === 'acked' || recallingSeq === item.seq ? (
                 <ActivityIndicator size="small" />
               ) : null}
               {item.status === 'failed' && item.clientMsgId ? (
@@ -276,6 +417,11 @@ export function ChatScreen({ route, navigation }: Props) {
           />
         </View>
       </SafeAreaView>
+      <MessageActionSheet
+        visible={selectedMessage != null}
+        onClose={() => setSelectedMessage(null)}
+        onRecall={() => void recallSelected()}
+      />
     </View>
   );
 }
@@ -301,6 +447,7 @@ const styles = StyleSheet.create({
   bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
   bubbleMine: { backgroundColor: COLORS.primary },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
+  bubblePressed: { opacity: 0.72 },
   textMine: { color: COLORS.white, fontSize: TYPE.body, lineHeight: 21 },
   textPeer: { color: COLORS.text, fontSize: TYPE.body, lineHeight: 21 },
   deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
@@ -312,6 +459,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xxs,
     fontSize: TYPE.caption,
+    textAlign: 'center',
+  },
+  recalledRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
+  recalledText: {
+    color: COLORS.textMuted,
+    fontSize: TYPE.caption,
+    fontStyle: 'italic',
     textAlign: 'center',
   },
   composerSafeArea: { backgroundColor: COLORS.surface },
