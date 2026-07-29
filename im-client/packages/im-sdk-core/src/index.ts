@@ -12,3 +12,4 @@ export * from './auth/authService';
 export * from './connection/connectionManager';
 export * from './chat/chatService';
 export * from './group/groupService';
+export * from './contact/contactService';

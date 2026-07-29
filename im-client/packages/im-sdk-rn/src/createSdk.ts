@@ -1,6 +1,7 @@
 import {
   AuthService,
   ChatService,
+  ContactService,
   ConnectionManager,
   Emitter,
   GroupService,
@@ -44,6 +45,7 @@ export function createSdk(config: SdkConfig) {
   };
   const http = new AxiosHttp(config.apiBaseUrl, () => store.get(TOKEN_KEYS.access));
   const auth = new AuthService(http, store);
+  const contacts = new ContactService(http);
   const groups = new GroupService(http);
   const transport = new WebSocketTransport();
   const lifecycle = new AppStateLifecycle();
@@ -85,5 +87,5 @@ export function createSdk(config: SdkConfig) {
     if (connection.getState() === 'connected') triggerSync();
   });
 
-  return { auth, connection, chat, groups, sync, http, ids: rnIds, ready };
+  return { auth, connection, chat, contacts, groups, sync, http, ids: rnIds, ready };
 }
