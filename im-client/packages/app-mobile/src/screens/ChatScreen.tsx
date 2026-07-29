@@ -211,13 +211,18 @@ export function ChatScreen({ route, navigation }: Props) {
                 ? '未知用户'
                 : namesById.get(item.senderId)?.trim() || `用户 #${item.senderId}`)
               : displayTitle;
+          const showSenderName = conversationType === 'GROUP' && !mine;
           return (
-            <View style={[styles.rowWrap, mine ? styles.rowMine : styles.rowPeer]}>
+            <View style={[
+              styles.rowWrap,
+              mine ? styles.rowMine : styles.rowPeer,
+              showSenderName && styles.rowWithSenderName,
+            ]}>
               {!mine ? (
                 <InitialAvatar name={senderName} userId={senderId} size={36} />
               ) : null}
               <View style={styles.messageContent}>
-                {conversationType === 'GROUP' && !mine ? (
+                {showSenderName ? (
                   <Text style={styles.senderName} numberOfLines={1}>{senderName}</Text>
                 ) : null}
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer]}>
@@ -261,11 +266,20 @@ export function ChatScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   banner: { backgroundColor: '#fee2e2', color: '#b91c1c', padding: 8, textAlign: 'center' },
-  rowWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 12, paddingVertical: 4 },
+  rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 12, paddingVertical: 4 },
   rowMine: { justifyContent: 'flex-end' },
   rowPeer: { justifyContent: 'flex-start' },
+  rowWithSenderName: { paddingTop: 24 },
   messageContent: { maxWidth: '70%' },
-  senderName: { color: '#64748b', fontSize: 12, marginLeft: 4, marginBottom: 3 },
+  senderName: {
+    position: 'absolute',
+    top: -20,
+    left: 4,
+    right: 0,
+    color: '#64748b',
+    fontSize: 12,
+    lineHeight: 17,
+  },
   bubble: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   bubbleMine: { backgroundColor: '#2563eb' },
   bubblePeer: { backgroundColor: '#e5e7eb' },
