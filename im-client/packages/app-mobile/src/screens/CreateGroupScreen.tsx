@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
-  FlatList,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -13,11 +11,8 @@ import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
-import {
-  listSelectableUsers,
-  userDisplayName,
-  type SelectableUser,
-} from '../services/users';
+import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
+import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -31,7 +26,7 @@ function parseManualIds(value: string): number[] {
 export function CreateGroupScreen({ navigation }: Props) {
   const myId = useAppStore((state) => state.myId);
   const [name, setName] = useState('');
-  const [users, setUsers] = useState<SelectableUser[]>([]);
+  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [manualIds, setManualIds] = useState('');
   const [hint, setHint] = useState<string | null>(null);
@@ -40,9 +35,9 @@ export function CreateGroupScreen({ navigation }: Props) {
 
   useEffect(() => {
     mountedRef.current = true;
-    void listSelectableUsers(myId)
-      .then((items) => {
-        if (mountedRef.current) setUsers(items);
+    void sdk.contacts.getDirectory()
+      .then((result) => {
+        if (mountedRef.current) setDirectory(buildContactDirectory(result));
       })
       .catch(() => {
         if (mountedRef.current) {
@@ -54,20 +49,16 @@ export function CreateGroupScreen({ navigation }: Props) {
     };
   }, [myId]);
 
+  const excludedIds = useMemo(
+    () => new Set(myId == null ? [] : [myId]),
+    [myId],
+  );
+
   const memberIds = useMemo(() => {
     const ids = new Set([...selectedIds, ...parseManualIds(manualIds)]);
     if (myId != null) ids.delete(myId);
     return [...ids];
   }, [manualIds, myId, selectedIds]);
-
-  const toggle = (userId: number) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
-      return next;
-    });
-  };
 
   const create = async () => {
     const groupName = name.trim();
@@ -114,29 +105,18 @@ export function CreateGroupScreen({ navigation }: Props) {
         />
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
         <Text style={styles.section}>选择成员（已选 {memberIds.length} 人）</Text>
-        <FlatList
-          style={styles.list}
-          data={users}
-          keyExtractor={(user) => String(user.id)}
-          renderItem={({ item }) => {
-            const selected = selectedIds.has(item.id);
-            return (
-              <Pressable
-                disabled={submitting}
-                style={[styles.userRow, selected && styles.selectedRow]}
-                onPress={() => toggle(item.id)}
-              >
-                <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                  <Text style={styles.checkmark}>{selected ? '✓' : ''}</Text>
-                </View>
-                <View>
-                  <Text style={styles.userName}>{userDisplayName(item)}</Text>
-                  <Text style={styles.userId}>#{item.id}</Text>
-                </View>
-              </Pressable>
-            );
-          }}
-        />
+        {directory ? (
+          <DepartmentContactPicker
+            model={directory}
+            mode="multiple"
+            selectedIds={selectedIds}
+            excludedIds={excludedIds}
+            disabled={submitting}
+            onSelectionChange={setSelectedIds}
+          />
+        ) : (
+          <Text style={styles.empty}>通讯录不可用，可在下方手工输入成员 userId。</Text>
+        )}
         <TextInput
           style={styles.input}
           placeholder="补充成员 userId，如 2, 3"
@@ -167,28 +147,5 @@ const styles = StyleSheet.create({
   },
   hint: { color: '#b45309', fontSize: 13 },
   section: { color: '#334155', fontSize: 14, fontWeight: '600' },
-  list: { flex: 1 },
-  userRow: {
-    minHeight: 58,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
-  },
-  selectedRow: { backgroundColor: '#eff6ff' },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 1,
-    borderColor: '#94a3b8',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxSelected: { borderColor: '#2563eb', backgroundColor: '#2563eb' },
-  checkmark: { color: '#ffffff', fontWeight: '700' },
-  userName: { color: '#0f172a', fontSize: 15, fontWeight: '600' },
-  userId: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  empty: { flex: 1, color: '#64748b', textAlign: 'center', paddingTop: 24 },
 });

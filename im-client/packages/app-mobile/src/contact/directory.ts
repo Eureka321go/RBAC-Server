@@ -4,6 +4,7 @@ export interface ContactDirectoryModel {
   departmentsById: ReadonlyMap<number, ContactDepartment>;
   membersById: ReadonlyMap<number, ContactMember>;
   rootDepartmentIds: readonly number[];
+  parentDepartmentId: ReadonlyMap<number, number | null>;
   childDepartmentIds: ReadonlyMap<number, readonly number[]>;
   directMemberIds: ReadonlyMap<number, readonly number[]>;
   descendantMemberIds: ReadonlyMap<number, readonly number[]>;
@@ -44,10 +45,12 @@ export function buildContactDirectory(directory: ContactDirectory): ContactDirec
   const membersById = new Map(directory.members.map((member) => [member.userId, member]));
   const namesById = new Map(directory.members.map((member) => [member.userId, member.displayName]));
   const childDepartmentIds = new Map<number, number[]>();
+  const parentDepartmentId = new Map<number, number | null>();
   const rootDepartmentIds: number[] = [];
 
   for (const department of sortedDepartments) {
     const parentId = normalizedParent(department, departmentsById);
+    parentDepartmentId.set(department.id, parentId);
     if (parentId == null) rootDepartmentIds.push(department.id);
     else pushToMap(childDepartmentIds, parentId, department.id);
   }
@@ -82,6 +85,7 @@ export function buildContactDirectory(directory: ContactDirectory): ContactDirec
     departmentsById,
     membersById,
     rootDepartmentIds,
+    parentDepartmentId,
     childDepartmentIds,
     directMemberIds,
     descendantMemberIds,

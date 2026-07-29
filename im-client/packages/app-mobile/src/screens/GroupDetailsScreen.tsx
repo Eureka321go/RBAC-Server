@@ -15,11 +15,11 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { GroupDetail, GroupMember } from '@im/sdk-core';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
-import { UserMultiSelect } from '../components/UserMultiSelect';
+import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import type { RootStackParamList } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
-import { listSelectableUsers, type SelectableUser } from '../services/users';
+import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetails'>;
 
@@ -45,7 +45,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
   const myId = useAppStore((state) => state.myId);
   const [detail, setDetail] = useState<GroupDetail | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [users, setUsers] = useState<SelectableUser[]>([]);
+  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(null);
   const [nameDraft, setNameDraft] = useState(route.params.title);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [manualMemberIds, setManualMemberIds] = useState('');
@@ -78,10 +78,10 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
   useEffect(() => {
     mountedRef.current = true;
     void load();
-    void listSelectableUsers(myId).then((items) => {
-      if (mountedRef.current) setUsers(items);
+    void sdk.contacts.getDirectory().then((result) => {
+      if (mountedRef.current) setDirectory(buildContactDirectory(result));
     }).catch(() => {
-      // 成员管理仍可按 userId 展示；仅添加成员选择器不可用。
+      // 群成员接口自带 displayName；通讯录失败时仍可按 userId 手工添加。
     });
     const offMessage = sdk.chat.on('message', (payload) => {
       if (payload.cid === cid && payload.type === 'SYSTEM') void load();
@@ -93,8 +93,8 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
   }, [cid, load, myId]);
 
   const namesById = useMemo(
-    () => new Map(users.map((user) => [user.id, user.nickname?.trim() || user.username])),
-    [users],
+    () => directory?.namesById ?? new Map<number, string>(),
+    [directory],
   );
   const existingMemberIds = useMemo(
     () => new Set(members.map((member) => member.userId)),
@@ -266,7 +266,11 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
               <View key={member.userId} style={styles.memberRow}>
                 <View style={styles.memberInfo}>
                   <Text style={styles.memberName}>
-                    {isMe ? '我' : namesById.get(member.userId) ?? `用户 #${member.userId}`}
+                    {isMe
+                      ? '我'
+                      : member.displayName?.trim()
+                        || namesById.get(member.userId)
+                        || `用户 #${member.userId}`}
                   </Text>
                   <Text style={styles.memberMeta}>
                     {roleLabel(member.role)}{member.muted ? ' · 已禁言' : ''}
@@ -332,18 +336,19 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>添加群成员</Text>
             <View style={styles.selector}>
-              <UserMultiSelect
-                users={users}
-                selectedIds={selectedIds}
-                disabledIds={existingMemberIds}
-                disabled={pendingGroupAction != null}
-                onToggle={(userId) => setSelectedIds((current) => {
-                  const next = new Set(current);
-                  if (next.has(userId)) next.delete(userId);
-                  else next.add(userId);
-                  return next;
-                })}
-              />
+              {directory ? (
+                <DepartmentContactPicker
+                  model={directory}
+                  mode="multiple"
+                  selectedIds={selectedIds}
+                  disabledIds={existingMemberIds}
+                  excludedIds={new Set(myId == null ? [] : [myId])}
+                  disabled={pendingGroupAction != null}
+                  onSelectionChange={setSelectedIds}
+                />
+              ) : (
+                <Text style={styles.meta}>通讯录不可用，请在下方手工输入成员 userId。</Text>
+              )}
             </View>
             <TextInput
               style={styles.input}
