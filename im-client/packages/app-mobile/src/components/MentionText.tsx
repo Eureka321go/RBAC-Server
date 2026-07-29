@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import type { ChatMessage } from '@im/sdk-core';
-import { COLORS, RADIUS, TYPE } from '../ui/theme';
+import { COLORS, TYPE } from '../ui/theme';
 
 type Segment = { text: string; mentioned: boolean };
 
@@ -74,19 +74,16 @@ function parseMentionSegments(body: ChatMessage['body']): Segment[] {
 
 interface Props {
   body: ChatMessage['body'];
-  mine: boolean;
 }
 
-export function MentionText({ body, mine }: Props) {
+export function MentionText({ body }: Props) {
   const segments = parseMentionSegments(body);
   return (
-    <Text style={[styles.text, mine ? styles.textMine : styles.textPeer]}>
+    <Text style={styles.text}>
       {segments.map((segment, index) => (
         <Text
           key={`${index}:${segment.text.length}`}
-          style={segment.mentioned
-            ? [styles.mentioned, mine ? styles.mentionedMine : styles.mentionedPeer]
-            : undefined}
+          style={segment.mentioned ? styles.mentioned : undefined}
         >
           {segment.text}
         </Text>
@@ -96,10 +93,6 @@ export function MentionText({ body, mine }: Props) {
 }
 
 const styles = StyleSheet.create({
-  text: { fontSize: TYPE.body, lineHeight: 21 },
-  textMine: { color: COLORS.white },
-  textPeer: { color: COLORS.text },
-  mentioned: { fontWeight: '700', borderRadius: RADIUS.sm },
-  mentionedMine: { color: COLORS.white, backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-  mentionedPeer: { color: COLORS.primary, backgroundColor: COLORS.primarySoft },
+  text: { color: COLORS.text, fontSize: TYPE.body, lineHeight: 21 },
+  mentioned: { color: COLORS.mention, fontWeight: '700' },
 });

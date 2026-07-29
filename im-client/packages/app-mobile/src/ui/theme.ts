@@ -5,6 +5,7 @@ export const COLORS = {
   primary: '#2F6BEE',
   primaryPressed: '#2559C8',
   primarySoft: '#EAF1FF',
+  mention: '#5B8DEF',
   text: '#111827',
   textSecondary: '#64748B',
   textMuted: '#94A3B8',

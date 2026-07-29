@@ -464,7 +464,7 @@ export function ChatScreen({ route, navigation }: Props) {
                     pressed && recallable && styles.bubblePressed,
                   ]}
                 >
-                  <MentionText body={item.body} mine={mine} />
+                  <MentionText body={item.body} />
                 </Pressable>
                 {conversationType === 'SINGLE' && mine && item.seq != null ? (
                   <Text style={styles.deliveryStatus}>
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
-  bubbleMine: { backgroundColor: COLORS.primary },
+  bubbleMine: { backgroundColor: COLORS.surface },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
   bubblePressed: { opacity: 0.72 },
   deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
