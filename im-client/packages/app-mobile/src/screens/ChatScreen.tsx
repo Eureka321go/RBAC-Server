@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import type { ChatMessage } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
@@ -34,6 +35,7 @@ export function ChatScreen({ route, navigation }: Props) {
   } = route.params;
   const myId = useAppStore((s) => s.myId);
   const [items, setItems] = useState<ChatMessage[]>([]);
+  const [displayTitle, setDisplayTitle] = useState(title);
   const [peerReadSeq, setPeerReadSeq] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
   const [banner, setBanner] = useState<string | null>(null);
@@ -90,6 +92,22 @@ export function ChatScreen({ route, navigation }: Props) {
     });
   }, [cid, reload, showBanner]);
 
+  useFocusEffect(useCallback(() => {
+    if (conversationType !== 'GROUP' || groupId == null) {
+      setDisplayTitle(title);
+      return;
+    }
+    let active = true;
+    void sdk.groups.getGroup(groupId).then((group) => {
+      if (active) setDisplayTitle(group.name);
+    }).catch(() => {
+      if (active) setDisplayTitle(title);
+    });
+    return () => {
+      active = false;
+    };
+  }, [conversationType, groupId, title]));
+
   useEffect(() => {
     mountedRef.current = true;
     setItems([]);
@@ -144,11 +162,11 @@ export function ChatScreen({ route, navigation }: Props) {
   return (
     <View style={styles.wrap}>
       <CompactScreenHeader
-        title={title}
+        title={displayTitle}
         onBack={() => navigation.goBack()}
         rightLabel={conversationType === 'GROUP' && groupId != null ? '群资料' : undefined}
         onRightPress={conversationType === 'GROUP' && groupId != null
-          ? () => navigation.navigate('GroupDetails', { cid, groupId, title })
+          ? () => navigation.navigate('GroupDetails', { cid, groupId, title: displayTitle })
           : undefined}
       />
       {banner ? <Text style={styles.banner}>{banner}</Text> : null}
