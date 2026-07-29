@@ -3,7 +3,7 @@ import type {
   VoiceRecorderPort,
   VoiceRecordingProgress,
 } from '@im/sdk-core';
-import { FileSystem } from 'react-native-file-access';
+import { Dirs, FileSystem } from 'react-native-file-access';
 import {
   AudioEncoderAndroidType,
   AudioSourceAndroidType,
@@ -23,6 +23,7 @@ const RECORDING_OPTIONS: AudioSet = {
   AudioEncodingBitRate: 32000,
   AudioChannels: 1,
 };
+const RECORDING_PATH = `${Dirs.CacheDir}/im-voice-recording.m4a`;
 
 function leafName(uri: string): string {
   const path = uri.replace(/\\/g, '/');
@@ -53,7 +54,7 @@ export class RnVoiceRecorder implements VoiceRecorderPort {
       });
     });
     try {
-      const uri = await this.sound.startRecorder(undefined, RECORDING_OPTIONS, true);
+      const uri = await this.sound.startRecorder(RECORDING_PATH, RECORDING_OPTIONS, true);
       if (this.operation !== operation) {
         await this.sound.stopRecorder().catch(() => {});
         await this.remove(uri).catch(() => {});
