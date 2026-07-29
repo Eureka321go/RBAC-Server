@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Button,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
@@ -13,6 +7,11 @@ import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
+import { AppButton } from '../components/AppButton';
+import { AppTextField } from '../components/AppTextField';
+import { StatusNotice } from '../components/StatusNotice';
+import { Surface } from '../components/Surface';
+import { COLORS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -95,37 +94,43 @@ export function CreateGroupScreen({ navigation }: Props) {
     <View style={styles.page}>
       <CompactScreenHeader title="创建群聊" onBack={() => navigation.goBack()} />
       <View style={styles.content}>
-        <TextInput
-          style={styles.input}
+        <AppTextField
+          label="群名称"
           placeholder="群名称"
           maxLength={100}
           editable={!submitting}
           value={name}
           onChangeText={setName}
         />
-        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-        <Text style={styles.section}>选择成员（已选 {memberIds.length} 人）</Text>
+        {hint ? <StatusNotice message={hint} tone={hint.includes('失败') ? 'error' : 'warning'} /> : null}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.section}>选择成员</Text>
+          <Text style={styles.count}>已选 {memberIds.length} 人</Text>
+        </View>
         {directory ? (
-          <DepartmentContactPicker
-            model={directory}
-            mode="multiple"
-            selectedIds={selectedIds}
-            excludedIds={excludedIds}
-            disabled={submitting}
-            onSelectionChange={setSelectedIds}
-          />
+          <Surface style={styles.directory}>
+            <DepartmentContactPicker
+              model={directory}
+              mode="multiple"
+              selectedIds={selectedIds}
+              excludedIds={excludedIds}
+              disabled={submitting}
+              onSelectionChange={setSelectedIds}
+            />
+          </Surface>
         ) : (
           <Text style={styles.empty}>通讯录不可用，可在下方手工输入成员 userId。</Text>
         )}
-        <TextInput
-          style={styles.input}
+        <AppTextField
+          label="手工补充（可选）"
           placeholder="补充成员 userId，如 2, 3"
           editable={!submitting}
           value={manualIds}
           onChangeText={setManualIds}
         />
-        <Button
-          title={submitting ? '正在创建…' : '创建并进入群聊'}
+        <AppButton
+          label={submitting ? '正在创建…' : '创建并进入群聊'}
+          loading={submitting}
           disabled={submitting}
           onPress={() => void create()}
         />
@@ -135,17 +140,11 @@ export function CreateGroupScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { flex: 1, padding: 16, gap: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  hint: { color: '#b45309', fontSize: 13 },
-  section: { color: '#334155', fontSize: 14, fontWeight: '600' },
-  empty: { flex: 1, color: '#64748b', textAlign: 'center', paddingTop: 24 },
+  page: { flex: 1, backgroundColor: COLORS.page },
+  content: { flex: 1, padding: SPACING.md, gap: SPACING.sm },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  section: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
+  count: { color: COLORS.textSecondary, fontSize: TYPE.caption },
+  directory: { flex: 1 },
+  empty: { flex: 1, color: COLORS.textSecondary, textAlign: 'center', paddingTop: SPACING.xl },
 });

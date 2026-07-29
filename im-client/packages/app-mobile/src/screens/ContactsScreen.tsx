@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  Button,
   StyleSheet,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,6 +11,11 @@ import { CompactScreenHeader } from '../components/CompactScreenHeader';
 import type { RootStackParamList } from '../navigation/types';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
+import { AppButton } from '../components/AppButton';
+import { AppTextField } from '../components/AppTextField';
+import { StatusNotice } from '../components/StatusNotice';
+import { Surface } from '../components/Surface';
+import { COLORS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Contacts'>;
 
@@ -73,26 +76,29 @@ export function ContactsScreen({ navigation }: Props) {
     <View style={styles.page}>
       <CompactScreenHeader title="新建会话" onBack={() => navigation.goBack()} />
       <View style={styles.wrap}>
-        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+        {hint ? <StatusNotice message={hint} tone={hint.includes('失败') ? 'error' : 'warning'} /> : null}
         {directory ? (
-          <DepartmentContactPicker
-            model={directory}
-            mode="single"
-            excludedIds={new Set(myId == null ? [] : [myId])}
-            disabled={openingPeerId != null}
-            onMemberPress={(member) => void openChat(member.userId, member.displayName)}
-          />
+          <Surface style={styles.directory}>
+            <DepartmentContactPicker
+              model={directory}
+              mode="single"
+              excludedIds={new Set(myId == null ? [] : [myId])}
+              disabled={openingPeerId != null}
+              onMemberPress={(member) => void openChat(member.userId, member.displayName)}
+            />
+          </Surface>
         ) : null}
         <View style={styles.manual}>
-          <TextInput
-            style={styles.input}
+          <Text style={styles.manualTitle}>找不到联系人？</Text>
+          <AppTextField
             placeholder="直接输入对端 userId"
             keyboardType="number-pad"
             value={manualId}
             onChangeText={setManualId}
           />
-          <Button
-            title="进入会话"
+          <AppButton
+            label="进入会话"
+            variant="secondary"
             disabled={openingPeerId != null}
             onPress={() => void openChat(Number(manualId), `用户 ${manualId}`)}
           />
@@ -103,9 +109,9 @@ export function ContactsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#f8fafc' },
-  wrap: { flex: 1, padding: 16, gap: 12 },
-  hint: { color: '#b45309', fontSize: 13 },
-  manual: { gap: 8 },
-  input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12 },
+  page: { flex: 1, backgroundColor: COLORS.page },
+  wrap: { flex: 1, padding: SPACING.md, gap: SPACING.sm },
+  directory: { flex: 1 },
+  manual: { gap: SPACING.xs, paddingTop: SPACING.xs },
+  manualTitle: { color: COLORS.textSecondary, fontSize: TYPE.caption, fontWeight: '600' },
 });
