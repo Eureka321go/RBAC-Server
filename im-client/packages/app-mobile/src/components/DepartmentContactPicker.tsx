@@ -171,7 +171,12 @@ export function DepartmentContactPicker({
               && availableIds.every((userId) => selectedIds.has(userId));
             return (
               <View style={[styles.departmentRow, { borderBottomColor: theme.colors.border }]}>
-                <Pressable style={styles.departmentOpen} onPress={() => setLocation('unassigned')}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="打开未分配部门"
+                  style={styles.departmentOpen}
+                  onPress={() => setLocation('unassigned')}
+                >
                   <View style={[styles.departmentIcon, { backgroundColor: theme.colors.primarySoft }]}>
                     <Ionicons name="folder-outline" size={20} color={theme.colors.primary} />
                   </View>
@@ -181,7 +186,14 @@ export function DepartmentContactPicker({
                   </View>
                 </Pressable>
                 {mode === 'multiple' && availableIds.length > 0 ? (
-                  <Pressable disabled={disabled} onPress={toggleUnassigned}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${allSelected ? '取消全选' : '全选'}未分配部门成员`}
+                    accessibilityState={{ disabled }}
+                    disabled={disabled}
+                    style={styles.selectAllButton}
+                    onPress={toggleUnassigned}
+                  >
                     <Text style={[styles.selectAll, { color: theme.colors.primary }]}>{allSelected ? '取消全选' : '全选'}</Text>
                   </Pressable>
                 ) : null}
@@ -196,7 +208,12 @@ export function DepartmentContactPicker({
               && availableIds.every((userId) => selectedIds.has(userId));
             return (
               <View style={[styles.departmentRow, { borderBottomColor: theme.colors.border }]}>
-                <Pressable style={styles.departmentOpen} onPress={() => setLocation(department.id)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`打开${department.name}`}
+                  style={styles.departmentOpen}
+                  onPress={() => setLocation(department.id)}
+                >
                   <View style={[styles.departmentIcon, { backgroundColor: theme.colors.primarySoft }]}>
                     <Ionicons name="folder-outline" size={20} color={theme.colors.primary} />
                   </View>
@@ -207,7 +224,14 @@ export function DepartmentContactPicker({
                   <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
                 </Pressable>
                 {mode === 'multiple' && availableIds.length > 0 ? (
-                  <Pressable disabled={disabled} onPress={() => toggleDepartment(department.id)}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${allSelected ? '取消全选' : '全选'}${department.name}成员`}
+                    accessibilityState={{ disabled }}
+                    disabled={disabled}
+                    style={styles.selectAllButton}
+                    onPress={() => toggleDepartment(department.id)}
+                  >
                     <Text style={[styles.selectAll, { color: theme.colors.primary }]}>{allSelected ? '取消全选' : '全选'}</Text>
                   </Pressable>
                 ) : null}
@@ -221,6 +245,9 @@ export function DepartmentContactPicker({
           const selected = selectedIds.has(member.userId);
           return (
             <Pressable
+              accessibilityRole={mode === 'multiple' ? 'checkbox' : 'button'}
+              accessibilityLabel={`${mode === 'multiple' ? '选择' : '打开会话：'}${member.displayName}`}
+              accessibilityState={{ checked: mode === 'multiple' ? selected : undefined, disabled: unavailable }}
               disabled={unavailable}
               style={[
                 styles.memberRow,
@@ -261,11 +288,12 @@ const styles = StyleSheet.create({
   crumbCurrent: { fontWeight: '700' },
   separator: { marginHorizontal: SPACING.xs },
   departmentRow: { minHeight: 64, paddingHorizontal: SPACING.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
-  departmentOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  departmentOpen: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   departmentIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   grow: { flex: 1 },
   departmentName: { fontSize: TYPE.body, fontWeight: '700' },
   selectAll: { fontSize: 13, fontWeight: '600', padding: SPACING.sm },
+  selectAllButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   memberRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   unavailable: { opacity: 0.45 },
   checkbox: { width: 24, height: 24, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

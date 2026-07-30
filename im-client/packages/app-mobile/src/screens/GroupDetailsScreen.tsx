@@ -62,6 +62,7 @@ function ActionRow({ icon, label, onPress, danger = false }: ActionRowProps) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionRow,
@@ -312,6 +313,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
           <Surface>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="修改群名称"
               onPress={() => {
                 setNameDraft(detail?.name ?? route.params.title);
                 setShowRename(true);
@@ -333,6 +335,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
           {canManage ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="添加群成员"
               onPress={() => setShowAddMembers(true)}
               style={({ pressed }) => [styles.addMembers, pressed && styles.rowPressed]}
             >
@@ -380,6 +383,8 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
           <Surface style={styles.dangerSurface}>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={isOwner ? '解散群聊' : '退出群聊'}
+              accessibilityState={{ disabled: pendingGroupAction != null }}
               disabled={pendingGroupAction != null}
               onPress={() => leaveOrDissolve(isOwner)}
               style={({ pressed }) => [styles.dangerRow, pressed && styles.rowPressed, pendingGroupAction != null && styles.disabled]}
@@ -404,7 +409,12 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
       <Modal visible={showRename} transparent animationType="slide" onRequestClose={() => setShowRename(false)}>
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowRename(false)} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭修改群名称"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowRename(false)}
+          />
           <View style={[styles.compactSheet, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>修改群名称</Text>
@@ -435,7 +445,12 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
       <Modal visible={showAddMembers} transparent animationType="slide" onRequestClose={() => setShowAddMembers(false)}>
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddMembers(false)} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭添加群成员"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowAddMembers(false)}
+          />
           <View style={[styles.memberSheet, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.sheetHeader}>
               <View>
@@ -482,7 +497,12 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
       <Modal visible={selectedMember != null} transparent animationType="slide" onRequestClose={() => setSelectedMember(null)}>
         <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedMember(null)} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭成员操作"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSelectedMember(null)}
+          />
           {selectedMember ? (
             <View style={[styles.actionSheet, { backgroundColor: theme.colors.surface }]}>
               <View style={[styles.actionMemberHeader, { borderBottomColor: theme.colors.border }]}>

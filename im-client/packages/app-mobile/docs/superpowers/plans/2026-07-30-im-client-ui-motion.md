@@ -690,15 +690,15 @@ git commit -m "界面(IM客户端): 完成群组与消息组件暗色适配"
 **Interfaces:**
 - Produces: fresh verification evidence without staging unrelated backend work.
 
-- [ ] **Step 1: Inspect interaction semantics**
+- [x] **Step 1: Inspect interaction semantics**
 
 Every new press target must have a specific Chinese label, correct role and disabled semantics, and minimum 44-point dimensions. Selected appearance and tab states must have text or accessibility state in addition to color.
 
-- [ ] **Step 2: Inspect motion cleanup**
+- [x] **Step 2: Inspect motion cleanup**
 
 Every repeating animation must stop during effect cleanup. Reduced motion must remove loops and stagger. List stagger runs only on initial entry; message motion never runs for loaded history.
 
-- [ ] **Step 3: Run full app verification**
+- [x] **Step 3: Run full app verification**
 
 ```bash
 npm run lint
@@ -709,7 +709,7 @@ npm test -- --runInBand --coverage
 
 Expected: zero lint errors, TypeScript exit 0, zero failed Jest suites or tests, and at least 80% statement coverage for the new theme, navigation, preference, and motion modules.
 
-- [ ] **Step 4: Run Android validation**
+- [x] **Step 4: Run Android validation**
 
 ```bash
 ./android/gradlew -p android app:assembleDebug
@@ -717,7 +717,7 @@ Expected: zero lint errors, TypeScript exit 0, zero failed Jest suites or tests,
 
 Expected: `BUILD SUCCESSFUL` and exit 0.
 
-- [ ] **Step 5: Review scope and whitespace**
+- [x] **Step 5: Review scope and whitespace**
 
 ```bash
 git status --short
@@ -727,7 +727,7 @@ git diff --stat HEAD~10..HEAD -- im-client/packages/app-mobile
 
 Expected: no whitespace errors, only app-mobile files from this plan are included, and existing backend modifications remain untouched.
 
-- [ ] **Step 6: Commit verification corrections only if needed**
+- [x] **Step 6: Commit verification corrections only if needed**
 
 ```bash
 git add im-client/packages/app-mobile

@@ -134,6 +134,7 @@ export function MentionPickerSheet({
             ListHeaderComponent={canMentionAll ? (
               <Pressable
                 accessibilityRole="checkbox"
+                accessibilityLabel="提及所有人"
                 accessibilityState={{ checked: selectedAll }}
                 style={[
                   styles.memberRow,
@@ -172,6 +173,7 @@ export function MentionPickerSheet({
               return (
                 <Pressable
                   accessibilityRole="checkbox"
+                  accessibilityLabel={`提及${name}`}
                   accessibilityState={{ checked: selected }}
                   style={[
                     styles.memberRow,
