@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +16,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import {
+  Ionicons,
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons/static';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { GroupDetail, GroupMember } from '@im/sdk-core';
 import { AppButton } from '../components/AppButton';
@@ -23,7 +32,10 @@ import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
 import { Surface } from '../components/Surface';
 import { AnimatedEntrance } from '../components/AnimatedEntrance';
-import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
+import {
+  buildContactDirectory,
+  type ContactDirectoryModel,
+} from '../contact/directory';
 import type { RootStackParamList } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
@@ -40,13 +52,6 @@ function roleLabel(role: GroupMember['role']): string {
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : '操作失败';
-}
-
-function parseUserIds(value: string): number[] {
-  return value
-    .split(/[\s,，]+/)
-    .map(Number)
-    .filter((id) => Number.isSafeInteger(id) && id > 0);
 }
 
 interface ActionRowProps {
@@ -70,10 +75,16 @@ function ActionRow({ icon, label, onPress, danger = false }: ActionRowProps) {
         pressed && styles.rowPressed,
       ]}
     >
-      <View style={[
-        styles.actionIcon,
-        { backgroundColor: danger ? theme.colors.dangerSoft : theme.colors.surfaceMuted },
-      ]}>
+      <View
+        style={[
+          styles.actionIcon,
+          {
+            backgroundColor: danger
+              ? theme.colors.dangerSoft
+              : theme.colors.surfaceMuted,
+          },
+        ]}
+      >
         <Ionicons name={icon} size={21} color={color} />
       </View>
       <Text style={[styles.actionLabel, { color }]}>{label}</Text>
@@ -84,18 +95,23 @@ function ActionRow({ icon, label, onPress, danger = false }: ActionRowProps) {
 export function GroupDetailsScreen({ route, navigation }: Props) {
   const { theme } = useAppTheme();
   const { cid, groupId } = route.params;
-  const myId = useAppStore((state) => state.myId);
+  const myId = useAppStore(state => state.myId);
   const [detail, setDetail] = useState<GroupDetail | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(null);
+  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(
+    null,
+  );
   const [nameDraft, setNameDraft] = useState(route.params.title);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
-  const [manualMemberIds, setManualMemberIds] = useState('');
   const [showRename, setShowRename] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
+  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(
+    null,
+  );
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingGroupAction, setPendingGroupAction] = useState<string | null>(null);
+  const [pendingGroupAction, setPendingGroupAction] = useState<string | null>(
+    null,
+  );
   const [pendingMemberId, setPendingMemberId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -113,7 +129,8 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       setNameDraft(nextDetail.name);
       setError(null);
     } catch (cause) {
-      if (mountedRef.current) setError(`群资料刷新失败：${errorMessage(cause)}`);
+      if (mountedRef.current)
+        setError(`群资料刷新失败：${errorMessage(cause)}`);
     } finally {
       if (mountedRef.current) setRefreshing(false);
     }
@@ -122,12 +139,15 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
   useEffect(() => {
     mountedRef.current = true;
     void load();
-    void sdk.contacts.getDirectory().then((result) => {
-      if (mountedRef.current) setDirectory(buildContactDirectory(result));
-    }).catch(() => {
-      // 群成员接口自带 displayName；通讯录失败时仍可按 userId 手工添加。
-    });
-    const offMessage = sdk.chat.on('message', (payload) => {
+    void sdk.contacts
+      .getDirectory()
+      .then(result => {
+        if (mountedRef.current) setDirectory(buildContactDirectory(result));
+      })
+      .catch(() => {
+        // 通讯录失败时保留现有群成员管理，不提供绕过通讯录的手工添加入口。
+      });
+    const offMessage = sdk.chat.on('message', payload => {
       if (payload.cid === cid && payload.type === 'SYSTEM') void load();
     });
     return () => {
@@ -141,29 +161,42 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
     [directory],
   );
   const existingMemberIds = useMemo(
-    () => new Set(members.map((member) => member.userId)),
+    () => new Set(members.map(member => member.userId)),
     [members],
   );
   const addMemberIds = useMemo(() => {
-    const ids = new Set([...selectedIds, ...parseUserIds(manualMemberIds)]);
-    existingMemberIds.forEach((id) => ids.delete(id));
+    const ids = new Set(selectedIds);
+    existingMemberIds.forEach(id => ids.delete(id));
     return [...ids];
-  }, [existingMemberIds, manualMemberIds, selectedIds]);
+  }, [existingMemberIds, selectedIds]);
   const canManage = detail?.myRole === 'OWNER' || detail?.myRole === 'ADMIN';
   const isOwner = detail?.myRole === 'OWNER';
 
-  const displayNameOf = useCallback((member: GroupMember): string => {
-    if (member.userId === myId) return '我';
-    return member.displayName?.trim() || namesById.get(member.userId) || `用户 #${member.userId}`;
-  }, [myId, namesById]);
+  const displayNameOf = useCallback(
+    (member: GroupMember): string => {
+      if (member.userId === myId) return '我';
+      return (
+        member.displayName?.trim() ||
+        namesById.get(member.userId) ||
+        `用户 #${member.userId}`
+      );
+    },
+    [myId, namesById],
+  );
 
-  const canManageMember = useCallback((member: GroupMember): boolean => {
-    if (member.userId === myId) return false;
-    if (isOwner) return member.role !== 'OWNER';
-    return detail?.myRole === 'ADMIN' && member.role === 'MEMBER';
-  }, [detail?.myRole, isOwner, myId]);
+  const canManageMember = useCallback(
+    (member: GroupMember): boolean => {
+      if (member.userId === myId) return false;
+      if (isOwner) return member.role !== 'OWNER';
+      return detail?.myRole === 'ADMIN' && member.role === 'MEMBER';
+    },
+    [detail?.myRole, isOwner, myId],
+  );
 
-  const runGroupAction = async (key: string, action: () => Promise<void>): Promise<boolean> => {
+  const runGroupAction = async (
+    key: string,
+    action: () => Promise<void>,
+  ): Promise<boolean> => {
     setPendingGroupAction(key);
     setError(null);
     try {
@@ -182,7 +215,10 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
     }
   };
 
-  const runMemberAction = async (userId: number, action: () => Promise<void>) => {
+  const runMemberAction = async (
+    userId: number,
+    action: () => Promise<void>,
+  ) => {
     setSelectedMember(null);
     setPendingMemberId(userId);
     setError(null);
@@ -212,39 +248,43 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
   const addMembers = async () => {
     if (addMemberIds.length === 0) return;
-    const succeeded = await runGroupAction('add', () => sdk.groups.addMembers(groupId, addMemberIds));
+    const succeeded = await runGroupAction('add', () =>
+      sdk.groups.addMembers(groupId, addMemberIds),
+    );
     if (!succeeded || !mountedRef.current) return;
     setSelectedIds(new Set());
-    setManualMemberIds('');
     setShowAddMembers(false);
   };
 
   const leaveOrDissolve = (dissolve: boolean) => {
     Alert.alert(
       dissolve ? '解散群聊' : '退出群聊',
-      dissolve ? '群聊解散后所有成员都将无法继续使用该会话。' : '退出后将从本地移除此群聊。',
+      dissolve
+        ? '群聊解散后所有成员都将无法继续使用该会话。'
+        : '退出后将从本地移除此群聊。',
       [
         { text: '取消', style: 'cancel' },
         {
           text: dissolve ? '确认解散' : '确认退出',
           style: 'destructive',
-          onPress: () => void (async () => {
-            setPendingGroupAction(dissolve ? 'dissolve' : 'leave');
-            try {
-              if (dissolve) await sdk.groups.dissolveGroup(groupId);
-              else await sdk.groups.leaveGroup(groupId);
-              await sdk.sync.removeLocalConversation(cid);
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-              void sdk.sync.syncAll().catch(() => {});
-            } catch (cause) {
-              if (mountedRef.current) {
-                const message = `操作失败：${errorMessage(cause)}`;
-                setPendingGroupAction(null);
-                await load();
-                if (mountedRef.current) setError(message);
+          onPress: () =>
+            void (async () => {
+              setPendingGroupAction(dissolve ? 'dissolve' : 'leave');
+              try {
+                if (dissolve) await sdk.groups.dissolveGroup(groupId);
+                else await sdk.groups.leaveGroup(groupId);
+                await sdk.sync.removeLocalConversation(cid);
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                void sdk.sync.syncAll().catch(() => {});
+              } catch (cause) {
+                if (mountedRef.current) {
+                  const message = `操作失败：${errorMessage(cause)}`;
+                  setPendingGroupAction(null);
+                  await load();
+                  if (mountedRef.current) setError(message);
+                }
               }
-            }
-          })(),
+            })(),
         },
       ],
     );
@@ -252,17 +292,21 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
   const transferOwner = (member: GroupMember) => {
     setSelectedMember(null);
-    Alert.alert('转让群主', `确认将群主转让给${displayNameOf(member)}？转让后你将成为普通成员。`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '确认转让',
-        style: 'destructive',
-        onPress: () => void runMemberAction(
-          member.userId,
-          () => sdk.groups.transferOwner(groupId, member.userId),
-        ),
-      },
-    ]);
+    Alert.alert(
+      '转让群主',
+      `确认将群主转让给${displayNameOf(member)}？转让后你将成为普通成员。`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '确认转让',
+          style: 'destructive',
+          onPress: () =>
+            void runMemberAction(member.userId, () =>
+              sdk.groups.transferOwner(groupId, member.userId),
+            ),
+        },
+      ],
+    );
   };
 
   const removeMember = (member: GroupMember) => {
@@ -272,10 +316,10 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       {
         text: '移出',
         style: 'destructive',
-        onPress: () => void runMemberAction(
-          member.userId,
-          () => sdk.groups.removeMember(groupId, member.userId),
-        ),
+        onPress: () =>
+          void runMemberAction(member.userId, () =>
+            sdk.groups.removeMember(groupId, member.userId),
+          ),
       },
     ]);
   };
@@ -283,8 +327,14 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
   if (detail == null && refreshing) {
     return (
       <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
-        <CompactScreenHeader title={route.params.title} onBack={() => navigation.goBack()} />
-        <ActivityIndicator style={styles.centerLoader} color={theme.colors.primary} />
+        <CompactScreenHeader
+          title={route.params.title}
+          onBack={() => navigation.goBack()}
+        />
+        <ActivityIndicator
+          style={styles.centerLoader}
+          color={theme.colors.primary}
+        />
       </View>
     );
   }
@@ -294,131 +344,262 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       <CompactScreenHeader title="群设置" onBack={() => navigation.goBack()} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={theme.colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void load()}
+            tintColor={theme.colors.primary}
+          />
+        }
       >
         <AnimatedEntrance style={styles.entrance}>
-        {error ? <StatusNotice message={error} tone="error" /> : null}
+          {error ? <StatusNotice message={error} tone="error" /> : null}
 
-        <View style={styles.hero}>
-          <GroupAvatar size={88} />
-          <Text style={[styles.groupName, { color: theme.colors.text }]}>{detail?.name ?? route.params.title}</Text>
-          <Text style={[styles.groupMeta, { color: theme.colors.textSecondary }]}>
-            群号 #{groupId} · {detail?.memberCount ?? members.length} 人 · {detail ? roleLabel(detail.myRole) : ''}
-          </Text>
-        </View>
-
-        <ConversationMuteSetting cid={cid} />
-
-        {canManage ? (
-          <Surface>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="修改群名称"
-              onPress={() => {
-                setNameDraft(detail?.name ?? route.params.title);
-                setShowRename(true);
-              }}
-              style={({ pressed }) => [styles.settingRow, pressed && styles.rowPressed]}
+          <View style={styles.hero}>
+            <GroupAvatar size={88} />
+            <Text style={[styles.groupName, { color: theme.colors.text }]}>
+              {detail?.name ?? route.params.title}
+            </Text>
+            <Text
+              style={[styles.groupMeta, { color: theme.colors.textSecondary }]}
             >
-              <View style={styles.settingLabelWrap}>
-                <Ionicons name="pencil-outline" size={20} color={theme.colors.primary} />
-                <Text style={[styles.settingLabel, { color: theme.colors.text }]}>群名称</Text>
-              </View>
-              <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]} numberOfLines={1}>{detail?.name}</Text>
-              <Ionicons name="chevron-forward" size={19} color={theme.colors.textMuted} />
-            </Pressable>
-          </Surface>
-        ) : null}
+              群号 #{groupId} · {detail?.memberCount ?? members.length} 人 ·{' '}
+              {detail ? roleLabel(detail.myRole) : ''}
+            </Text>
+          </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>群成员（{members.length}）</Text>
+          <ConversationMuteSetting cid={cid} />
+
           {canManage ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="添加群成员"
-              onPress={() => setShowAddMembers(true)}
-              style={({ pressed }) => [styles.addMembers, pressed && styles.rowPressed]}
-            >
-              <Ionicons name="person-add-outline" size={20} color={theme.colors.primary} />
-              <Text style={[styles.addMembersText, { color: theme.colors.primary }]}>添加成员</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        <Surface>
-          {members.map((member, index) => {
-            const displayName = displayNameOf(member);
-            const busy = pendingMemberId === member.userId;
-            return (
-              <View
-                key={member.userId}
-                style={[
-                  styles.memberRow,
-                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+            <Surface>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="修改群名称"
+                onPress={() => {
+                  setNameDraft(detail?.name ?? route.params.title);
+                  setShowRename(true);
+                }}
+                style={({ pressed }) => [
+                  styles.settingRow,
+                  pressed && styles.rowPressed,
                 ]}
               >
-                <InitialAvatar name={displayName} userId={member.userId} size={46} />
-                <View style={styles.memberInfo}>
-                  <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{displayName}</Text>
-                  <Text style={[styles.memberMeta, { color: theme.colors.textSecondary }]}>
-                    {roleLabel(member.role)}{member.muted ? ' · 已禁言' : ''}
+                <View style={styles.settingLabelWrap}>
+                  <Ionicons
+                    name="pencil-outline"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[styles.settingLabel, { color: theme.colors.text }]}
+                  >
+                    群名称
                   </Text>
                 </View>
-                {busy ? (
-                  <View style={styles.memberControl}><ActivityIndicator size="small" color={theme.colors.primary} /></View>
-                ) : canManageMember(member) ? (
-                  <IconButton
-                    name="ellipsis-horizontal"
-                    accessibilityLabel={`管理${displayName}`}
-                    backgroundColor={theme.colors.surfaceMuted}
-                    onPress={() => setSelectedMember(member)}
-                  />
-                ) : null}
-              </View>
-            );
-          })}
-        </Surface>
-
-        {detail ? (
-          <Surface style={styles.dangerSurface}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isOwner ? '解散群聊' : '退出群聊'}
-              accessibilityState={{ disabled: pendingGroupAction != null }}
-              disabled={pendingGroupAction != null}
-              onPress={() => leaveOrDissolve(isOwner)}
-              style={({ pressed }) => [styles.dangerRow, pressed && styles.rowPressed, pendingGroupAction != null && styles.disabled]}
-            >
-              <View style={[styles.dangerIcon, { backgroundColor: theme.colors.dangerSoft }]}>
-                <Ionicons name={isOwner ? 'trash-outline' : 'exit-outline'} size={23} color={theme.colors.danger} />
-              </View>
-              <View style={styles.dangerTextWrap}>
-                <Text style={[styles.dangerTitle, { color: theme.colors.danger }]}>{isOwner ? '解散群聊' : '退出群聊'}</Text>
-                <Text style={[styles.dangerSubtitle, { color: theme.colors.textSecondary }]}>
-                  {isOwner ? '解散后，所有成员将无法继续使用此群聊' : '退出后将从你的会话列表中移除'}
+                <Text
+                  style={[
+                    styles.settingValue,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {detail?.name}
                 </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={19} color={theme.colors.textMuted} />
-            </Pressable>
+                <Ionicons
+                  name="chevron-forward"
+                  size={19}
+                  color={theme.colors.textMuted}
+                />
+              </Pressable>
+            </Surface>
+          ) : null}
+
+          <View style={styles.sectionHeader}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              群成员（{members.length}）
+            </Text>
+            {canManage ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="添加群成员"
+                onPress={() => setShowAddMembers(true)}
+                style={({ pressed }) => [
+                  styles.addMembers,
+                  pressed && styles.rowPressed,
+                ]}
+              >
+                <Ionicons
+                  name="person-add-outline"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.addMembersText,
+                    { color: theme.colors.primary },
+                  ]}
+                >
+                  添加成员
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <Surface>
+            {members.map((member, index) => {
+              const displayName = displayNameOf(member);
+              const busy = pendingMemberId === member.userId;
+              return (
+                <View
+                  key={member.userId}
+                  style={[
+                    styles.memberRow,
+                    index > 0 && {
+                      borderTopWidth: StyleSheet.hairlineWidth,
+                      borderTopColor: theme.colors.border,
+                    },
+                  ]}
+                >
+                  <InitialAvatar
+                    name={displayName}
+                    userId={member.userId}
+                    size={46}
+                  />
+                  <View style={styles.memberInfo}>
+                    <Text
+                      style={[styles.memberName, { color: theme.colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {displayName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.memberMeta,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {roleLabel(member.role)}
+                      {member.muted ? ' · 已禁言' : ''}
+                    </Text>
+                  </View>
+                  {busy ? (
+                    <View style={styles.memberControl}>
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                  ) : canManageMember(member) ? (
+                    <IconButton
+                      name="ellipsis-horizontal"
+                      accessibilityLabel={`管理${displayName}`}
+                      backgroundColor={theme.colors.surfaceMuted}
+                      onPress={() => setSelectedMember(member)}
+                    />
+                  ) : null}
+                </View>
+              );
+            })}
           </Surface>
-        ) : (
-          <AppButton label="重试加载群资料" onPress={() => void load()} disabled={refreshing} />
-        )}
+
+          {detail ? (
+            <Surface style={styles.dangerSurface}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isOwner ? '解散群聊' : '退出群聊'}
+                accessibilityState={{ disabled: pendingGroupAction != null }}
+                disabled={pendingGroupAction != null}
+                onPress={() => leaveOrDissolve(isOwner)}
+                style={({ pressed }) => [
+                  styles.dangerRow,
+                  pressed && styles.rowPressed,
+                  pendingGroupAction != null && styles.disabled,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.dangerIcon,
+                    { backgroundColor: theme.colors.dangerSoft },
+                  ]}
+                >
+                  <Ionicons
+                    name={isOwner ? 'trash-outline' : 'exit-outline'}
+                    size={23}
+                    color={theme.colors.danger}
+                  />
+                </View>
+                <View style={styles.dangerTextWrap}>
+                  <Text
+                    style={[styles.dangerTitle, { color: theme.colors.danger }]}
+                  >
+                    {isOwner ? '解散群聊' : '退出群聊'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dangerSubtitle,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {isOwner
+                      ? '解散后，所有成员将无法继续使用此群聊'
+                      : '退出后将从你的会话列表中移除'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={19}
+                  color={theme.colors.textMuted}
+                />
+              </Pressable>
+            </Surface>
+          ) : (
+            <AppButton
+              label="重试加载群资料"
+              onPress={() => void load()}
+              disabled={refreshing}
+            />
+          )}
         </AnimatedEntrance>
       </ScrollView>
 
-      <Modal visible={showRename} transparent animationType="slide" onRequestClose={() => setShowRename(false)}>
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+      <Modal
+        visible={showRename}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRename(false)}
+      >
+        <View
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: theme.colors.overlay },
+          ]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="关闭修改群名称"
             style={StyleSheet.absoluteFill}
             onPress={() => setShowRename(false)}
           />
-          <View style={[styles.compactSheet, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[
+              styles.compactSheet,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>修改群名称</Text>
-              <IconButton name="close" accessibilityLabel="关闭" onPress={() => setShowRename(false)} />
+              <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>
+                修改群名称
+              </Text>
+              <IconButton
+                name="close"
+                accessibilityLabel="关闭"
+                onPress={() => setShowRename(false)}
+              />
             </View>
             <AppTextField
               label="群名称"
@@ -430,12 +611,19 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
               onSubmitEditing={() => void rename()}
             />
             <View style={styles.sheetButtons}>
-              <AppButton label="取消" variant="secondary" style={styles.flexButton} onPress={() => setShowRename(false)} />
+              <AppButton
+                label="取消"
+                variant="secondary"
+                style={styles.flexButton}
+                onPress={() => setShowRename(false)}
+              />
               <AppButton
                 label="保存"
                 style={styles.flexButton}
                 loading={pendingGroupAction === 'rename'}
-                disabled={nameDraft.trim() === '' || nameDraft.trim() === detail?.name}
+                disabled={
+                  nameDraft.trim() === '' || nameDraft.trim() === detail?.name
+                }
                 onPress={() => void rename()}
               />
             </View>
@@ -443,23 +631,53 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
         </View>
       </Modal>
 
-      <Modal visible={showAddMembers} transparent animationType="slide" onRequestClose={() => setShowAddMembers(false)}>
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+      <Modal
+        visible={showAddMembers}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddMembers(false)}
+      >
+        <View
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: theme.colors.overlay },
+          ]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="关闭添加群成员"
             style={StyleSheet.absoluteFill}
             onPress={() => setShowAddMembers(false)}
           />
-          <View style={[styles.memberSheet, { backgroundColor: theme.colors.surface }]}>
+          <View
+            style={[
+              styles.memberSheet,
+              { backgroundColor: theme.colors.surface },
+            ]}
+          >
             <View style={styles.sheetHeader}>
               <View>
-                <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>添加群成员</Text>
-                <Text style={[styles.sheetSubtitle, { color: theme.colors.textSecondary }]}>已选择 {addMemberIds.length} 人</Text>
+                <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>
+                  添加群成员
+                </Text>
+                <Text
+                  style={[
+                    styles.sheetSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  已选择 {addMemberIds.length} 人
+                </Text>
               </View>
-              <IconButton name="close" accessibilityLabel="关闭" onPress={() => setShowAddMembers(false)} />
+              <IconButton
+                name="close"
+                accessibilityLabel="关闭"
+                onPress={() => setShowAddMembers(false)}
+              />
             </View>
-            <View style={[styles.selector, { borderColor: theme.colors.border }]}>
+            <View
+              style={[styles.selector, { borderColor: theme.colors.border }]}
+            >
               {directory ? (
                 <DepartmentContactPicker
                   model={directory}
@@ -471,18 +689,19 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
                   onSelectionChange={setSelectedIds}
                 />
               ) : (
-                <StatusNotice message="通讯录不可用，请在下方手工输入成员 userId。" tone="warning" />
+                <StatusNotice
+                  message="通讯录不可用，请稍后重试。"
+                  tone="warning"
+                />
               )}
             </View>
-            <AppTextField
-              label="手工补充（可选）"
-              placeholder="成员 userId，如 2, 3"
-              editable={pendingGroupAction == null}
-              value={manualMemberIds}
-              onChangeText={setManualMemberIds}
-            />
             <View style={styles.sheetButtons}>
-              <AppButton label="取消" variant="secondary" style={styles.flexButton} onPress={() => setShowAddMembers(false)} />
+              <AppButton
+                label="取消"
+                variant="secondary"
+                style={styles.flexButton}
+                onPress={() => setShowAddMembers(false)}
+              />
               <AppButton
                 label={`添加（${addMemberIds.length}）`}
                 style={styles.flexButton}
@@ -495,8 +714,18 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
         </View>
       </Modal>
 
-      <Modal visible={selectedMember != null} transparent animationType="slide" onRequestClose={() => setSelectedMember(null)}>
-        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+      <Modal
+        visible={selectedMember != null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedMember(null)}
+      >
+        <View
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: theme.colors.overlay },
+          ]}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="关闭成员操作"
@@ -504,40 +733,106 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
             onPress={() => setSelectedMember(null)}
           />
           {selectedMember ? (
-            <View style={[styles.actionSheet, { backgroundColor: theme.colors.surface }]}>
-              <View style={[styles.actionMemberHeader, { borderBottomColor: theme.colors.border }]}>
-                <InitialAvatar name={displayNameOf(selectedMember)} userId={selectedMember.userId} size={48} />
+            <View
+              style={[
+                styles.actionSheet,
+                { backgroundColor: theme.colors.surface },
+              ]}
+            >
+              <View
+                style={[
+                  styles.actionMemberHeader,
+                  { borderBottomColor: theme.colors.border },
+                ]}
+              >
+                <InitialAvatar
+                  name={displayNameOf(selectedMember)}
+                  userId={selectedMember.userId}
+                  size={48}
+                />
                 <View style={styles.memberInfo}>
-                  <Text style={[styles.memberName, { color: theme.colors.text }]}>{displayNameOf(selectedMember)}</Text>
-                  <Text style={[styles.memberMeta, { color: theme.colors.textSecondary }]}>{roleLabel(selectedMember.role)}</Text>
+                  <Text
+                    style={[styles.memberName, { color: theme.colors.text }]}
+                  >
+                    {displayNameOf(selectedMember)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.memberMeta,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {roleLabel(selectedMember.role)}
+                  </Text>
                 </View>
-                <IconButton name="close" accessibilityLabel="关闭" onPress={() => setSelectedMember(null)} />
+                <IconButton
+                  name="close"
+                  accessibilityLabel="关闭"
+                  onPress={() => setSelectedMember(null)}
+                />
               </View>
               {isOwner && selectedMember.role === 'MEMBER' ? (
                 <ActionRow
                   icon="shield-checkmark-outline"
                   label="设为管理员"
-                  onPress={() => void runMemberAction(selectedMember.userId, () => sdk.groups.setMemberRole(groupId, selectedMember.userId, 'ADMIN'))}
+                  onPress={() =>
+                    void runMemberAction(selectedMember.userId, () =>
+                      sdk.groups.setMemberRole(
+                        groupId,
+                        selectedMember.userId,
+                        'ADMIN',
+                      ),
+                    )
+                  }
                 />
               ) : null}
               {isOwner && selectedMember.role === 'ADMIN' ? (
                 <ActionRow
                   icon="shield-outline"
                   label="取消管理员"
-                  onPress={() => void runMemberAction(selectedMember.userId, () => sdk.groups.setMemberRole(groupId, selectedMember.userId, 'MEMBER'))}
+                  onPress={() =>
+                    void runMemberAction(selectedMember.userId, () =>
+                      sdk.groups.setMemberRole(
+                        groupId,
+                        selectedMember.userId,
+                        'MEMBER',
+                      ),
+                    )
+                  }
                 />
               ) : null}
               {selectedMember.role === 'MEMBER' && canManage ? (
                 <ActionRow
-                  icon={selectedMember.muted ? 'volume-high-outline' : 'volume-mute-outline'}
+                  icon={
+                    selectedMember.muted
+                      ? 'volume-high-outline'
+                      : 'volume-mute-outline'
+                  }
                   label={selectedMember.muted ? '解除禁言' : '禁言'}
-                  onPress={() => void runMemberAction(selectedMember.userId, () => sdk.groups.setMemberMuted(groupId, selectedMember.userId, !selectedMember.muted))}
+                  onPress={() =>
+                    void runMemberAction(selectedMember.userId, () =>
+                      sdk.groups.setMemberMuted(
+                        groupId,
+                        selectedMember.userId,
+                        !selectedMember.muted,
+                      ),
+                    )
+                  }
                 />
               ) : null}
               {isOwner ? (
-                <ActionRow icon="swap-horizontal-outline" label="转让群主" onPress={() => transferOwner(selectedMember)} />
+                <ActionRow
+                  icon="swap-horizontal-outline"
+                  label="转让群主"
+                  onPress={() => transferOwner(selectedMember)}
+                />
               ) : null}
-              <ActionRow icon="person-remove-outline" label="移出群聊" danger onPress={() => removeMember(selectedMember)} />
+              <ActionRow
+                icon="person-remove-outline"
+                label="移出群聊"
+                danger
+                onPress={() => removeMember(selectedMember)}
+              />
             </View>
           ) : null}
         </View>
@@ -554,39 +849,131 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', paddingVertical: SPACING.lg, gap: SPACING.xs },
   groupName: { fontSize: TYPE.title, fontWeight: '800', marginTop: SPACING.xs },
   groupMeta: { fontSize: TYPE.body, textAlign: 'center' },
-  settingRow: { minHeight: 62, paddingHorizontal: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  settingLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  settingRow: {
+    minHeight: 62,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  settingLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
   settingLabel: { fontSize: TYPE.body, fontWeight: '700' },
   settingValue: { flex: 1, fontSize: TYPE.body, textAlign: 'right' },
-  sectionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xs },
+  sectionHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.xs,
+  },
   sectionTitle: { fontSize: TYPE.body, fontWeight: '600' },
-  addMembers: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, paddingHorizontal: SPACING.xs },
+  addMembers: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+  },
   addMembersText: { fontSize: TYPE.body, fontWeight: '700' },
-  memberRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md },
+  memberRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
   memberInfo: { flex: 1, minWidth: 0 },
   memberName: { fontSize: TYPE.subtitle, fontWeight: '700' },
   memberMeta: { fontSize: TYPE.caption, marginTop: 3 },
-  memberControl: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  memberControl: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dangerSurface: { marginTop: SPACING.md },
-  dangerRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md },
-  dangerIcon: { width: 42, height: 42, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  dangerRow: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  dangerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dangerTextWrap: { flex: 1 },
   dangerTitle: { fontSize: TYPE.body, fontWeight: '700' },
   dangerSubtitle: { fontSize: TYPE.caption, marginTop: 3, lineHeight: 17 },
   disabled: { opacity: 0.45 },
   rowPressed: { opacity: 0.62 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  compactSheet: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.md, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
-  memberSheet: { height: '78%', padding: SPACING.md, paddingBottom: SPACING.xl, gap: SPACING.sm, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
-  actionSheet: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.xxl, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
-  sheetHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  compactSheet: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xxl,
+    gap: SPACING.md,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  memberSheet: {
+    height: '78%',
+    padding: SPACING.md,
+    paddingBottom: SPACING.xl,
+    gap: SPACING.sm,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  actionSheet: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xxl,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  sheetHeader: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sheetTitle: { fontSize: TYPE.subtitle, fontWeight: '800' },
   sheetSubtitle: { fontSize: TYPE.caption, marginTop: 3 },
   sheetButtons: { flexDirection: 'row', gap: SPACING.sm },
   flexButton: { flex: 1 },
-  selector: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: RADIUS.lg, overflow: 'hidden' },
-  actionMemberHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
-  actionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
-  actionIcon: { width: 38, height: 38, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  selector: {
+    flex: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+  },
+  actionMemberHeader: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  actionRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  actionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actionLabel: { fontSize: TYPE.body, fontWeight: '600' },
 });

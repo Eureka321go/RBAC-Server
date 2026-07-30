@@ -1,7 +1,12 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { PlatformPressable } from '@react-navigation/elements';
+import {
+  Ionicons,
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons/static';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConversationsScreen } from '../screens/ConversationsScreen';
 import { ContactsScreen } from '../screens/ContactsScreen';
@@ -10,6 +15,17 @@ import { useAppTheme } from '../ui/ThemeProvider';
 import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+
+function QuietTabButton(props: BottomTabBarButtonProps) {
+  return (
+    <PlatformPressable
+      {...props}
+      pressColor="transparent"
+      pressOpacity={1}
+      android_ripple={{ color: 'transparent', borderless: false }}
+    />
+  );
+}
 
 export const ROOT_TAB_ITEMS = [
   {
@@ -43,7 +59,11 @@ function tabOptions(
   return {
     tabBarLabel: label,
     tabBarAccessibilityLabel: label,
-    tabBarIcon: ({ color, size, focused }: {
+    tabBarIcon: ({
+      color,
+      size,
+      focused,
+    }: {
       color: string;
       size: number;
       focused: boolean;
@@ -64,6 +84,7 @@ export function RootTabs() {
         sceneStyle: { backgroundColor: theme.colors.page },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textMuted,
+        tabBarButton: QuietTabButton,
         tabBarLabelStyle: styles.label,
         tabBarItemStyle: styles.item,
         tabBarStyle: [

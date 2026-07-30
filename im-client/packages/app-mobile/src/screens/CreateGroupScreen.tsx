@@ -6,7 +6,10 @@ import type { RootStackParamList } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
-import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
+import {
+  buildContactDirectory,
+  type ContactDirectoryModel,
+} from '../contact/directory';
 import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
 import { StatusNotice } from '../components/StatusNotice';
@@ -17,33 +20,28 @@ import { useAppTheme } from '../ui/ThemeProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
-function parseManualIds(value: string): number[] {
-  return value
-    .split(/[\s,，]+/)
-    .map(Number)
-    .filter((id) => Number.isSafeInteger(id) && id > 0);
-}
-
 export function CreateGroupScreen({ navigation }: Props) {
   const { theme } = useAppTheme();
-  const myId = useAppStore((state) => state.myId);
+  const myId = useAppStore(state => state.myId);
   const [name, setName] = useState('');
-  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(null);
+  const [directory, setDirectory] = useState<ContactDirectoryModel | null>(
+    null,
+  );
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
-  const [manualIds, setManualIds] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    void sdk.contacts.getDirectory()
-      .then((result) => {
+    void sdk.contacts
+      .getDirectory()
+      .then(result => {
         if (mountedRef.current) setDirectory(buildContactDirectory(result));
       })
       .catch(() => {
         if (mountedRef.current) {
-          setHint('联系人列表不可用，请在下方输入成员 userId，多个 ID 用逗号分隔。');
+          setHint('联系人列表不可用，请稍后重试。');
         }
       });
     return () => {
@@ -57,10 +55,10 @@ export function CreateGroupScreen({ navigation }: Props) {
   );
 
   const memberIds = useMemo(() => {
-    const ids = new Set([...selectedIds, ...parseManualIds(manualIds)]);
+    const ids = new Set(selectedIds);
     if (myId != null) ids.delete(myId);
     return [...ids];
-  }, [manualIds, myId, selectedIds]);
+  }, [myId, selectedIds]);
 
   const canCreate = name.trim() !== '' && memberIds.length > 0 && !submitting;
 
@@ -90,19 +88,28 @@ export function CreateGroupScreen({ navigation }: Props) {
       });
     } catch (cause) {
       if (!mountedRef.current) return;
-      setHint(`创建群聊失败：${cause instanceof Error ? cause.message : 'unknown'}`);
+      setHint(
+        `创建群聊失败：${cause instanceof Error ? cause.message : 'unknown'}`,
+      );
       setSubmitting(false);
     }
   };
 
   return (
     <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
-      <CompactScreenHeader title="创建群聊" onBack={() => navigation.goBack()} />
+      <CompactScreenHeader
+        title="创建群聊"
+        onBack={() => navigation.goBack()}
+      />
       <AnimatedEntrance style={styles.content}>
         <Surface style={styles.nameCard}>
           <View style={styles.nameHeading}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>群聊信息</Text>
-            <Text style={[styles.required, { color: theme.colors.primary }]}>必填</Text>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
+              群聊信息
+            </Text>
+            <Text style={[styles.required, { color: theme.colors.primary }]}>
+              必填
+            </Text>
           </View>
           <AppTextField
             label="群名称"
@@ -113,27 +120,53 @@ export function CreateGroupScreen({ navigation }: Props) {
             value={name}
             onChangeText={setName}
           />
-          <Text style={[styles.helper, { color: theme.colors.textMuted }]}>创建后仍可在群设置中修改</Text>
+          <Text style={[styles.helper, { color: theme.colors.textMuted }]}>
+            创建后仍可在群设置中修改
+          </Text>
         </Surface>
-        {hint ? <StatusNotice message={hint} tone={hint.includes('失败') ? 'error' : 'warning'} /> : null}
+        {hint ? (
+          <StatusNotice
+            message={hint}
+            tone={hint.includes('失败') ? 'error' : 'warning'}
+          />
+        ) : null}
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[styles.section, { color: theme.colors.text }]}>选择成员</Text>
-            <Text style={[styles.sectionHint, { color: theme.colors.textSecondary }]}>至少选择一位联系人</Text>
+            <Text style={[styles.section, { color: theme.colors.text }]}>
+              选择成员
+            </Text>
+            <Text
+              style={[
+                styles.sectionHint,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              至少选择一位联系人
+            </Text>
           </View>
-          <View style={[
-            styles.countBadge,
-            { backgroundColor: memberIds.length > 0
-              ? theme.colors.primarySoft
-              : theme.colors.surfaceMuted },
-          ]}>
-            <Text style={[
-              styles.count,
-              { color: memberIds.length > 0
-                ? theme.colors.primary
-                : theme.colors.textSecondary },
-              memberIds.length > 0 && styles.countActive,
-            ]}>
+          <View
+            style={[
+              styles.countBadge,
+              {
+                backgroundColor:
+                  memberIds.length > 0
+                    ? theme.colors.primarySoft
+                    : theme.colors.surfaceMuted,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.count,
+                {
+                  color:
+                    memberIds.length > 0
+                      ? theme.colors.primary
+                      : theme.colors.textSecondary,
+                },
+                memberIds.length > 0 && styles.countActive,
+              ]}
+            >
               已选 {memberIds.length} 人
             </Text>
           </View>
@@ -151,19 +184,14 @@ export function CreateGroupScreen({ navigation }: Props) {
           </Surface>
         ) : (
           <Surface style={styles.emptyCard}>
-            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>通讯录暂不可用</Text>
-            <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>仍可在下方手工输入成员 userId</Text>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              通讯录暂不可用
+            </Text>
+            <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>
+              暂时无法选择成员，请稍后重试
+            </Text>
           </Surface>
         )}
-        <View style={styles.manual}>
-          <Text style={[styles.manualTitle, { color: theme.colors.textSecondary }]}>手工补充（可选）</Text>
-          <AppTextField
-            placeholder="成员 userId，例如 2, 3"
-            editable={!submitting}
-            value={manualIds}
-            onChangeText={setManualIds}
-          />
-        </View>
         <View style={styles.footer}>
           <AppButton
             label={submitting ? '正在创建…' : '创建并进入群聊'}
@@ -182,11 +210,19 @@ const styles = StyleSheet.create({
   page: { flex: 1 },
   content: { flex: 1, padding: SPACING.md, gap: SPACING.md },
   nameCard: { padding: SPACING.md, gap: SPACING.sm },
-  nameHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  nameHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   cardTitle: { fontSize: TYPE.subtitle, fontWeight: '700' },
   required: { fontSize: TYPE.caption, fontWeight: '600' },
   helper: { fontSize: TYPE.caption },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   section: { fontSize: TYPE.subtitle, fontWeight: '700' },
   sectionHint: { marginTop: 3, fontSize: TYPE.caption },
   countBadge: {
@@ -199,10 +235,13 @@ const styles = StyleSheet.create({
   count: { fontSize: TYPE.caption },
   countActive: { fontWeight: '700' },
   directory: { flex: 1 },
-  emptyCard: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl },
+  emptyCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
   emptyTitle: { fontSize: TYPE.body, fontWeight: '700' },
   empty: { marginTop: SPACING.xs, textAlign: 'center' },
-  manual: { gap: SPACING.xs },
-  manualTitle: { fontSize: TYPE.caption, fontWeight: '600' },
   footer: { paddingTop: SPACING.xxs, paddingBottom: SPACING.xs },
 });
