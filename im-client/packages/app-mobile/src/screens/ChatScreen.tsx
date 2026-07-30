@@ -35,6 +35,7 @@ import { ImagePreviewModal } from '../components/ImagePreviewModal';
 import { VoiceComposerControl } from '../components/VoiceComposerControl';
 import { VoiceMessageContent } from '../components/VoiceMessageContent';
 import { VoiceRecordingOverlay } from '../components/VoiceRecordingOverlay';
+import { LinkCardContent } from '../components/LinkCardContent';
 import { useVoiceRecording } from '../voice/useVoiceRecording';
 import {
   voiceMessageKey,
@@ -650,6 +651,11 @@ export function ChatScreen({ route, navigation }: Props) {
             conversationType,
             myGroupRole,
           );
+          const openMessageActions = recallable ? () => {
+            if (canRecallMessage(item, myId, conversationType, myGroupRole)) {
+              setSelectedMessage(item);
+            }
+          } : undefined;
           return (
             <View style={[
               styles.rowWrap,
@@ -667,11 +673,7 @@ export function ChatScreen({ route, navigation }: Props) {
                   accessible
                   accessibilityHint={recallable ? '长按打开消息操作' : undefined}
                   delayLongPress={350}
-                  onLongPress={recallable ? () => {
-                    if (canRecallMessage(item, myId, conversationType, myGroupRole)) {
-                      setSelectedMessage(item);
-                    }
-                  } : undefined}
+                  onLongPress={openMessageActions}
                   style={({ pressed }) => [
                     styles.bubble,
                     mine ? styles.bubbleMine : styles.bubblePeer,
@@ -698,7 +700,16 @@ export function ChatScreen({ route, navigation }: Props) {
                       downloadProgress={downloadProgress}
                     />
                   ) : (
-                    <MentionText body={item.body} />
+                    <View>
+                      <MentionText body={item.body} />
+                      {item.type === 'TEXT' ? (
+                        <LinkCardContent
+                          body={item.body}
+                          onLongPress={openMessageActions}
+                          onOpenError={() => showBanner('无法打开此链接')}
+                        />
+                      ) : null}
+                    </View>
                   )}
                 </Pressable>
                 {conversationType === 'SINGLE' && mine && item.seq != null ? (
