@@ -6,6 +6,7 @@ import type { ConversationRow } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { GroupAvatar, InitialAvatar } from '../components/Avatar';
+import { ConversationActionSheet } from '../components/ConversationActionSheet';
 import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
@@ -47,7 +48,11 @@ export function ConversationsScreen({ navigation }: Props) {
   const [items, setItems] = useState<ConversationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationRow | null>(null);
+  const [mutating, setMutating] = useState(false);
   const mountedRef = useRef(true);
+  const longPressedCidRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
     const rows = await sdk.sync.getConversations();
@@ -70,6 +75,31 @@ export function ConversationsScreen({ navigation }: Props) {
       }
     }
   }, [reload]);
+
+  const closeConversationActions = useCallback(() => {
+    if (!mutating) setSelectedConversation(null);
+  }, [mutating]);
+
+  const toggleSelectedMuted = useCallback(async () => {
+    if (selectedConversation == null || mutating) return;
+    setMutating(true);
+    setActionError(null);
+    try {
+      await sdk.sync.setConversationMuted(
+        selectedConversation.cid,
+        !selectedConversation.muted,
+      );
+      await reload();
+      if (mountedRef.current) setSelectedConversation(null);
+    } catch (cause) {
+      if (mountedRef.current) {
+        const message = cause instanceof Error ? cause.message : '未知错误';
+        setActionError(`设置消息免打扰失败：${message}`);
+      }
+    } finally {
+      if (mountedRef.current) setMutating(false);
+    }
+  }, [mutating, reload, selectedConversation]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -154,6 +184,11 @@ export function ConversationsScreen({ navigation }: Props) {
           <StatusNotice message={`同步失败：${error}（本地消息仍可查看）`} tone="error" />
         </View>
       ) : null}
+      {actionError ? (
+        <View style={styles.notice}>
+          <StatusNotice message={actionError} tone="error" />
+        </View>
+      ) : null}
       <FlatList
         style={styles.listSurface}
         contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
@@ -178,15 +213,30 @@ export function ConversationsScreen({ navigation }: Props) {
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${title}，${item.lastMsgPreview || '暂无消息'}`}
+              accessibilityLabel={`${title}，${item.muted ? '已开启消息免打扰，' : ''}${item.lastMsgPreview || '暂无消息'}`}
+              delayLongPress={350}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              onPress={() => navigation.navigate('Chat', {
-                cid: item.cid,
-                title,
-                conversationType: item.type,
-                groupId: item.groupId ?? undefined,
-                syncOnOpen: true,
-              })}
+              onPressIn={() => {
+                longPressedCidRef.current = null;
+              }}
+              onLongPress={() => {
+                longPressedCidRef.current = item.cid;
+                setActionError(null);
+                setSelectedConversation(item);
+              }}
+              onPress={() => {
+                if (longPressedCidRef.current === item.cid) {
+                  longPressedCidRef.current = null;
+                  return;
+                }
+                navigation.navigate('Chat', {
+                  cid: item.cid,
+                  title,
+                  conversationType: item.type,
+                  groupId: item.groupId ?? undefined,
+                  syncOnOpen: true,
+                });
+              }}
             >
               {item.type === 'GROUP' ? (
                 <GroupAvatar size={48} />
@@ -196,6 +246,14 @@ export function ConversationsScreen({ navigation }: Props) {
               <View style={styles.content}>
                 <View style={styles.titleLine}>
                   <Text style={styles.title} numberOfLines={1}>{title}</Text>
+                  {item.muted ? (
+                    <Ionicons
+                      accessibilityLabel="已开启消息免打扰"
+                      name="volume-mute-outline"
+                      size={16}
+                      color={COLORS.textMuted}
+                    />
+                  ) : null}
                   {time ? <Text style={styles.time}>{time}</Text> : null}
                 </View>
                 <View style={styles.previewLine}>
@@ -215,6 +273,13 @@ export function ConversationsScreen({ navigation }: Props) {
             </Pressable>
           );
         }}
+      />
+      <ConversationActionSheet
+        visible={selectedConversation != null}
+        muted={selectedConversation?.muted ?? false}
+        busy={mutating}
+        onClose={closeConversationActions}
+        onToggleMuted={toggleSelectedMuted}
       />
     </View>
   );
