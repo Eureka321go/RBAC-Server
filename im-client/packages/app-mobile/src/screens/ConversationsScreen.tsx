@@ -8,6 +8,7 @@ import { useAppStore } from '../store';
 import { GroupAvatar, InitialAvatar } from '../components/Avatar';
 import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
+import { formatConversationTime } from '../conversation/conversationTime';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -25,18 +26,6 @@ function titleOf(row: ConversationRow, myId: number | null): string {
   const left = Number(matched[1]);
   const right = Number(matched[2]);
   return `用户 #${left === myId ? right : left}`;
-}
-
-function timeOf(timestamp: number): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  const date = new Date(timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp);
-  if (Number.isNaN(date.getTime())) return '';
-  const now = new Date();
-  const sameDay = date.toDateString() === now.toDateString();
-  if (sameDay) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
-  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
 export function ConversationsScreen({ navigation }: Props) {
@@ -174,11 +163,11 @@ export function ConversationsScreen({ navigation }: Props) {
         }
         renderItem={({ item }) => {
           const title = titleOf(item, myId);
-          const time = timeOf(item.updatedAt);
+          const time = formatConversationTime(item.lastMsgTs);
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${title}，${item.muted ? '已开启消息免打扰，' : ''}${item.lastMsgPreview || '暂无消息'}`}
+              accessibilityLabel={`${title}，${item.muted ? '已开启消息免打扰，' : ''}${item.lastMsgPreview || '暂无消息'}${item.unreadCount > 0 ? `，${item.unreadCount} 条未读` : ''}`}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
               onPress={() => navigation.navigate('Chat', {
                 cid: item.cid,
@@ -188,23 +177,23 @@ export function ConversationsScreen({ navigation }: Props) {
                 syncOnOpen: true,
               })}
             >
-              {item.type === 'GROUP' ? (
-                <GroupAvatar size={48} />
-              ) : (
-                <InitialAvatar name={title} userId={item.peerId} size={48} />
-              )}
+              <View style={styles.avatarSlot}>
+                {item.type === 'GROUP' ? (
+                  <GroupAvatar size={48} />
+                ) : (
+                  <InitialAvatar name={title} userId={item.peerId} size={48} />
+                )}
+                {item.unreadCount > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               <View style={styles.content}>
                 <View style={styles.titleLine}>
                   <Text style={styles.title} numberOfLines={1}>{title}</Text>
-                  {item.muted ? (
-                    <Ionicons
-                      accessibilityLabel="已开启消息免打扰"
-                      name="volume-mute-outline"
-                      size={16}
-                      color={COLORS.textMuted}
-                    />
-                  ) : null}
-                  {time ? <Text style={styles.time}>{time}</Text> : null}
                 </View>
                 <View style={styles.previewLine}>
                   {item.hasMention ? <Text style={styles.mention}>[有人@我]</Text> : null}
@@ -213,13 +202,17 @@ export function ConversationsScreen({ navigation }: Props) {
                   </Text>
                 </View>
               </View>
-              {item.unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                  </Text>
-                </View>
-              ) : null}
+              <View style={styles.meta}>
+                {time ? <Text style={styles.time}>{time}</Text> : <View />}
+                {item.muted ? (
+                  <Ionicons
+                    accessibilityLabel="已开启消息免打扰"
+                    name="volume-mute-outline"
+                    size={16}
+                    color={COLORS.textMuted}
+                  />
+                ) : <View />}
+              </View>
             </Pressable>
           );
         }}
@@ -307,21 +300,34 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   rowPressed: { backgroundColor: COLORS.surfaceMuted },
+  avatarSlot: { position: 'relative' },
   content: { flex: 1, minWidth: 0, gap: 6 },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleLine: { flexDirection: 'row', alignItems: 'center' },
   title: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '700', color: COLORS.text },
-  time: { color: COLORS.textMuted, fontSize: TYPE.caption },
+  meta: {
+    width: 56,
+    minHeight: 48,
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  time: { color: COLORS.textMuted, fontSize: TYPE.caption, textAlign: 'right' },
   previewLine: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   mention: { flexShrink: 0, marginRight: 4, color: COLORS.danger, fontSize: TYPE.caption, fontWeight: '600' },
   preview: { flex: 1, minWidth: 0, color: COLORS.textSecondary, fontSize: 14 },
   badge: {
-    minWidth: 24,
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 12,
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
     backgroundColor: COLORS.danger,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
-  badgeText: { color: COLORS.white, fontSize: TYPE.caption, fontWeight: '700' },
+  badgeText: { color: COLORS.white, fontSize: 10, fontWeight: '700' },
 });
