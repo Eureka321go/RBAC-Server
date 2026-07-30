@@ -16,6 +16,15 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => {
   sdk.connection.on('state', (s) => set({ connState: s }));
+  sdk.auth.onSessionExpired(() => {
+    sdk.connection.stop();
+    set({
+      loggedIn: false,
+      myId: null,
+      displayName: null,
+      error: '登录已过期，请重新登录',
+    });
+  });
   return {
     booted: false,
     loggedIn: false,

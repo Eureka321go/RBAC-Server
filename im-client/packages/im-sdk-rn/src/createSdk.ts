@@ -58,6 +58,10 @@ export function createSdk(config: SdkConfig) {
   };
   const http = new AxiosHttp(config.apiBaseUrl, () => store.get(TOKEN_KEYS.access));
   const auth = new AuthService(http, store);
+  http.configureAuthRecovery({
+    refreshAccessToken: () => auth.refreshAccessToken(),
+    onSessionExpired: () => auth.expireSession(),
+  });
   const contacts = new ContactService(http);
   const groups = new GroupService(http);
   const transport = new WebSocketTransport();
