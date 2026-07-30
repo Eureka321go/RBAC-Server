@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import {
@@ -19,6 +19,7 @@ interface Props {
   heard: boolean;
   onHeard(): void;
   onError(message: string): void;
+  onLongPress?: () => void;
 }
 
 export function VoiceMessageContent({
@@ -28,7 +29,9 @@ export function VoiceMessageContent({
   heard,
   onHeard,
   onError,
+  onLongPress,
 }: Props) {
+  const longPressedRef = useRef(false);
   const snapshot = useSyncExternalStore(
     voicePlaybackCoordinator.subscribe,
     voicePlaybackCoordinator.getSnapshot,
@@ -50,9 +53,22 @@ export function VoiceMessageContent({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={status === 'playing' ? '暂停语音' : '播放语音'}
-      disabled={disabled || status === 'downloading'}
+      disabled={(disabled || status === 'downloading') && onLongPress == null}
+      delayLongPress={350}
+      onLongPress={() => {
+        longPressedRef.current = true;
+        onLongPress?.();
+      }}
       onPress={() => {
+        if (longPressedRef.current) {
+          longPressedRef.current = false;
+          return;
+        }
+        if (disabled || status === 'downloading') return;
         void voicePlaybackCoordinator.toggle({ message, accountId, mine, onHeard });
+      }}
+      onPressIn={() => {
+        longPressedRef.current = false;
       }}
       style={({ pressed }) => [
         styles.wrap,

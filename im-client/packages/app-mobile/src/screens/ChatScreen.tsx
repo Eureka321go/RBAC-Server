@@ -804,6 +804,7 @@ export function ChatScreen({ route, navigation }: Props) {
                       heard={item.seq != null && heardVoiceSeqs.has(item.seq)}
                       onHeard={reloadHeardVoiceSeqs}
                       onError={showVoiceError}
+                      onLongPress={openMessageActions}
                     />
                   ) : item.type === 'IMAGE' || item.type === 'FILE' ? (
                     <MediaMessageContent
@@ -811,6 +812,7 @@ export function ChatScreen({ route, navigation }: Props) {
                       onPreview={setPreviewUri}
                       onRefreshImage={refreshImageUrl}
                       onOpenFile={(message) => void openFile(message)}
+                      onLongPress={openMessageActions}
                       downloading={item.body?.objectKey === downloadingObjectKey}
                       downloadProgress={downloadProgress}
                     />

@@ -18,6 +18,7 @@ interface Props {
   onPreview: (uri: string) => void;
   onRefreshImage: (objectKey: string, filename: string) => Promise<string>;
   onOpenFile: (message: ChatMessage) => void;
+  onLongPress?: () => void;
   downloading: boolean;
   downloadProgress: number;
 }
@@ -33,8 +34,8 @@ function progressOf(message: ChatMessage): number {
     : 0;
 }
 
-function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
-  'message' | 'onPreview' | 'onRefreshImage'
+function ImageMessage({ message, onPreview, onRefreshImage, onLongPress }: Pick<Props,
+  'message' | 'onPreview' | 'onRefreshImage' | 'onLongPress'
 >) {
   const objectKey = typeof message.body?.objectKey === 'string' ? message.body.objectKey : null;
   const filename = safeFilename(message.body?.filename);
@@ -44,6 +45,7 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
   );
   const [uri, setUri] = useState(initialUri);
   const failedUriRef = useRef<string | null>(null);
+  const longPressedRef = useRef(false);
   useEffect(() => {
     setUri(initialUri);
     failedUriRef.current = null;
@@ -74,8 +76,22 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
     <Pressable
       accessibilityRole="imagebutton"
       accessibilityLabel="查看图片"
-      disabled={uri == null}
-      onPress={() => uri != null && onPreview(uri)}
+      disabled={uri == null && onLongPress == null}
+      delayLongPress={350}
+      onLongPress={() => {
+        longPressedRef.current = true;
+        onLongPress?.();
+      }}
+      onPress={() => {
+        if (longPressedRef.current) {
+          longPressedRef.current = false;
+          return;
+        }
+        if (uri != null) onPreview(uri);
+      }}
+      onPressIn={() => {
+        longPressedRef.current = false;
+      }}
       style={[styles.imageWrap, dimensions]}
     >
       {uri != null ? (
@@ -100,9 +116,10 @@ function ImageMessage({ message, onPreview, onRefreshImage }: Pick<Props,
   );
 }
 
-function FileMessage({ message, onOpenFile, downloading, downloadProgress }: Pick<Props,
-  'message' | 'onOpenFile' | 'downloading' | 'downloadProgress'
+function FileMessage({ message, onOpenFile, onLongPress, downloading, downloadProgress }: Pick<Props,
+  'message' | 'onOpenFile' | 'onLongPress' | 'downloading' | 'downloadProgress'
 >) {
+  const longPressedRef = useRef(false);
   const uploadProgress = progressOf(message);
   const progress = downloading ? downloadProgress : uploadProgress;
   const busy = downloading || message.status === 'uploading';
@@ -111,7 +128,21 @@ function FileMessage({ message, onOpenFile, downloading, downloadProgress }: Pic
       accessibilityRole="button"
       accessibilityLabel={`打开文件 ${safeFilename(message.body?.filename)}`}
       disabled={message.status === 'uploading'}
-      onPress={() => onOpenFile(message)}
+      delayLongPress={350}
+      onLongPress={() => {
+        longPressedRef.current = true;
+        onLongPress?.();
+      }}
+      onPress={() => {
+        if (longPressedRef.current) {
+          longPressedRef.current = false;
+          return;
+        }
+        onOpenFile(message);
+      }}
+      onPressIn={() => {
+        longPressedRef.current = false;
+      }}
       style={({ pressed }) => [styles.fileCard, pressed && styles.pressed]}
     >
       <View style={styles.fileIcon}>
