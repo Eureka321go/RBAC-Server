@@ -50,7 +50,7 @@ public class MessageAppender {
         m.setTs(ts);
         repo.save(m);
 
-        updateSummary(cid, seq, preview(type, body));
+        updateSummary(cid, seq, preview(type, body), ts);
 
         Envelope push = new Envelope();
         push.setOp("PUSH");
@@ -67,12 +67,13 @@ public class MessageAppender {
         return seq;
     }
     // 更新会话摘要
-    private void updateSummary(String cid, long seq, String preview) {
+    private void updateSummary(String cid, long seq, String preview, long ts) {
         ImConversation c = conversationMapper.selectOne(
                 new LambdaQueryWrapper<ImConversation>().eq(ImConversation::getCid, cid));
         if (c != null) {
             c.setLastMsgSeq(seq);
             c.setLastMsgPreview(preview);
+            c.setLastMsgTs(ts);
             conversationMapper.updateById(c);
         }
     }

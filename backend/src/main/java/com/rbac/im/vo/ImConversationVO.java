@@ -12,6 +12,7 @@ public class ImConversationVO {
     private String peerName;        // 单聊对端昵称，昵称为空时回退用户名
     private Long lastMsgSeq;
     private String lastMsgPreview;
+    private Long lastMsgTs;
     private Long lastReadSeq;
     private Long unreadCount;
     private Long mentionSeq;        // 我被 @ 命中的最新消息 seq（里程碑9）

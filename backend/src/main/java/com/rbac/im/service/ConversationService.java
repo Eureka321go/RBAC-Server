@@ -54,6 +54,7 @@ public class ConversationService {
             c.setCid(cid);
             c.setType("SINGLE");
             c.setLastMsgSeq(0L);
+            c.setLastMsgTs(0L);
             conversationMapper.insert(c);
             insertMember(cid, a);
             insertMember(cid, b);
@@ -83,6 +84,7 @@ public class ConversationService {
             c.setType("GROUP");
             c.setGroupId(groupId);
             c.setLastMsgSeq(0L);
+            c.setLastMsgTs(0L);
             conversationMapper.insert(c);
             for (Long uid : memberIds) {
                 insertMember(cid, uid);
@@ -242,6 +244,7 @@ public class ConversationService {
             vo.setGroupId(c.getGroupId());
             vo.setLastMsgSeq(lastMsgSeq);
             vo.setLastMsgPreview(c.getLastMsgPreview());
+            vo.setLastMsgTs(c.getLastMsgTs() == null ? 0L : c.getLastMsgTs());
             vo.setLastReadSeq(lastReadSeq);
             // 已读水位可能因并发/回填短暂超过 lastMsgSeq，兜底不出现负数未读
             vo.setUnreadCount(Math.max(0L, lastMsgSeq - lastReadSeq));
