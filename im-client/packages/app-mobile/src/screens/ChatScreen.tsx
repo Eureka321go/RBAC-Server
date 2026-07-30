@@ -10,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -24,7 +23,9 @@ import {
 } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
-import { CompactScreenHeader } from '../components/CompactScreenHeader';
+import { ChatHeader } from '../components/ChatHeader';
+import { ChatComposerSurface } from '../components/ChatComposerSurface';
+import { AnimatedMessageBubble } from '../components/AnimatedMessageBubble';
 import type { RootStackParamList } from '../navigation/types';
 import { formatGroupSystemMessage } from '../group/systemMessage';
 import { buildContactDirectory } from '../contact/directory';
@@ -66,7 +67,8 @@ import {
   type TextEditResult,
   type TextSelection,
 } from '../emoji/emojiTextEditing';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -167,6 +169,7 @@ export function ChatScreen({ route, navigation }: Props) {
     groupId,
     syncOnOpen = true,
   } = route.params;
+  const { theme } = useAppTheme();
   const myId = useAppStore((s) => s.myId);
   const myDisplayName = useAppStore((s) => s.displayName);
   const [items, setItems] = useState<ChatMessage[]>([]);
@@ -783,13 +786,19 @@ export function ChatScreen({ route, navigation }: Props) {
   }, [cid, showBanner]);
 
   return (
-    <View style={styles.wrap}>
-      <CompactScreenHeader
+    <View style={[styles.wrap, { backgroundColor: theme.colors.page }]}>
+      <ChatHeader
         title={displayTitle}
+        subtitle={conversationType === 'GROUP'
+          ? membersLoading
+            ? '正在获取群成员…'
+            : membersLoadFailed
+              ? '群成员加载失败'
+              : `${groupMembers.length} 位成员`
+          : '安全会话'}
+        isGroup={conversationType === 'GROUP'}
         onBack={() => navigation.goBack()}
-        rightIcon="settings-outline"
-        rightAccessibilityLabel={conversationType === 'GROUP' ? '群设置' : '会话设置'}
-        onRightPress={() => {
+        onOpenSettings={() => {
           if (conversationType === 'GROUP') {
             if (groupId != null) {
               navigation.navigate('GroupDetails', { cid, groupId, title: displayTitle });
@@ -821,14 +830,17 @@ export function ChatScreen({ route, navigation }: Props) {
             }
             return (
               <View style={styles.recalledRow}>
-                <Text style={styles.recalledText}>{label}</Text>
+                <Text style={[styles.recalledText, { color: theme.colors.textMuted }]}>{label}</Text>
               </View>
             );
           }
           if (item.type === 'SYSTEM') {
             return (
               <View style={styles.systemRow}>
-                <Text style={styles.systemText}>
+                <Text style={[
+                  styles.systemText,
+                  { color: theme.colors.textSecondary, backgroundColor: theme.colors.surfaceMuted },
+                ]}>
                   {formatGroupSystemMessage(item, namesById)}
                 </Text>
               </View>
@@ -863,108 +875,131 @@ export function ChatScreen({ route, navigation }: Props) {
             }
           } : undefined;
           return (
-            <View style={[
-              styles.rowWrap,
-              mine ? styles.rowMine : styles.rowPeer,
-              showSenderName && styles.rowWithSenderName,
-            ]}>
-              {!mine ? (
-                <InitialAvatar name={senderName} userId={senderId} size={36} />
-              ) : null}
-              {mine ? (
-                <OutgoingMessageState
-                  message={item}
-                  recalling={recalling}
-                  onCancelUpload={() => cancelUpload(item)}
-                  onRetry={() => retryMessage(item)}
-                />
-              ) : null}
-              <View style={styles.messageContent}>
-                {showSenderName ? (
-                  <Text style={styles.senderName} numberOfLines={1}>{senderName}</Text>
+            <AnimatedMessageBubble
+              messageId={item.seq != null ? `s:${item.seq}` : `c:${item.clientMsgId ?? item.ts}`}
+              isMine={mine}
+              animateOnMount={mine && item.seq == null}
+            >
+              <View style={[
+                styles.rowWrap,
+                mine ? styles.rowMine : styles.rowPeer,
+                showSenderName && styles.rowWithSenderName,
+              ]}>
+                {!mine ? (
+                  <InitialAvatar name={senderName} userId={senderId} size={36} />
                 ) : null}
-                <Pressable
-                  accessible
-                  accessibilityHint={actionable ? '长按打开消息操作' : undefined}
-                  delayLongPress={350}
-                  onLongPress={openMessageActions}
-                  style={({ pressed }) => [
-                    styles.bubble,
-                    mine ? styles.bubbleMine : styles.bubblePeer,
-                    item.type === 'IMAGE' && styles.imageBubble,
-                    item.seq === highlightedSeq && styles.bubbleHighlighted,
-                    pressed && actionable && styles.bubblePressed,
-                  ]}
-                >
-                  {item.type === 'AUDIO' && myId != null ? (
-                    <VoiceMessageContent
-                      message={item}
-                      accountId={myId}
-                      mine={mine}
-                      heard={item.seq != null && heardVoiceSeqs.has(item.seq)}
-                      onHeard={reloadHeardVoiceSeqs}
-                      onError={showVoiceError}
-                      onLongPress={openMessageActions}
-                    />
-                  ) : item.type === 'IMAGE' || item.type === 'FILE' ? (
-                    <MediaMessageContent
-                      message={item}
-                      onPreview={setPreviewUri}
-                      onRefreshImage={refreshImageUrl}
-                      onOpenFile={(message) => void openFile(message)}
-                      onLongPress={openMessageActions}
-                      downloading={item.body?.objectKey === downloadingObjectKey}
-                      downloadProgress={downloadProgress}
-                    />
-                  ) : (
-                    <View>
-                      {messageQuote == null ? null : (
-                        <MessageQuoteContent
-                          quote={messageQuote}
-                          mode="message"
-                          recalled={recallOperators.has(messageQuote.targetSeq)}
-                          onPress={() => locateQuotedMessage(messageQuote.targetSeq)}
-                          onLongPress={openMessageActions}
-                        />
-                      )}
-                      <MentionText body={item.body} />
-                      {item.type === 'TEXT' ? (
-                        <LinkCardContent
-                          body={item.body}
-                          onLongPress={openMessageActions}
-                          onOpenError={() => showBanner('无法打开此链接')}
-                        />
-                      ) : null}
-                    </View>
-                  )}
-                </Pressable>
-                {conversationType === 'SINGLE' && mine && item.seq != null ? (
-                  <Text style={styles.deliveryStatus}>
-                    {peerReadSeq != null && item.seq <= peerReadSeq ? '已读' : '已发送'}
-                  </Text>
+                {mine ? (
+                  <OutgoingMessageState
+                    message={item}
+                    recalling={recalling}
+                    onCancelUpload={() => cancelUpload(item)}
+                    onRetry={() => retryMessage(item)}
+                  />
+                ) : null}
+                <View style={styles.messageContent}>
+                  {showSenderName ? (
+                    <Text
+                      style={[styles.senderName, { color: theme.colors.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {senderName}
+                    </Text>
+                  ) : null}
+                  <Pressable
+                    accessible
+                    accessibilityHint={actionable ? '长按打开消息操作' : undefined}
+                    delayLongPress={350}
+                    onLongPress={openMessageActions}
+                    style={({ pressed }) => [
+                      styles.bubble,
+                      mine
+                        ? { backgroundColor: theme.colors.messageMine }
+                        : {
+                          backgroundColor: theme.colors.messageOther,
+                          borderColor: theme.colors.border,
+                          borderWidth: StyleSheet.hairlineWidth,
+                        },
+                      item.type === 'IMAGE' && styles.imageBubble,
+                      item.seq === highlightedSeq && {
+                        borderWidth: 2,
+                        borderColor: theme.colors.primary,
+                      },
+                      pressed && actionable && styles.bubblePressed,
+                    ]}
+                  >
+                    {item.type === 'AUDIO' && myId != null ? (
+                      <VoiceMessageContent
+                        message={item}
+                        accountId={myId}
+                        mine={mine}
+                        heard={item.seq != null && heardVoiceSeqs.has(item.seq)}
+                        onHeard={reloadHeardVoiceSeqs}
+                        onError={showVoiceError}
+                        onLongPress={openMessageActions}
+                      />
+                    ) : item.type === 'IMAGE' || item.type === 'FILE' ? (
+                      <MediaMessageContent
+                        message={item}
+                        onPreview={setPreviewUri}
+                        onRefreshImage={refreshImageUrl}
+                        onOpenFile={(message) => void openFile(message)}
+                        onLongPress={openMessageActions}
+                        downloading={item.body?.objectKey === downloadingObjectKey}
+                        downloadProgress={downloadProgress}
+                      />
+                    ) : (
+                      <View>
+                        {messageQuote == null ? null : (
+                          <MessageQuoteContent
+                            quote={messageQuote}
+                            mode="message"
+                            recalled={recallOperators.has(messageQuote.targetSeq)}
+                            onPress={() => locateQuotedMessage(messageQuote.targetSeq)}
+                            onLongPress={openMessageActions}
+                          />
+                        )}
+                        <MentionText body={item.body} />
+                        {item.type === 'TEXT' ? (
+                          <LinkCardContent
+                            body={item.body}
+                            onLongPress={openMessageActions}
+                            onOpenError={() => showBanner('无法打开此链接')}
+                          />
+                        ) : null}
+                      </View>
+                    )}
+                  </Pressable>
+                  {conversationType === 'SINGLE' && mine && item.seq != null ? (
+                    <Text style={[styles.deliveryStatus, { color: theme.colors.textMuted }]}>
+                      {peerReadSeq != null && item.seq <= peerReadSeq ? '已读' : '已发送'}
+                    </Text>
+                  ) : null}
+                </View>
+                {mine ? (
+                  <InitialAvatar name={senderName} userId={senderId} size={36} />
                 ) : null}
               </View>
-              {mine ? (
-                <InitialAvatar name={senderName} userId={senderId} size={36} />
-              ) : null}
-            </View>
+            </AnimatedMessageBubble>
           );
         }}
       />
-      <SafeAreaView edges={['bottom']} style={styles.composerSafeArea}>
-        {quoteDraft == null ? null : (
+      <ChatComposerSurface
+        header={quoteDraft == null ? undefined : (
           <MessageQuoteContent
             quote={quoteDraft}
             mode="composer"
             onClose={() => setQuoteDraft(null)}
           />
         )}
-        <View style={styles.composer}>
+        footer={emojiPickerVisible && !voiceMode ? (
+          <EmojiPicker onSelect={insertEmoji} onDelete={deleteEmojiBackward} />
+        ) : undefined}
+      >
           <IconButton
             name="add-circle-outline"
             accessibilityLabel="添加图片或文件"
             disabled={voiceRecording.state.active || voiceRecording.state.starting}
-            color={COLORS.primary}
+            color={theme.colors.primary}
             style={styles.composerIcon}
             onPress={openAttachmentPicker}
           />
@@ -980,12 +1015,18 @@ export function ChatScreen({ route, navigation }: Props) {
           />
           {!voiceMode ? (
             <>
-              <View style={styles.inputShell}>
+              <View style={[
+                styles.inputShell,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surfaceMuted,
+                },
+              ]}>
                 <TextInput
                   ref={inputRef}
-                  style={styles.input}
+                  style={[styles.input, { color: theme.colors.text }]}
                   placeholder="说点什么"
-                  placeholderTextColor={COLORS.textMuted}
+                  placeholderTextColor={theme.colors.textMuted}
                   value={draft.text}
                   selection={draftSelection}
                   editable={!voiceRecording.state.active && !voiceRecording.state.starting}
@@ -997,7 +1038,7 @@ export function ChatScreen({ route, navigation }: Props) {
                 <IconButton
                   name={emojiPickerVisible ? 'keypad-outline' : 'happy-outline'}
                   accessibilityLabel={emojiPickerVisible ? '切换到键盘' : '打开常用表情'}
-                  color={COLORS.primary}
+                  color={theme.colors.primary}
                   style={styles.inputEmojiButton}
                   onPress={toggleEmojiPicker}
                 />
@@ -1008,18 +1049,16 @@ export function ChatScreen({ route, navigation }: Props) {
                 disabled={draft.text.trim() === ''
                   || voiceRecording.state.active
                   || voiceRecording.state.starting}
-                color={COLORS.white}
-                backgroundColor={draft.text.trim() === '' ? COLORS.textMuted : COLORS.primary}
+                color={theme.colors.white}
+                backgroundColor={draft.text.trim() === ''
+                  ? theme.colors.textMuted
+                  : theme.colors.primary}
                 style={styles.composerIcon}
                 onPress={() => void send()}
               />
             </>
           ) : null}
-        </View>
-        {emojiPickerVisible && !voiceMode ? (
-          <EmojiPicker onSelect={insertEmoji} onDelete={deleteEmojiBackward} />
-        ) : null}
-      </SafeAreaView>
+      </ChatComposerSurface>
       <MessageActionSheet
         visible={selectedMessage != null}
         canQuote={selectedMessage != null && canQuoteMessage(selectedMessage)}
@@ -1054,7 +1093,7 @@ export function ChatScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: COLORS.page },
+  wrap: { flex: 1 },
   banner: { paddingHorizontal: SPACING.md, paddingTop: SPACING.xs },
   messageList: { paddingTop: SPACING.xs },
   rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
@@ -1067,21 +1106,15 @@ const styles = StyleSheet.create({
     top: -20,
     left: 4,
     right: 0,
-    color: COLORS.textSecondary,
     fontSize: TYPE.caption,
     lineHeight: 17,
   },
   bubble: { borderRadius: RADIUS.md, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
   imageBubble: { paddingHorizontal: 2, paddingVertical: 2 },
-  bubbleMine: { backgroundColor: COLORS.messageMine },
-  bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
-  bubbleHighlighted: { borderWidth: 2, borderColor: COLORS.primary },
   bubblePressed: { opacity: 0.72 },
-  deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
+  deliveryStatus: { alignSelf: 'flex-end', fontSize: 11, marginTop: 3 },
   systemRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
   systemText: {
-    color: COLORS.textSecondary,
-    backgroundColor: '#E9EEF5',
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xxs,
@@ -1090,22 +1123,11 @@ const styles = StyleSheet.create({
   },
   recalledRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
   recalledText: {
-    color: COLORS.textMuted,
     fontSize: TYPE.caption,
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  composerSafeArea: { backgroundColor: COLORS.surface },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xxs,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-  },
-  composerIcon: { width: 36, height: 36 },
+  composerIcon: { width: 44, height: 44 },
   inputShell: {
     flex: 1,
     minHeight: 44,
@@ -1113,20 +1135,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.surfaceMuted,
     overflow: 'hidden',
   },
   input: {
     flex: 1,
     minHeight: 42,
     maxHeight: 106,
-    color: COLORS.text,
     fontSize: TYPE.body,
     paddingLeft: SPACING.md,
     paddingRight: SPACING.xxs,
     paddingVertical: SPACING.xs,
   },
-  inputEmojiButton: { width: 36, height: 36, marginRight: SPACING.xxs },
+  inputEmojiButton: { width: 44, height: 44, marginRight: SPACING.xxs },
 });

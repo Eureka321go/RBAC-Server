@@ -578,7 +578,7 @@ Expected: tests, TypeScript, and lint pass before commit.
 - Consumes: current ChatScreen state and callbacks.
 - Produces: presentation-only header, composer, and message entrance wrapper.
 
-- [ ] **Step 1: Write failing reduced-motion render test**
+- [x] **Step 1: Write failing reduced-motion render test**
 
 ```tsx
 test('always renders message content with reduced motion', async () => {
@@ -596,21 +596,21 @@ test('always renders message content with reduced motion', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/AnimatedMessageBubble.test.tsx
 ```
 
-- [ ] **Step 3: Extract presentation-only units**
+- [x] **Step 3: Extract presentation-only units**
 
 `ChatHeader` receives title, subtitle, back, and settings callbacks. `ChatComposerSurface` receives existing attachment, voice, emoji, text, submit, and disabled props without owning state. `AnimatedMessageBubble` receives message ID, ownership, `animateOnMount`, children, and an optional test-only `reduceMotionOverride?: boolean`; production callers omit the override.
 
-- [ ] **Step 4: Apply approved visuals and motion**
+- [x] **Step 4: Apply approved visuals and motion**
 
 Use themed header, message surfaces, and a floating composer 12 points from side and safe-area edges. Keep quotes, media, links, mentions, voice, system messages, action sheets, pickers, recording, read state, pagination, and retry wiring unchanged. Animate only newly appended local messages with opacity `0 → 1`, scale `0.96 → 1`, and translateY `8 → 0` over 220 ms. History and reduced-motion paths render immediately.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/AnimatedMessageBubble.test.tsx
