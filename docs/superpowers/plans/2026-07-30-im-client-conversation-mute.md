@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为单聊和群聊提供服务端持久化、客户端可同步并可从会话列表长按切换的消息免打扰设置。
+**Goal:** 为单聊和群聊提供服务端持久化、客户端可同步并可从会话设置页切换的消息免打扰设置。
 
-**Architecture:** `im_conversation_member.muted` 作为当前账号在目标会话中的服务端权威状态，设置接口只允许当前登录用户更新自己的成员行。会话快照将状态同步到 SDK SQLite，移动端只从 SQLite 渲染并通过受控操作面板发起更新。
+**Architecture:** `im_conversation_member.muted` 作为当前账号在目标会话中的服务端权威状态，设置接口只允许当前登录用户更新自己的成员行。会话快照将状态同步到 SDK SQLite；单聊使用独立会话设置页，群聊复用群设置页，会话列表只展示同步后的状态。
 
 **Tech Stack:** Java 17、Spring Boot、MyBatis-Plus、TypeScript、SQLite、React Native、React Navigation。
 
@@ -30,8 +30,10 @@
 - 修改 `im-client/packages/im-sdk-core/src/store/migrations.ts`：增加 SQLite 字段。
 - 修改 `im-client/packages/im-sdk-core/src/store/messageStore.ts`：读写本地免打扰状态。
 - 修改 `im-client/packages/im-sdk-core/src/sync/syncService.ts`：同步快照并封装设置调用。
-- 新建 `im-client/packages/app-mobile/src/components/ConversationActionSheet.tsx`：承载会话级动作。
-- 修改 `im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx`：长按、设置、错误反馈与静音图标。
+- 新建 `im-client/packages/app-mobile/src/screens/ConversationSettingsScreen.tsx`：承载单聊会话级设置。
+- 修改 `im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx`：在群设置中承载免打扰开关。
+- 修改 `im-client/packages/app-mobile/src/screens/ChatScreen.tsx`、`navigation/types.ts` 与 `App.tsx`：接入设置页导航。
+- 修改 `im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx`：展示静音图标，不提供长按设置入口。
 - 修改 `docs/superpowers/plans/2026-07-29-im-client-HANDOFF.md`：记录验收和开发状态。
 
 ### Task 1: 服务端权威状态与设置接口
@@ -183,45 +185,38 @@ git diff -- im-client/packages/im-sdk-core/src/store/migrations.ts \
 git commit -m "功能(IM客户端)：同步会话免打扰状态"
 ```
 
-### Task 3: 会话列表长按交互
+### Task 3: 会话设置页交互
 
 **Files:**
-- Create: `im-client/packages/app-mobile/src/components/ConversationActionSheet.tsx`
+- Delete: `im-client/packages/app-mobile/src/components/ConversationActionSheet.tsx`
+- Create: `im-client/packages/app-mobile/src/screens/ConversationSettingsScreen.tsx`
+- Modify: `im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx`
+- Modify: `im-client/packages/app-mobile/src/screens/ChatScreen.tsx`
 - Modify: `im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx`
+- Modify: `im-client/packages/app-mobile/src/navigation/types.ts`
+- Modify: `im-client/packages/app-mobile/App.tsx`
 
 **Interfaces:**
 - Consumes: `ConversationRow.muted` 与 `sdk.sync.setConversationMuted(cid, muted)`。
-- Produces: 会话长按菜单、切换动作、静音图标和中文失败提示。
+- Produces: 单聊会话设置页、群设置开关、静音图标和中文失败提示。
 
-- [ ] **Step 1: 创建受控会话操作面板**
+- [ ] **Step 1: 创建单聊会话设置页**
 
-组件属性固定为：
-
-```ts
-interface Props {
-  visible: boolean;
-  muted: boolean;
-  busy: boolean;
-  onClose: () => void;
-  onToggleMuted: () => void;
-}
-```
-
-面板标题为“会话操作”，动作文本根据状态显示“消息免打扰”或“取消免打扰”；`busy` 时禁用关闭和重复提交，并显示“正在设置…”。
-
-- [ ] **Step 2: 接入长按并抑制误点击**
-
-`ConversationsScreen` 增加 `selectedConversation`、`mutating` 和每行长按标记。行 `onLongPress` 打开菜单，普通 `onPress` 在检测到刚发生长按时直接返回，否则进入聊天。设置 `delayLongPress={350}`。
-
-- [ ] **Step 3: 调用 SDK 并呈现状态**
-
-执行动作时调用：
+新增路由参数：
 
 ```ts
-await sdk.sync.setConversationMuted(selected.cid, !selected.muted);
+ConversationSettings: { cid: string; title: string };
 ```
 
-成功关闭菜单并重读 SQLite；失败保留菜单状态并设置中文错误 `设置消息免打扰失败：…`。在标题行展示 `volume-mute-outline` 图标，无障碍描述包含“已开启消息免打扰”。
+页面从 `sdk.sync.getConversations()` 读取目标行，监听目标 cid 的 `conversation` 事件；使用 `Switch` 调用 `setConversationMuted`，执行期间禁用重复提交，失败显示 `设置消息免打扰失败：…`。
+
+- [ ] **Step 2: 在群设置接入相同开关**
+
+`GroupDetailsScreen` 从 SQLite 读取目标会话的 `muted`，监听会话事件并使用相同 SDK 方法更新。该设置属于当前账号，不与群成员“禁言”混用。
+
+- [ ] **Step 3: 调整聊天页和会话列表**
+
+聊天页始终显示右上角设置按钮：群聊进入 `GroupDetails`，单聊进入 `ConversationSettings`。删除 `ConversationActionSheet` 和会话列表的长按、更新与错误状态，只保留 `row.muted` 静音图标和无障碍描述。
 
 - [ ] **Step 4: 静态验证移动端和 Lint 基线**
 
@@ -230,18 +225,23 @@ Run:
 ```bash
 cd im-client
 npx tsc -p packages/app-mobile --noEmit
-npx eslint packages/app-mobile/src/components/ConversationActionSheet.tsx \
+npx eslint packages/app-mobile/src/screens/ConversationSettingsScreen.tsx \
+  packages/app-mobile/src/screens/GroupDetailsScreen.tsx \
   packages/app-mobile/src/screens/ConversationsScreen.tsx
 ```
 
-Expected: TypeScript exit code `0`；新增组件无 ESLint 错误。若页面存在既有告警，使用功能前提交作输入对比，错误和警告数量不得增加。
+Expected: TypeScript exit code `0`；新增页面无 ESLint 错误。既有页面使用修订前提交作输入对比，错误和警告数量不得增加。
 
 - [ ] **Step 5: 审查并提交移动端交互**
 
 ```bash
-git diff -- im-client/packages/app-mobile/src/components/ConversationActionSheet.tsx \
+git diff -- im-client/packages/app-mobile/App.tsx \
+  im-client/packages/app-mobile/src/navigation/types.ts \
+  im-client/packages/app-mobile/src/screens/ConversationSettingsScreen.tsx \
+  im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx \
+  im-client/packages/app-mobile/src/screens/ChatScreen.tsx \
   im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx
-git commit -m "功能(IM客户端)：支持会话消息免打扰"
+git commit -m "修复(IM客户端)：将免打扰移入会话设置"
 ```
 
 ### Task 4: 交接记录与最终静态验证
