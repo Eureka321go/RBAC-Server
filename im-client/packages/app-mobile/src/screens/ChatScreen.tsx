@@ -13,7 +13,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import type { ChatMessage, GroupMember, GroupRole } from '@im/sdk-core';
+import {
+  buildMessageQuote,
+  canQuoteMessage,
+  normalizeMessageQuote,
+  type ChatMessage,
+  type GroupMember,
+  type GroupRole,
+  type MessageQuote,
+} from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
@@ -36,6 +44,7 @@ import { VoiceComposerControl } from '../components/VoiceComposerControl';
 import { VoiceMessageContent } from '../components/VoiceMessageContent';
 import { VoiceRecordingOverlay } from '../components/VoiceRecordingOverlay';
 import { LinkCardContent } from '../components/LinkCardContent';
+import { MessageQuoteContent } from '../components/MessageQuoteContent';
 import { useVoiceRecording } from '../voice/useVoiceRecording';
 import {
   voiceMessageKey,
@@ -96,6 +105,10 @@ function sendErrorText(reason: string): string {
   switch (reason) {
     case 'MENTION_NOT_MEMBER': return '提及的成员已不在群聊中';
     case 'MENTION_ALL_FORBIDDEN': return '只有群主或管理员可以@所有人';
+    case 'QUOTE_TARGET_INVALID': return '引用的消息信息无效';
+    case 'QUOTE_TARGET_NOT_FOUND': return '引用的原消息不存在';
+    case 'QUOTE_TARGET_RECALLED': return '引用的原消息已撤回';
+    case 'QUOTE_TARGET_UNSUPPORTED': return '这类消息暂不支持引用';
     default: return `发送失败：${reason}`;
   }
 }
@@ -164,6 +177,8 @@ export function ChatScreen({ route, navigation }: Props) {
   const [mentionPickerVisible, setMentionPickerVisible] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
+  const [quoteDraft, setQuoteDraft] = useState<MessageQuote | null>(null);
+  const [highlightedSeq, setHighlightedSeq] = useState<number | null>(null);
   const [recallingSeq, setRecallingSeq] = useState<number | null>(null);
   const [attachmentPickerVisible, setAttachmentPickerVisible] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -179,7 +194,9 @@ export function ChatScreen({ route, navigation }: Props) {
   activeCidRef.current = cid;
   // 横幅自动消失的定时器；每次新错误到来时需要清掉旧的，重新计时 3 秒。
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<TextInput>(null);
+  const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const showBanner = useCallback((message: string) => {
     if (!mountedRef.current) return;
@@ -315,6 +332,8 @@ export function ChatScreen({ route, navigation }: Props) {
     setPeerReadSeq(null);
     setBanner(null);
     setSelectedMessage(null);
+    setQuoteDraft(null);
+    setHighlightedSeq(null);
     setRecallingSeq(null);
     setDraft(emptyMentionDraft());
     setDraftSelection({ start: 0, end: 0 });
@@ -377,6 +396,10 @@ export function ChatScreen({ route, navigation }: Props) {
         clearTimeout(bannerTimerRef.current);
         bannerTimerRef.current = null;
       }
+      if (highlightTimerRef.current != null) {
+        clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = null;
+      }
       offMsg();
       offRead();
       offConnection();
@@ -399,6 +422,21 @@ export function ChatScreen({ route, navigation }: Props) {
     return { data: visible.reverse(), recallOperators: operators };
   }, [items]);
 
+  const locateQuotedMessage = useCallback((targetSeq: number) => {
+    const index = data.findIndex((message) => message.seq === targetSeq);
+    if (index < 0) {
+      showBanner('原消息暂未加载');
+      return;
+    }
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    setHighlightedSeq(targetSeq);
+    if (highlightTimerRef.current != null) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => {
+      highlightTimerRef.current = null;
+      if (mountedRef.current) setHighlightedSeq(null);
+    }, 1600);
+  }, [data, showBanner]);
+
   useEffect(() => {
     const activeKey = voicePlaybackCoordinator.getSnapshot().key;
     if (activeKey == null) return;
@@ -410,13 +448,17 @@ export function ChatScreen({ route, navigation }: Props) {
   const send = useCallback(async () => {
     const { text } = draft;
     if (text.trim() === '') return;
-    const options = toSendTextOptions(draft);
+    const options = {
+      ...toSendTextOptions(draft),
+      quote: quoteDraft ?? undefined,
+    };
+    await sdk.chat.sendText(cid, text, options);
     setDraft(emptyMentionDraft());
     setDraftSelection({ start: 0, end: 0 });
     setMentionTrigger(null);
     setMentionPickerVisible(false);
-    await sdk.chat.sendText(cid, text, options);
-  }, [cid, draft]);
+    setQuoteDraft(null);
+  }, [cid, draft, quoteDraft]);
 
   const toggleVoiceMode = useCallback(async () => {
     if (voiceMode) {
@@ -495,6 +537,31 @@ export function ChatScreen({ route, navigation }: Props) {
     setMentionTrigger(null);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [closeMentionPicker, draft, mentionTrigger]);
+
+  const senderNameForMessage = useCallback((message: ChatMessage): string => {
+    const mine = message.senderId === myId;
+    if (mine) {
+      return myDisplayName?.trim() || (myId == null ? '我' : `用户 #${myId}`);
+    }
+    if (conversationType === 'GROUP') {
+      return message.senderId == null
+        ? '未知用户'
+        : namesById.get(message.senderId)?.trim() || `用户 #${message.senderId}`;
+    }
+    return displayTitle;
+  }, [conversationType, displayTitle, myDisplayName, myId, namesById]);
+
+  const quoteSelected = useCallback(() => {
+    const message = selectedMessage;
+    if (message == null) return;
+    const quote = buildMessageQuote(message, senderNameForMessage(message));
+    setSelectedMessage(null);
+    if (quote == null) {
+      showBanner('这条消息当前不能引用');
+      return;
+    }
+    setQuoteDraft(quote);
+  }, [selectedMessage, senderNameForMessage, showBanner]);
 
   const recallSelected = useCallback(async () => {
     const message = selectedMessage;
@@ -604,10 +671,12 @@ export function ChatScreen({ route, navigation }: Props) {
       />
       {banner ? <View style={styles.banner}><StatusNotice message={banner} tone="error" /></View> : null}
       <FlatList
+        ref={listRef}
         inverted
         contentContainerStyle={styles.messageList}
         data={data}
         keyExtractor={(m) => (m.seq != null ? `s:${m.seq}` : `c:${m.clientMsgId}`)}
+        onScrollToIndexFailed={() => showBanner('原消息暂未加载')}
         renderItem={({ item }) => {
           if (item.recalled) {
             const operatorId = item.seq == null ? null : recallOperators.get(item.seq);
@@ -651,8 +720,14 @@ export function ChatScreen({ route, navigation }: Props) {
             conversationType,
             myGroupRole,
           );
-          const openMessageActions = recallable ? () => {
-            if (canRecallMessage(item, myId, conversationType, myGroupRole)) {
+          const quotable = canQuoteMessage(item);
+          const actionable = recallable || quotable;
+          const messageQuote = item.type === 'TEXT'
+            ? normalizeMessageQuote(item.body?.quote)
+            : null;
+          const openMessageActions = actionable ? () => {
+            if (canQuoteMessage(item)
+              || canRecallMessage(item, myId, conversationType, myGroupRole)) {
               setSelectedMessage(item);
             }
           } : undefined;
@@ -671,14 +746,15 @@ export function ChatScreen({ route, navigation }: Props) {
                 ) : null}
                 <Pressable
                   accessible
-                  accessibilityHint={recallable ? '长按打开消息操作' : undefined}
+                  accessibilityHint={actionable ? '长按打开消息操作' : undefined}
                   delayLongPress={350}
                   onLongPress={openMessageActions}
                   style={({ pressed }) => [
                     styles.bubble,
                     mine ? styles.bubbleMine : styles.bubblePeer,
                     item.type === 'IMAGE' && styles.imageBubble,
-                    pressed && recallable && styles.bubblePressed,
+                    item.seq === highlightedSeq && styles.bubbleHighlighted,
+                    pressed && actionable && styles.bubblePressed,
                   ]}
                 >
                   {item.type === 'AUDIO' && myId != null ? (
@@ -701,6 +777,15 @@ export function ChatScreen({ route, navigation }: Props) {
                     />
                   ) : (
                     <View>
+                      {messageQuote == null ? null : (
+                        <MessageQuoteContent
+                          quote={messageQuote}
+                          mode="message"
+                          recalled={recallOperators.has(messageQuote.targetSeq)}
+                          onPress={() => locateQuotedMessage(messageQuote.targetSeq)}
+                          onLongPress={openMessageActions}
+                        />
+                      )}
                       <MentionText body={item.body} />
                       {item.type === 'TEXT' ? (
                         <LinkCardContent
@@ -745,6 +830,13 @@ export function ChatScreen({ route, navigation }: Props) {
         }}
       />
       <SafeAreaView edges={['bottom']} style={styles.composerSafeArea}>
+        {quoteDraft == null ? null : (
+          <MessageQuoteContent
+            quote={quoteDraft}
+            mode="composer"
+            onClose={() => setQuoteDraft(null)}
+          />
+        )}
         <View style={styles.composer}>
           <IconButton
             name="add-circle-outline"
@@ -792,7 +884,15 @@ export function ChatScreen({ route, navigation }: Props) {
       </SafeAreaView>
       <MessageActionSheet
         visible={selectedMessage != null}
+        canQuote={selectedMessage != null && canQuoteMessage(selectedMessage)}
+        canRecall={selectedMessage != null && canRecallMessage(
+          selectedMessage,
+          myId,
+          conversationType,
+          myGroupRole,
+        )}
         onClose={() => setSelectedMessage(null)}
+        onQuote={quoteSelected}
         onRecall={() => void recallSelected()}
       />
       <MentionPickerSheet
@@ -837,6 +937,7 @@ const styles = StyleSheet.create({
   imageBubble: { paddingHorizontal: 2, paddingVertical: 2 },
   bubbleMine: { backgroundColor: COLORS.messageMine },
   bubblePeer: { backgroundColor: COLORS.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border },
+  bubbleHighlighted: { borderWidth: 2, borderColor: COLORS.primary },
   bubblePressed: { opacity: 0.72 },
   deliveryStatus: { alignSelf: 'flex-end', color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
   systemRow: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.xs },
