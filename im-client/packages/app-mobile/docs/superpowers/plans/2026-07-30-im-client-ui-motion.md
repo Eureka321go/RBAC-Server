@@ -429,7 +429,7 @@ Expected: tests and TypeScript pass before commit.
 - Consumes: `useAppStore`, `useAppTheme`, `ThemeMode`, and shared primitives.
 - Produces: working appearance selection and logout with no dead rows.
 
-- [ ] **Step 1: Write failing appearance tests**
+- [x] **Step 1: Write failing appearance tests**
 
 ```tsx
 async function renderProfileScreen() {
@@ -451,13 +451,13 @@ test('offers all appearance choices and logout', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/ProfileScreen.test.tsx
 ```
 
-- [ ] **Step 3: Implement exact options and supported content**
+- [x] **Step 3: Implement exact options and supported content**
 
 ```ts
 const APPEARANCE_OPTIONS = [
@@ -469,11 +469,11 @@ const APPEARANCE_OPTIONS = [
 
 Render `我的`, current avatar, display name, IM ID, connection state, the three appearance choices, and a danger-style logout button. Omit notification, storage, privacy, and help rows because they have no working destinations.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/ProfileScreen.test.tsx
-git add im-client/packages/app-mobile/src/screens/ProfileScreen.tsx im-client/packages/app-mobile/src/components/AppearanceSelector.tsx im-client/packages/app-mobile/__tests__/ProfileScreen.test.tsx
+git add im-client/packages/app-mobile/src/screens/ProfileScreen.tsx im-client/packages/app-mobile/src/components/AppearanceSelector.tsx im-client/packages/app-mobile/__tests__/ProfileScreen.test.tsx im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "新增(IM客户端): 完成我的与外观设置"
 ```
 
