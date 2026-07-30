@@ -279,22 +279,24 @@ export function ChatScreen({ route, navigation }: Props) {
     onEnqueued: safeReload,
     onError: showVoiceError,
   });
+  const cancelVoiceRecording = voiceRecording.cancel;
+  const ensureVoicePermission = voiceRecording.ensurePermission;
 
   useFocusEffect(useCallback(() => () => {
-    void voiceRecording.cancel();
+    void cancelVoiceRecording();
     void voicePlaybackCoordinator.pause();
-  }, [voiceRecording.cancel]));
+  }, [cancelVoiceRecording]));
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') {
         setEmojiPickerVisible(false);
-        void voiceRecording.cancel();
+        void cancelVoiceRecording();
         void voicePlaybackCoordinator.pause();
       }
     });
     return () => subscription.remove();
-  }, [voiceRecording.cancel]);
+  }, [cancelVoiceRecording]);
 
   useFocusEffect(useCallback(() => {
     if (conversationType !== 'GROUP' || groupId == null) {
@@ -433,10 +435,10 @@ export function ChatScreen({ route, navigation }: Props) {
       offConnection();
       offErr();
       offRecall();
-      void voiceRecording.cancel();
+      void cancelVoiceRecording();
       void voicePlaybackCoordinator.stop();
     };
-  }, [cid, safeReload, showBanner, syncOnOpen, voiceRecording.cancel]);
+  }, [cancelVoiceRecording, cid, safeReload, showBanner, syncOnOpen]);
 
   // inverted 列表要倒序数据：最新的在数组头部。
   const { data, recallOperators } = useMemo(() => {
@@ -533,7 +535,7 @@ export function ChatScreen({ route, navigation }: Props) {
     }
     let permission;
     try {
-      permission = await voiceRecording.ensurePermission();
+      permission = await ensureVoicePermission();
     } catch {
       showVoiceError('VOICE_PERMISSION_UNAVAILABLE');
       return;
@@ -555,7 +557,7 @@ export function ChatScreen({ route, navigation }: Props) {
       return;
     }
     showVoiceError(`VOICE_PERMISSION_${permission.toUpperCase()}`);
-  }, [showVoiceError, voiceMode, voiceRecording.ensurePermission]);
+  }, [ensureVoicePermission, showVoiceError, voiceMode]);
 
   const excludedMentionUserIds = useMemo(
     () => new Set(toSendTextOptions(draft).mentions ?? []),

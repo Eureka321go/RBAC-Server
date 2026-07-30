@@ -35,6 +35,67 @@
 
 ---
 
+### Task 0: Restore the Existing Test and Lint Baseline
+
+**Files:**
+- Modify: `package.json`
+- Modify: `../../package-lock.json`
+- Modify: `jest.config.js`
+- Modify: `src/screens/ChatScreen.tsx`
+- Modify: `__tests__/App.test.tsx`
+
+**Interfaces:**
+- Produces: a resolvable React Native 0.86 Jest preset and stable voice callback dependencies.
+
+- [x] **Step 1: Reproduce the Jest and lint failures**
+
+```bash
+npm test -- --runInBand
+npm run lint -- --quiet
+```
+
+Expected before the fix: missing `@react-native/jest-preset` and four exhaustive-deps errors for voice recording callbacks.
+
+- [x] **Step 2: Install the matching Jest preset**
+
+```bash
+npm install --workspace app-mobile --save-dev @react-native/jest-preset@0.86.0
+```
+
+- [x] **Step 3: Isolate the App smoke test and alias stable voice callbacks**
+
+Allow Babel to transform the ESM packages published by React Navigation 7:
+
+```js
+transformIgnorePatterns: [
+  'node_modules/(?!((jest-)?react-native(-.*)?|@react-native(-community)?|@react-navigation)/)',
+],
+```
+
+Then alias stable voice callbacks:
+
+```ts
+const voiceRecording = useVoiceRecording(options);
+const cancelVoiceRecording = voiceRecording.cancel;
+const ensureVoicePermission = voiceRecording.ensurePermission;
+```
+
+Use the aliases inside the four affected callbacks and dependency arrays. Do not depend on the complete `voiceRecording` result object because the hook returns a new object each render.
+
+Mock the SDK-backed store, screens, safe-area provider, and navigation containers in `App.test.tsx` so this routing smoke test does not initialize Keychain, SQLite, or message transports.
+
+- [x] **Step 4: Verify and commit**
+
+```bash
+npm test -- --runInBand
+npm run lint -- --quiet
+npx tsc --noEmit
+git add im-client/package-lock.json im-client/packages/app-mobile/package.json im-client/packages/app-mobile/jest.config.js im-client/packages/app-mobile/src/screens/ChatScreen.tsx im-client/packages/app-mobile/__tests__/App.test.tsx im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
+git commit -m "修复(IM客户端): 恢复测试与静态检查基线"
+```
+
+Expected: Jest, lint, and TypeScript all exit 0.
+
 ### Task 1: Install the Three Approved UI Dependencies
 
 **Files:**
