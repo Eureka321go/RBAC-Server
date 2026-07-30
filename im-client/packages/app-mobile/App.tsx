@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, StatusBar } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -19,6 +19,7 @@ import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
 import { RootTabs } from './src/navigation/RootTabs';
+import { BrandedLoadingState } from './src/components/BrandedLoadingState';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -26,6 +27,7 @@ function AppContent() {
   const booted = useAppStore((x) => x.booted);
   const boot = useAppStore((x) => x.boot);
   const loggedIn = useAppStore((x) => x.loggedIn);
+  const error = useAppStore((x) => x.error);
   const { theme } = useAppTheme();
   const navigationTheme = useMemo(() => {
     const baseTheme = theme.isDark ? DarkTheme : DefaultTheme;
@@ -47,11 +49,7 @@ function AppContent() {
   }, [boot]);
 
   if (!booted) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.colors.page }]}>
-        <Text style={{ color: theme.colors.textSecondary }}>初始化本地数据库…</Text>
-      </View>
-    );
+    return <BrandedLoadingState error={error} />;
   }
 
   return (
@@ -102,9 +100,5 @@ function App() {
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-});
 
 export default App;

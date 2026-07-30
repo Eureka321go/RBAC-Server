@@ -491,7 +491,7 @@ git commit -m "新增(IM客户端): 完成我的与外观设置"
 **Interfaces:**
 - Produces: approved root-screen hierarchy with unchanged SDK calls.
 
-- [ ] **Step 1: Write failing conversation row semantics test**
+- [x] **Step 1: Write failing conversation row semantics test**
 
 ```tsx
 const baseRow = {
@@ -524,17 +524,17 @@ test('announces mentions, mute, preview, and unread count', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/ConversationRowView.test.tsx
 ```
 
-- [ ] **Step 3: Implement bootstrap and login visuals**
+- [x] **Step 3: Implement bootstrap and login visuals**
 
 `BrandedLoadingState` renders animated ambient circles, group avatar, `正在准备安全会话`, and any initialization error. Login uses themed layered gradients, elevated form surface, existing fields, existing login call, and existing error notice. Credential handling remains unchanged.
 
-- [ ] **Step 4: Extract and redesign conversation row**
+- [x] **Step 4: Extract and redesign conversation row**
 
 ```ts
 interface ConversationRowViewProps {
@@ -545,21 +545,21 @@ interface ConversationRowViewProps {
 
 Render avatar, title, time, preview, mention, unread badge, and mute icon. Stagger only the first five visible rows; later rows have no added delay.
 
-- [ ] **Step 5: Redesign Chats while preserving subscriptions**
+- [x] **Step 5: Redesign Chats while preserving subscriptions**
 
 Keep `reload`, `refresh`, `sdk.chat.on('conversation')`, and `sdk.chat.on('syncState')` unchanged. Render a date eyebrow, `聊天`, account/presence chip, search-shaped header, two 44-point creation actions, pull-to-refresh, local-content fallback, and current empty state.
 
-- [ ] **Step 6: Redesign Contacts as a root tab**
+- [x] **Step 6: Redesign Contacts as a root tab**
 
 Render `通讯录`, `快速找到团队里的每个人`, directory search, departments, and working organization/group shortcuts. Preserve directory loading, mounted guards, manual ID fallback, direct-conversation creation, and error copy.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/ConversationRowView.test.tsx __tests__/App.test.tsx
 npx tsc --noEmit
 npm run lint -- --quiet
-git add im-client/packages/app-mobile/App.tsx im-client/packages/app-mobile/src/screens/LoginScreen.tsx im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx im-client/packages/app-mobile/src/screens/ContactsScreen.tsx im-client/packages/app-mobile/src/components/BrandedLoadingState.tsx im-client/packages/app-mobile/src/components/ConversationRowView.tsx im-client/packages/app-mobile/__tests__
+git add im-client/packages/app-mobile/App.tsx im-client/packages/app-mobile/src/screens/LoginScreen.tsx im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx im-client/packages/app-mobile/src/screens/ContactsScreen.tsx im-client/packages/app-mobile/src/components/BrandedLoadingState.tsx im-client/packages/app-mobile/src/components/ConversationRowView.tsx im-client/packages/app-mobile/__tests__/ConversationRowView.test.tsx im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "界面(IM客户端): 升级登录聊天与通讯录"
 ```
 

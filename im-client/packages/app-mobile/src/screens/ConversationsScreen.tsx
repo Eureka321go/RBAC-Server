@@ -1,15 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import type { ConversationRow } from '@im/sdk-core';
-import { sdk } from '../sdk';
-import { useAppStore } from '../store';
-import { GroupAvatar, InitialAvatar } from '../components/Avatar';
+import { InitialAvatar } from '../components/Avatar';
+import { ConversationRowView } from '../components/ConversationRowView';
 import { IconButton } from '../components/IconButton';
+import { PresenceDot } from '../components/PresenceDot';
 import { StatusNotice } from '../components/StatusNotice';
 import { formatConversationTime } from '../conversation/conversationTime';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 import type { RootTabScreenProps } from '../navigation/types';
+import { sdk } from '../sdk';
+import { useAppStore } from '../store';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Props = RootTabScreenProps<'ChatsTab'>;
 
@@ -27,15 +31,23 @@ function titleOf(row: ConversationRow, myId: number | null): string {
   return `用户 #${left === myId ? right : left}`;
 }
 
+function currentDateLabel(): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }).format(new Date());
+}
+
 export function ConversationsScreen({ navigation }: Props) {
   const myId = useAppStore((state) => state.myId);
   const displayName = useAppStore((state) => state.displayName);
   const connState = useAppStore((state) => state.connState);
-  const logout = useAppStore((state) => state.logout);
   const [items, setItems] = useState<ConversationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const { theme } = useAppTheme();
 
   const reload = useCallback(async () => {
     const rows = await sdk.sync.getConversations();
@@ -48,9 +60,7 @@ export function ConversationsScreen({ navigation }: Props) {
     try {
       await sdk.sync.syncAll();
     } catch (cause) {
-      if (mountedRef.current) {
-        setError(cause instanceof Error ? cause.message : '同步失败');
-      }
+      if (mountedRef.current) setError(cause instanceof Error ? cause.message : '同步失败');
     } finally {
       if (mountedRef.current) {
         setRefreshing(false);
@@ -76,74 +86,66 @@ export function ConversationsScreen({ navigation }: Props) {
     };
   }, [reload]);
 
-  const connectionMeta = connState === 'connected'
-    ? { color: COLORS.success, label: '在线' }
+  const statusColor = connState === 'connected'
+    ? theme.colors.success
     : connState === 'closed'
-      ? { color: COLORS.danger, label: '离线' }
-      : { color: COLORS.warning, label: '连接中' };
+      ? theme.colors.danger
+      : theme.colors.warning;
+  const statusLabel = connState === 'connected' ? '在线' : connState === 'closed' ? '离线' : '连接中';
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
-        <View style={styles.headerTopLine}>
-          <View style={styles.profile}>
-            <View
-              accessible
-              accessibilityLabel={`连接状态：${connectionMeta.label}`}
-              style={styles.avatarWrap}
-            >
-              <InitialAvatar name={displayName} userId={myId} size={46} />
-              <View style={[styles.connectionDot, { backgroundColor: connectionMeta.color }]} />
+    <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
+      <LinearGradient
+        colors={theme.isDark ? ['#151C2D', '#11182A'] : ['#FFFFFF', '#EEF3FF']}
+        style={[styles.header, { borderBottomColor: theme.colors.border }]}
+      >
+        <View style={styles.accountLine}>
+          <View style={styles.account}>
+            <View style={styles.avatarWrap}>
+              <InitialAvatar name={displayName} userId={myId} size={44} />
+              <PresenceDot color={statusColor} size={11} style={styles.statusDot} />
             </View>
-            <View style={styles.profileText}>
-              <Text style={styles.accountLabel}>当前账号</Text>
-              <Text style={styles.displayName} numberOfLines={1}>
+            <View style={styles.accountCopy}>
+              <Text style={[styles.accountName, { color: theme.colors.text }]} numberOfLines={1}>
                 {displayName || `用户 #${myId ?? ''}`}
               </Text>
+              <Text style={[styles.accountStatus, { color: statusColor }]}>{statusLabel}</Text>
             </View>
           </View>
           <View style={styles.actions}>
             <IconButton
               name="person-add-outline"
               accessibilityLabel="发起单聊"
-              backgroundColor={COLORS.primarySoft}
-              color={COLORS.primary}
-              size={21}
-              style={styles.actionButton}
+              backgroundColor={theme.colors.primarySoft}
+              color={theme.colors.primary}
               onPress={() => navigation.navigate('ContactsTab')}
             />
             <IconButton
               name="people-outline"
               accessibilityLabel="创建群聊"
-              backgroundColor={COLORS.primarySoft}
-              color={COLORS.primary}
-              size={21}
-              style={styles.actionButton}
+              backgroundColor={theme.colors.primarySoft}
+              color={theme.colors.primary}
               onPress={() => navigation.navigate('CreateGroup')}
-            />
-            <IconButton
-              name="log-out-outline"
-              accessibilityLabel="退出登录"
-              backgroundColor={COLORS.dangerSoft}
-              color={COLORS.danger}
-              size={21}
-              style={styles.actionButton}
-              onPress={() => void logout()}
             />
           </View>
         </View>
-        <Text style={styles.pageTitle}>消息</Text>
-        <Text style={styles.pageSubtitle}>
-          {items.length > 0 ? `${items.length} 个会话` : '与同事保持联系'}
-        </Text>
-      </View>
+        <Text style={[styles.date, { color: theme.colors.textMuted }]}>{currentDateLabel()}</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>聊天</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>保持专注，也保持连接</Text>
+        <View style={[styles.search, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
+          <Text style={[styles.searchText, { color: theme.colors.textMuted }]}>搜索会话、消息与联系人</Text>
+        </View>
+      </LinearGradient>
+
       {error ? (
         <View style={styles.notice}>
           <StatusNotice message={`同步失败：${error}（本地消息仍可查看）`} tone="error" />
         </View>
       ) : null}
+
       <FlatList
-        style={styles.listSurface}
+        style={[styles.listSurface, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
         contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
         data={items}
         keyExtractor={(item) => item.cid}
@@ -151,23 +153,25 @@ export function ConversationsScreen({ navigation }: Props) {
         onRefresh={() => void refresh()}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="chatbubbles-outline" size={30} color={COLORS.primary} />
+            <View style={[styles.emptyIcon, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="chatbubbles-outline" size={31} color={theme.colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>{refreshing ? '正在同步会话' : '还没有消息'}</Text>
-            <Text style={styles.emptyDescription}>
-              {refreshing ? '请稍候，正在获取最新内容…' : '点击右上角按钮发起单聊或创建群聊'}
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              {refreshing ? '正在同步会话' : '还没有消息'}
+            </Text>
+            <Text style={[styles.emptyDescription, { color: theme.colors.textSecondary }]}>
+              {refreshing ? '请稍候，正在获取最新内容…' : '前往通讯录找到同事，或创建一个群聊'}
             </Text>
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const title = titleOf(item, myId);
-          const time = formatConversationTime(item.lastMsgTs);
           return (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${title}，${item.muted ? '已开启消息免打扰，' : ''}${item.lastMsgPreview || '暂无消息'}${item.unreadCount > 0 ? `，${item.unreadCount} 条未读` : ''}`}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            <ConversationRowView
+              row={item}
+              title={title}
+              formattedTime={formatConversationTime(item.lastMsgTs)}
+              entranceIndex={index}
               onPress={() => navigation.navigate('Chat', {
                 cid: item.cid,
                 title,
@@ -175,44 +179,7 @@ export function ConversationsScreen({ navigation }: Props) {
                 groupId: item.groupId ?? undefined,
                 syncOnOpen: true,
               })}
-            >
-              <View style={styles.avatarSlot}>
-                {item.type === 'GROUP' ? (
-                  <GroupAvatar size={48} />
-                ) : (
-                  <InitialAvatar name={title} userId={item.peerId} size={48} />
-                )}
-                {item.unreadCount > 0 ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.content}>
-                <View style={styles.titleLine}>
-                  <Text style={styles.title} numberOfLines={1}>{title}</Text>
-                </View>
-                <View style={styles.previewLine}>
-                  {item.hasMention ? <Text style={styles.mention}>[有人@我]</Text> : null}
-                  <Text style={styles.preview} numberOfLines={1}>
-                    {item.lastMsgPreview || '暂无消息'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.meta}>
-                {time ? <Text style={styles.time}>{time}</Text> : <View />}
-                {item.muted ? (
-                  <Ionicons
-                    accessibilityLabel="已开启消息免打扰"
-                    name="volume-mute-outline"
-                    size={16}
-                    color={COLORS.textMuted}
-                  />
-                ) : <View />}
-              </View>
-            </Pressable>
+            />
           );
         }}
       />
@@ -221,112 +188,51 @@ export function ConversationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: COLORS.page },
+  page: { flex: 1 },
   header: {
     paddingTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderBottomLeftRadius: RADIUS.lg,
-    borderBottomRightRadius: RADIUS.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
   },
-  headerTopLine: {
+  accountLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  account: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatarWrap: { position: 'relative' },
+  statusDot: { position: 'absolute', right: -2, bottom: 0, borderWidth: 2, borderColor: '#FFFFFF' },
+  accountCopy: { flex: 1, minWidth: 0 },
+  accountName: { fontSize: 14, fontWeight: '800' },
+  accountStatus: { marginTop: 2, fontSize: 10, fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: SPACING.xs },
+  date: { marginTop: SPACING.lg, fontSize: TYPE.caption, fontWeight: '600' },
+  title: { marginTop: 2, fontSize: 30, lineHeight: 38, fontWeight: '900', letterSpacing: -0.8 },
+  subtitle: { marginTop: 2, fontSize: TYPE.caption },
+  search: {
+    height: 44,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: SPACING.xs,
   },
-  profile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatarWrap: { position: 'relative' },
-  connectionDot: {
-    position: 'absolute',
-    right: -1,
-    bottom: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: COLORS.surface,
-  },
-  profileText: { flex: 1, minWidth: 0 },
-  accountLabel: { color: COLORS.textMuted, fontSize: TYPE.caption, marginBottom: 2 },
-  displayName: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
-  actions: { marginLeft: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionButton: { width: 44, height: 44 },
-  pageTitle: {
-    marginTop: SPACING.lg,
-    color: COLORS.text,
-    fontSize: TYPE.hero,
-    lineHeight: 34,
-    fontWeight: '800',
-  },
-  pageSubtitle: { marginTop: 2, color: COLORS.textSecondary, fontSize: TYPE.caption },
+  searchText: { fontSize: 13 },
   notice: { marginHorizontal: SPACING.md, marginTop: SPACING.sm },
   listSurface: {
-    margin: SPACING.md,
+    flex: 1,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
     marginBottom: 0,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
+    overflow: 'hidden',
   },
-  list: { paddingHorizontal: SPACING.md },
-  emptyList: { flexGrow: 1, paddingHorizontal: SPACING.xl },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 80 },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primarySoft,
-  },
-  emptyTitle: { marginTop: SPACING.md, color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '700' },
-  emptyDescription: {
-    marginTop: SPACING.xs,
-    color: COLORS.textSecondary,
-    fontSize: TYPE.body,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 80,
-    paddingHorizontal: 0,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
-  },
-  rowPressed: { backgroundColor: COLORS.surfaceMuted },
-  avatarSlot: { position: 'relative' },
-  content: { flex: 1, minWidth: 0, gap: 6 },
-  titleLine: { flexDirection: 'row', alignItems: 'center' },
-  title: { flex: 1, minWidth: 0, fontSize: 16, fontWeight: '700', color: COLORS.text },
-  meta: {
-    width: 56,
-    minHeight: 48,
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  time: { color: COLORS.textMuted, fontSize: TYPE.caption, textAlign: 'right' },
-  previewLine: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  mention: { flexShrink: 0, marginRight: 4, color: COLORS.danger, fontSize: TYPE.caption, fontWeight: '600' },
-  preview: { flex: 1, minWidth: 0, color: COLORS.textSecondary, fontSize: 14 },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -8,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 5,
-    borderRadius: 10,
-    backgroundColor: COLORS.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.surface,
-  },
-  badgeText: { color: COLORS.white, fontSize: 10, fontWeight: '700' },
+  list: { paddingHorizontal: SPACING.md, paddingBottom: 92 },
+  emptyList: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: 92 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 56 },
+  emptyIcon: { width: 66, height: 66, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { marginTop: SPACING.md, fontSize: TYPE.subtitle, fontWeight: '800' },
+  emptyDescription: { marginTop: SPACING.xs, fontSize: TYPE.body, lineHeight: 22, textAlign: 'center' },
 });
