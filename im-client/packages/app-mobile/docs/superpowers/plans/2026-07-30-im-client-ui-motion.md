@@ -150,7 +150,7 @@ git commit -m "构建(IM客户端): 添加主题导航视觉依赖"
 - Produces: `ThemeMode`, `AppTheme`, `LIGHT_THEME`, `DARK_THEME`, `loadThemeMode`, `saveThemeMode`, `ThemeProvider`, and `useAppTheme`.
 - Consumers: every component and screen in later tasks.
 
-- [ ] **Step 1: Write failing palette and preference tests**
+- [x] **Step 1: Write failing palette and preference tests**
 
 ```ts
 test('palettes expose readable semantic roles', () => {
@@ -168,7 +168,7 @@ test.each([
 });
 ```
 
-- [ ] **Step 2: Run tests and confirm failure**
+- [x] **Step 2: Run tests and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/theme.test.ts __tests__/themePreference.test.ts
@@ -176,7 +176,7 @@ npm test -- --runInBand __tests__/theme.test.ts __tests__/themePreference.test.t
 
 Expected: FAIL because the semantic exports do not exist.
 
-- [ ] **Step 3: Implement stable theme types and palettes**
+- [x] **Step 3: Implement stable theme types and palettes**
 
 ```ts
 export interface ThemeColors {
@@ -198,7 +198,7 @@ export interface AppTheme {
 
 Use `#F3F6FF`, `#FFFFFF`, `#151B2B`, and `#5272EF` as light page, surface, text, and primary. Use `#0A0E1B`, `#151C2D`, `#F2F4FF`, and `#B188FF` for the dark equivalents. Every key above must exist in both palettes.
 
-- [ ] **Step 4: Implement non-blocking preference persistence**
+- [x] **Step 4: Implement non-blocking preference persistence**
 
 ```ts
 const THEME_MODE_KEY = '@im/app-mobile/theme-mode';
@@ -218,7 +218,7 @@ export async function saveThemeMode(mode: ThemeMode): Promise<void> {
 }
 ```
 
-- [ ] **Step 5: Implement provider resolution**
+- [x] **Step 5: Implement provider resolution**
 
 ```tsx
 export interface AppThemeContextValue {
@@ -231,11 +231,11 @@ export interface AppThemeContextValue {
 
 `ThemeProvider` loads once, resolves `dark` when mode is dark or when system mode reports dark, reacts to subsequent system changes, updates state before persistence, and exposes the interface through `useAppTheme`.
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 ```bash
 npm test -- --runInBand __tests__/theme.test.ts __tests__/themePreference.test.ts
-git add im-client/packages/app-mobile/src/ui im-client/packages/app-mobile/__tests__/theme.test.ts im-client/packages/app-mobile/__tests__/themePreference.test.ts
+git add im-client/packages/app-mobile/src/ui im-client/packages/app-mobile/__tests__/theme.test.ts im-client/packages/app-mobile/__tests__/themePreference.test.ts im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "新增(IM客户端): 建立明暗主题系统"
 ```
 
