@@ -101,6 +101,62 @@ function previousGraphemeStart(text: string, cursor: number): number {
 
 The fallback uses small helpers named `codePointBefore`, `isGraphemeExtender`, `previousEmojiComponentStart`, and `previousGraphemeStartFallback`; keep all helpers private to this file.
 
+```ts
+interface PreviousCodePoint { start: number; value: number }
+
+function codePointBefore(text: string, end: number): PreviousCodePoint | null {
+  if (end <= 0) return null;
+  let start = end - 1;
+  const trailing = text.charCodeAt(start);
+  if (trailing >= 0xdc00 && trailing <= 0xdfff && start > 0) {
+    const leading = text.charCodeAt(start - 1);
+    if (leading >= 0xd800 && leading <= 0xdbff) start -= 1;
+  }
+  return { start, value: text.codePointAt(start) as number };
+}
+
+function isGraphemeExtender(value: number): boolean {
+  return value === 0xfe0e || value === 0xfe0f || value === 0x20e3
+    || (value >= 0x1f3fb && value <= 0x1f3ff)
+    || (value >= 0xe0020 && value <= 0xe007f)
+    || (value >= 0x0300 && value <= 0x036f)
+    || (value >= 0x1ab0 && value <= 0x1aff)
+    || (value >= 0x1dc0 && value <= 0x1dff)
+    || (value >= 0x20d0 && value <= 0x20ff)
+    || (value >= 0xfe20 && value <= 0xfe2f);
+}
+
+function isRegionalIndicator(value: number): boolean {
+  return value >= 0x1f1e6 && value <= 0x1f1ff;
+}
+
+function previousEmojiComponentStart(text: string, end: number): number {
+  let previous = codePointBefore(text, end);
+  if (previous == null) return 0;
+  let start = previous.start;
+  while (isGraphemeExtender(previous.value)) {
+    previous = codePointBefore(text, start);
+    if (previous == null) return 0;
+    start = previous.start;
+  }
+  if (isRegionalIndicator(previous.value)) {
+    const paired = codePointBefore(text, start);
+    if (paired != null && isRegionalIndicator(paired.value)) start = paired.start;
+  }
+  return start;
+}
+
+function previousGraphemeStartFallback(text: string, cursor: number): number {
+  let start = previousEmojiComponentStart(text, cursor);
+  let joiner = codePointBefore(text, start);
+  while (joiner?.value === 0x200d) {
+    start = previousEmojiComponentStart(text, joiner.start);
+    joiner = codePointBefore(text, start);
+  }
+  return start;
+}
+```
+
 - [ ] **Step 4: Implement backward deletion**
 
 ```ts
@@ -204,10 +260,14 @@ git commit -m "新增(IM客户端)：实现常用 Emoji 面板"
 
 - [ ] **Step 1: Add imports and picker state**
 
-Import `Keyboard`, `EmojiPicker`, `replaceSelection`, and `deleteBackward`. Add:
+Import `Keyboard`, `EmojiPicker`, `replaceSelection`, `deleteBackward`, `TextEditResult`, and `TextSelection`. Add synchronous refs so rapid consecutive taps never reuse an old draft or cursor:
 
 ```ts
 const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
+const draftRef = useRef(draft);
+const draftSelectionRef = useRef<TextSelection>(draftSelection);
+draftRef.current = draft;
+draftSelectionRef.current = draftSelection;
 ```
 
 Reset it alongside other per-conversation UI state and set it to false during cleanup.
@@ -215,23 +275,31 @@ Reset it alongside other per-conversation UI state and set it to false during cl
 - [ ] **Step 2: Add one draft edit adapter**
 
 ```ts
-const applyTextEdit = useCallback((result: TextEditResult) => {
-  setDraft((current) => applyMentionTextChange(current, result.text));
+const applyTextEdit = useCallback((edit: (
+  text: string,
+  selection: TextSelection,
+) => TextEditResult) => {
+  const current = draftRef.current;
+  const result = edit(current.text, draftSelectionRef.current);
+  const nextDraft = applyMentionTextChange(current, result.text);
+  draftRef.current = nextDraft;
+  draftSelectionRef.current = result.selection;
+  setDraft(nextDraft);
   setDraftSelection(result.selection);
   setMentionTrigger(null);
   setMentionPickerVisible(false);
 }, []);
 
 const insertEmoji = useCallback((emoji: string) => {
-  applyTextEdit(replaceSelection(draft.text, draftSelection, emoji));
-}, [applyTextEdit, draft.text, draftSelection]);
+  applyTextEdit((text, selection) => replaceSelection(text, selection, emoji));
+}, [applyTextEdit]);
 
 const deleteEmojiBackward = useCallback(() => {
-  applyTextEdit(deleteBackward(draft.text, draftSelection));
-}, [applyTextEdit, draft.text, draftSelection]);
+  applyTextEdit(deleteBackward);
+}, [applyTextEdit]);
 ```
 
-If the existing mention state API requires the previous full draft inside the state setter, calculate the edit from the current `draft` captured by the callback and pass the resulting text to `applyMentionTextChange`; do not reconstruct mention metadata manually.
+Whenever normal text input or selection callbacks update state, update the matching ref in the same callback before calling the React setter. Do the same when send, conversation reset or mention insertion replaces the draft/selection. Do not reconstruct mention metadata manually.
 
 - [ ] **Step 3: Add keyboard/picker transitions**
 
