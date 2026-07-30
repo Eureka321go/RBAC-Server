@@ -79,6 +79,7 @@ export const MIGRATIONS: string[] = [
      PRIMARY KEY (account_id, cid, seq)
    )`,
   `CREATE INDEX idx_voice_heard_account_cid ON voice_heard (account_id, cid)`,
+  `ALTER TABLE conversations ADD COLUMN muted INTEGER NOT NULL DEFAULT 0`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

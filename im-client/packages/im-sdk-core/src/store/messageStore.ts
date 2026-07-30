@@ -28,6 +28,7 @@ export interface ConversationRow {
   unreadCount: number;
   mentionSeq: number;
   hasMention: boolean;
+  muted: boolean;
   peerReadSeq: number | null;
   updatedAt: number;
 }
@@ -217,8 +218,8 @@ export class MessageStore {
     await this.db.exec(
       `INSERT INTO conversations
          (cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-          last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          last_msg_preview, last_read_seq, peer_read_seq, mention_seq, muted, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          type = excluded.type,
          group_id = excluded.group_id,
@@ -237,6 +238,7 @@ export class MessageStore {
            WHEN conversations.peer_read_seq IS NULL THEN excluded.peer_read_seq
            ELSE MAX(conversations.peer_read_seq, excluded.peer_read_seq) END,
          mention_seq = MAX(conversations.mention_seq, excluded.mention_seq),
+         muted = excluded.muted,
          updated_at = MAX(conversations.updated_at, excluded.updated_at)`,
       [
         c.cid,
@@ -250,6 +252,7 @@ export class MessageStore {
         c.lastReadSeq,
         c.peerReadSeq,
         c.mentionSeq,
+        c.muted ? 1 : 0,
         c.updatedAt,
       ],
     );
@@ -259,7 +262,7 @@ export class MessageStore {
   async getConversationRows(): Promise<ConversationRow[]> {
     const rows = await this.db.query<Row>(
       `SELECT cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-              last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at
+              last_msg_preview, last_read_seq, peer_read_seq, mention_seq, muted, updated_at
          FROM conversations ORDER BY updated_at DESC`,
     );
     return rows.map((r) => {
@@ -279,6 +282,7 @@ export class MessageStore {
         unreadCount: Math.max(0, lastMsgSeq - lastReadSeq),
         mentionSeq,
         hasMention: mentionSeq > lastReadSeq,
+        muted: r.muted === 1,
         peerReadSeq: (r.peer_read_seq as number | null) ?? null,
         updatedAt: r.updated_at as number,
       };
@@ -291,6 +295,13 @@ export class MessageStore {
     await this.db.exec(
       `UPDATE conversations SET display_name = ?, updated_at = MAX(updated_at, ?) WHERE cid = ?`,
       [normalized, Date.now(), cid],
+    );
+  }
+
+  async setConversationMuted(cid: string, muted: boolean): Promise<void> {
+    await this.db.exec(
+      `UPDATE conversations SET muted = ? WHERE cid = ?`,
+      [muted ? 1 : 0, cid],
     );
   }
 

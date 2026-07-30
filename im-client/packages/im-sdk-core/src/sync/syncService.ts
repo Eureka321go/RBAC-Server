@@ -20,6 +20,7 @@ interface ConversationSnapshot {
   unreadCount: number;
   mentionSeq: number;
   hasMention: boolean;
+  muted: boolean;
   peerReadSeq: number | null;
 }
 
@@ -58,6 +59,18 @@ export class SyncService {
 
   async setConversationDisplayName(cid: string, name: string): Promise<void> {
     await this.store.setConversationDisplayName(cid, name);
+    this.emitter.emit('conversation', { cid });
+  }
+
+  async setConversationMuted(cid: string, muted: boolean): Promise<void> {
+    const res = await this.http.put<ApiResult<null>>(
+      `/im/conversations/${encodeURIComponent(cid)}/mute`,
+      { muted },
+    );
+    if (res.code !== 200) {
+      throw new Error(res.message || 'set conversation mute failed');
+    }
+    await this.store.setConversationMuted(cid, muted);
     this.emitter.emit('conversation', { cid });
   }
 
