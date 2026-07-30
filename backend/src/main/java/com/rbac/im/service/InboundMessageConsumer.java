@@ -26,6 +26,7 @@ public class InboundMessageConsumer {
     private final RecallService recallService;
     private final MentionService mentionService;
     private final ReadService readService;
+    private final QuoteService quoteService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
@@ -36,7 +37,8 @@ public class InboundMessageConsumer {
                                   LinkPreviewService linkPreview,
                                   RecallService recallService,
                                   MentionService mentionService,
-                                  ReadService readService) {
+                                  ReadService readService,
+                                  QuoteService quoteService) {
         this.repo = repo;                                // SEND 前置：按 clientMsgId 做幂等校验
         this.appender = appender;                        // SEND 主流程：定序、落库、更新摘要并扇出
         this.conversationService = conversationService;  // SEND 前置：校验会话成员身份和群禁言状态
@@ -46,6 +48,7 @@ public class InboundMessageConsumer {
         this.recallService = recallService;              // RECALL 独立分支，不走 appender.append
         this.mentionService = mentionService;            // SEND 前置校验提及目标，落库后更新 mention_seq
         this.readService = readService;                  // READ 独立分支，不走 appender.append
+        this.quoteService = quoteService;                // SEND 前置：校验引用目标并生成权威快照
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -95,6 +98,14 @@ public class InboundMessageConsumer {
                 pushError(env, "STORAGE_UNAVAILABLE");   // 只回通用码，不外泄 SDK 异常细节
                 return;
             }
+        }
+
+        // 引用校验：客户端只提供 targetSeq，其余快照字段由服务端从同会话原消息重新生成。
+        try {
+            env.setBody(quoteService.enrich(env.getCid(), env.getType(), env.getBody()));
+        } catch (QuoteValidationException ex) {
+            pushError(env, ex.getReason());
+            return;
         }
 
         // 里程碑9：@提及 校验（非群/非 TEXT 返回空；@非成员或越权 @所有人抛异常 → 整条拒绝回 ERROR）

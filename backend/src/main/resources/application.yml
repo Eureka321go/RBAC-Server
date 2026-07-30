@@ -80,6 +80,10 @@ rbac:
       region: us-east-1
       put-ttl-seconds: 300
       get-ttl-seconds: 300
+      multipart-threshold: 5242880
+      multipart-part-size: 5242880
+      multipart-session-ttl-seconds: 86400
+      cleanup-delay-ms: 300000
       limits:
         image:
           max-size: 10485760

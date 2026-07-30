@@ -10,7 +10,16 @@
   "peerDependencies": {
     "@im/sdk-core": "*",
     "@op-engineering/op-sqlite": ">=11",
+    "@react-native-documents/picker": ">=12",
     "react-native": ">=0.74",
-    "react-native-keychain": ">=8"
+    "react-native-blob-util": ">=0.24",
+    "react-native-file-access": ">=4",
+    "react-native-file-viewer": ">=2",
+    "react-native-image-picker": ">=8",
+    "react-native-keychain": ">=8",
+    "react-native-nitro-audio-manager": ">=0.3.5 <0.4",
+    "react-native-nitro-modules": "0.36.1",
+    "react-native-nitro-sound": ">=0.2.15 <0.3",
+    "react-native-permissions": ">=5.6 <6"
   }
 }

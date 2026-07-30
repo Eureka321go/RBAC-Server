@@ -1,0 +1,21 @@
+CREATE TABLE `im_media_upload` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `task_id` VARCHAR(36) NOT NULL COMMENT '对客户端暴露的任务标识',
+    `owner_id` BIGINT NOT NULL,
+    `cid` VARCHAR(64) NOT NULL,
+    `message_type` VARCHAR(16) NOT NULL,
+    `filename` VARCHAR(255) NOT NULL,
+    `mime` VARCHAR(128) NOT NULL,
+    `total_size` BIGINT NOT NULL,
+    `part_size` BIGINT NOT NULL,
+    `object_key` VARCHAR(512) NOT NULL,
+    `upload_id` VARCHAR(1024) NOT NULL COMMENT 'S3 Multipart uploadId，仅服务端使用',
+    `status` VARCHAR(16) NOT NULL COMMENT 'UPLOADING / COMPLETED / ABORTED / EXPIRED',
+    `expires_at` DATETIME NOT NULL,
+    `created_at` DATETIME NOT NULL,
+    `updated_at` DATETIME NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_im_media_task` (`task_id`),
+    KEY `idx_im_media_owner_status` (`owner_id`, `status`),
+    KEY `idx_im_media_expires` (`status`, `expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 富媒体分片上传会话';

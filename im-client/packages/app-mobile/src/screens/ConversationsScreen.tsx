@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import type { ConversationRow } from '@im/sdk-core';
+import { InitialAvatar } from '../components/Avatar';
+import { ConversationRowView } from '../components/ConversationRowView';
+import { IconButton } from '../components/IconButton';
+import { PresenceDot } from '../components/PresenceDot';
+import { StatusNotice } from '../components/StatusNotice';
+import { formatConversationTime } from '../conversation/conversationTime';
+import type { RootTabScreenProps } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
-import { GroupAvatar, InitialAvatar } from '../components/Avatar';
-import { IconButton } from '../components/IconButton';
-import { StatusNotice } from '../components/StatusNotice';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
-import type { RootStackParamList } from '../navigation/types';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
+type Props = RootTabScreenProps<'ChatsTab'>;
 
 function titleOf(row: ConversationRow, myId: number | null): string {
   const displayName = row.displayName?.trim();
@@ -26,14 +31,23 @@ function titleOf(row: ConversationRow, myId: number | null): string {
   return `用户 #${left === myId ? right : left}`;
 }
 
+function currentDateLabel(): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }).format(new Date());
+}
+
 export function ConversationsScreen({ navigation }: Props) {
   const myId = useAppStore((state) => state.myId);
   const displayName = useAppStore((state) => state.displayName);
-  const logout = useAppStore((state) => state.logout);
+  const connState = useAppStore((state) => state.connState);
   const [items, setItems] = useState<ConversationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const { theme } = useAppTheme();
 
   const reload = useCallback(async () => {
     const rows = await sdk.sync.getConversations();
@@ -46,9 +60,7 @@ export function ConversationsScreen({ navigation }: Props) {
     try {
       await sdk.sync.syncAll();
     } catch (cause) {
-      if (mountedRef.current) {
-        setError(cause instanceof Error ? cause.message : '同步失败');
-      }
+      if (mountedRef.current) setError(cause instanceof Error ? cause.message : '同步失败');
     } finally {
       if (mountedRef.current) {
         setRefreshing(false);
@@ -74,60 +86,92 @@ export function ConversationsScreen({ navigation }: Props) {
     };
   }, [reload]);
 
+  const statusColor = connState === 'connected'
+    ? theme.colors.success
+    : connState === 'closed'
+      ? theme.colors.danger
+      : theme.colors.warning;
+  const statusLabel = connState === 'connected' ? '在线' : connState === 'closed' ? '离线' : '连接中';
+
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
-        <View style={styles.profile}>
-          <InitialAvatar name={displayName} userId={myId} size={44} />
-          <View style={styles.profileText}>
-            <Text style={styles.displayName} numberOfLines={1}>
-              {displayName || `用户 #${myId ?? ''}`}
-            </Text>
-            <Text style={styles.sectionName}>消息</Text>
+    <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
+      <LinearGradient
+        colors={theme.isDark ? ['#151C2D', '#11182A'] : ['#FFFFFF', '#EEF3FF']}
+        style={[styles.header, { borderBottomColor: theme.colors.border }]}
+      >
+        <View style={styles.accountLine}>
+          <View style={styles.account}>
+            <View style={styles.avatarWrap}>
+              <InitialAvatar name={displayName} userId={myId} size={44} />
+              <PresenceDot color={statusColor} size={11} style={styles.statusDot} />
+            </View>
+            <View style={styles.accountCopy}>
+              <Text style={[styles.accountName, { color: theme.colors.text }]} numberOfLines={1}>
+                {displayName || `用户 #${myId ?? ''}`}
+              </Text>
+              <Text style={[styles.accountStatus, { color: statusColor }]}>{statusLabel}</Text>
+            </View>
+          </View>
+          <View style={styles.actions}>
+            <IconButton
+              name="person-add-outline"
+              accessibilityLabel="发起单聊"
+              backgroundColor={theme.colors.primarySoft}
+              color={theme.colors.primary}
+              onPress={() => navigation.navigate('ContactsTab')}
+            />
+            <IconButton
+              name="people-outline"
+              accessibilityLabel="创建群聊"
+              backgroundColor={theme.colors.primarySoft}
+              color={theme.colors.primary}
+              onPress={() => navigation.navigate('CreateGroup')}
+            />
           </View>
         </View>
-        <View style={styles.actions}>
-          <IconButton
-            name="person-add-outline"
-            accessibilityLabel="发起单聊"
-            backgroundColor={COLORS.primarySoft}
-            color={COLORS.primary}
-            onPress={() => navigation.navigate('Contacts')}
-          />
-          <IconButton
-            name="people-outline"
-            accessibilityLabel="创建群聊"
-            backgroundColor={COLORS.primarySoft}
-            color={COLORS.primary}
-            onPress={() => navigation.navigate('CreateGroup')}
-          />
-          <IconButton
-            name="log-out-outline"
-            accessibilityLabel="登出"
-            backgroundColor={COLORS.dangerSoft}
-            color={COLORS.danger}
-            onPress={() => void logout()}
-          />
+        <Text style={[styles.date, { color: theme.colors.textMuted }]}>{currentDateLabel()}</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>聊天</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>保持专注，也保持连接</Text>
+        <View style={[styles.search, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+          <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
+          <Text style={[styles.searchText, { color: theme.colors.textMuted }]}>搜索会话、消息与联系人</Text>
         </View>
-      </View>
-      {error ? <View style={styles.notice}><StatusNotice message={`同步失败：${error}（本地消息仍可查看）`} tone="error" /></View> : null}
+      </LinearGradient>
+
+      {error ? (
+        <View style={styles.notice}>
+          <StatusNotice message={`同步失败：${error}（本地消息仍可查看）`} tone="error" />
+        </View>
+      ) : null}
+
       <FlatList
-        style={styles.listSurface}
+        style={[styles.listSurface, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
         contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
         data={items}
         keyExtractor={(item) => item.cid}
         refreshing={refreshing}
         onRefresh={() => void refresh()}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {refreshing ? '正在同步会话…' : '暂无会话，点击“新建会话”开始聊天'}
-          </Text>
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIcon, { backgroundColor: theme.colors.primarySoft }]}>
+              <Ionicons name="chatbubbles-outline" size={31} color={theme.colors.primary} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+              {refreshing ? '正在同步会话' : '还没有消息'}
+            </Text>
+            <Text style={[styles.emptyDescription, { color: theme.colors.textSecondary }]}>
+              {refreshing ? '请稍候，正在获取最新内容…' : '前往通讯录找到同事，或创建一个群聊'}
+            </Text>
+          </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const title = titleOf(item, myId);
           return (
-            <Pressable
-              style={styles.row}
+            <ConversationRowView
+              row={item}
+              title={title}
+              formattedTime={formatConversationTime(item.lastMsgTs)}
+              entranceIndex={index}
               onPress={() => navigation.navigate('Chat', {
                 cid: item.cid,
                 title,
@@ -135,29 +179,7 @@ export function ConversationsScreen({ navigation }: Props) {
                 groupId: item.groupId ?? undefined,
                 syncOnOpen: true,
               })}
-            >
-              {item.type === 'GROUP' ? (
-                <GroupAvatar size={48} />
-              ) : (
-                <InitialAvatar name={title} userId={item.peerId} size={48} />
-              )}
-              <View style={styles.content}>
-                <View style={styles.titleLine}>
-                  <Text style={styles.title}>{title}</Text>
-                  {item.hasMention ? <Text style={styles.mention}>有人@我</Text> : null}
-                </View>
-                <Text style={styles.preview} numberOfLines={1}>
-                  {item.lastMsgPreview || '暂无消息'}
-                </Text>
-              </View>
-              {item.unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item.unreadCount > 99 ? '99+' : item.unreadCount}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
+            />
           );
         }}
       />
@@ -166,56 +188,51 @@ export function ConversationsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: COLORS.page },
+  page: { flex: 1 },
   header: {
-    minHeight: 74,
+    paddingTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
+  },
+  accountLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  account: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatarWrap: { position: 'relative' },
+  statusDot: { position: 'absolute', right: -2, bottom: 0, borderWidth: 2, borderColor: '#FFFFFF' },
+  accountCopy: { flex: 1, minWidth: 0 },
+  accountName: { fontSize: 14, fontWeight: '800' },
+  accountStatus: { marginTop: 2, fontSize: 10, fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: SPACING.xs },
+  date: { marginTop: SPACING.lg, fontSize: TYPE.caption, fontWeight: '600' },
+  title: { marginTop: 2, fontSize: 30, lineHeight: 38, fontWeight: '900', letterSpacing: -0.8 },
+  subtitle: { marginTop: 2, fontSize: TYPE.caption },
+  search: {
+    height: 44,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
+    gap: SPACING.xs,
   },
-  profile: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  profileText: { flex: 1, minWidth: 0 },
-  displayName: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '700' },
-  sectionName: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 2 },
-  actions: { marginLeft: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  searchText: { fontSize: 13 },
   notice: { marginHorizontal: SPACING.md, marginTop: SPACING.sm },
   listSurface: {
-    margin: SPACING.md,
+    flex: 1,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
     marginBottom: 0,
-    borderRadius: RADIUS.lg,
-    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
+    overflow: 'hidden',
   },
-  list: { paddingHorizontal: SPACING.md },
-  emptyList: { flexGrow: 1, paddingHorizontal: SPACING.md },
-  empty: { color: COLORS.textSecondary, textAlign: 'center', marginTop: 80 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 76,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  content: { flex: 1, gap: 6 },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  mention: { color: COLORS.warning, fontSize: TYPE.caption },
-  preview: { color: COLORS.textSecondary, fontSize: 14 },
-  badge: {
-    minWidth: 24,
-    height: 24,
-    paddingHorizontal: 6,
-    borderRadius: 12,
-    backgroundColor: COLORS.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { color: COLORS.white, fontSize: TYPE.caption, fontWeight: '700' },
+  list: { paddingHorizontal: SPACING.md, paddingBottom: 92 },
+  emptyList: { flexGrow: 1, paddingHorizontal: SPACING.xl, paddingBottom: 92 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 56 },
+  emptyIcon: { width: 66, height: 66, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { marginTop: SPACING.md, fontSize: TYPE.subtitle, fontWeight: '800' },
+  emptyDescription: { marginTop: SPACING.xs, fontSize: TYPE.body, lineHeight: 22, textAlign: 'center' },
 });

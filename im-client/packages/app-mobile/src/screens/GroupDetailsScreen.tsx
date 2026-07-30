@@ -17,15 +17,18 @@ import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
 import { GroupAvatar, InitialAvatar } from '../components/Avatar';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
+import { ConversationMuteSetting } from '../components/ConversationMuteSetting';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
 import { Surface } from '../components/Surface';
+import { AnimatedEntrance } from '../components/AnimatedEntrance';
 import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
 import type { RootStackParamList } from '../navigation/types';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'GroupDetails'>;
 
@@ -54,22 +57,32 @@ interface ActionRowProps {
 }
 
 function ActionRow({ icon, label, onPress, danger = false }: ActionRowProps) {
-  const color = danger ? COLORS.danger : COLORS.text;
+  const { theme } = useAppTheme();
+  const color = danger ? theme.colors.danger : theme.colors.text;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.actionRow, pressed && styles.rowPressed]}
+      style={({ pressed }) => [
+        styles.actionRow,
+        { borderBottomColor: theme.colors.border },
+        pressed && styles.rowPressed,
+      ]}
     >
-      <View style={[styles.actionIcon, danger && styles.actionIconDanger]}>
+      <View style={[
+        styles.actionIcon,
+        { backgroundColor: danger ? theme.colors.dangerSoft : theme.colors.surfaceMuted },
+      ]}>
         <Ionicons name={icon} size={21} color={color} />
       </View>
-      <Text style={[styles.actionLabel, danger && styles.actionLabelDanger]}>{label}</Text>
+      <Text style={[styles.actionLabel, { color }]}>{label}</Text>
     </Pressable>
   );
 }
 
 export function GroupDetailsScreen({ route, navigation }: Props) {
+  const { theme } = useAppTheme();
   const { cid, groupId } = route.params;
   const myId = useAppStore((state) => state.myId);
   const [detail, setDetail] = useState<GroupDetail | null>(null);
@@ -221,7 +234,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
               if (dissolve) await sdk.groups.dissolveGroup(groupId);
               else await sdk.groups.leaveGroup(groupId);
               await sdk.sync.removeLocalConversation(cid);
-              navigation.reset({ index: 0, routes: [{ name: 'Conversations' }] });
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
               void sdk.sync.syncAll().catch(() => {});
             } catch (cause) {
               if (mountedRef.current) {
@@ -269,34 +282,38 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 
   if (detail == null && refreshing) {
     return (
-      <View style={styles.page}>
+      <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
         <CompactScreenHeader title={route.params.title} onBack={() => navigation.goBack()} />
-        <ActivityIndicator style={styles.centerLoader} color={COLORS.primary} />
+        <ActivityIndicator style={styles.centerLoader} color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: theme.colors.page }]}>
       <CompactScreenHeader title="群设置" onBack={() => navigation.goBack()} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={theme.colors.primary} />}
       >
+        <AnimatedEntrance style={styles.entrance}>
         {error ? <StatusNotice message={error} tone="error" /> : null}
 
         <View style={styles.hero}>
           <GroupAvatar size={88} />
-          <Text style={styles.groupName}>{detail?.name ?? route.params.title}</Text>
-          <Text style={styles.groupMeta}>
+          <Text style={[styles.groupName, { color: theme.colors.text }]}>{detail?.name ?? route.params.title}</Text>
+          <Text style={[styles.groupMeta, { color: theme.colors.textSecondary }]}>
             群号 #{groupId} · {detail?.memberCount ?? members.length} 人 · {detail ? roleLabel(detail.myRole) : ''}
           </Text>
         </View>
+
+        <ConversationMuteSetting cid={cid} />
 
         {canManage ? (
           <Surface>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="修改群名称"
               onPress={() => {
                 setNameDraft(detail?.name ?? route.params.title);
                 setShowRename(true);
@@ -304,25 +321,26 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
               style={({ pressed }) => [styles.settingRow, pressed && styles.rowPressed]}
             >
               <View style={styles.settingLabelWrap}>
-                <Ionicons name="pencil-outline" size={20} color={COLORS.primary} />
-                <Text style={styles.settingLabel}>群名称</Text>
+                <Ionicons name="pencil-outline" size={20} color={theme.colors.primary} />
+                <Text style={[styles.settingLabel, { color: theme.colors.text }]}>群名称</Text>
               </View>
-              <Text style={styles.settingValue} numberOfLines={1}>{detail?.name}</Text>
-              <Ionicons name="chevron-forward" size={19} color={COLORS.textMuted} />
+              <Text style={[styles.settingValue, { color: theme.colors.textSecondary }]} numberOfLines={1}>{detail?.name}</Text>
+              <Ionicons name="chevron-forward" size={19} color={theme.colors.textMuted} />
             </Pressable>
           </Surface>
         ) : null}
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>群成员（{members.length}）</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>群成员（{members.length}）</Text>
           {canManage ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="添加群成员"
               onPress={() => setShowAddMembers(true)}
               style={({ pressed }) => [styles.addMembers, pressed && styles.rowPressed]}
             >
-              <Ionicons name="person-add-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.addMembersText}>添加成员</Text>
+              <Ionicons name="person-add-outline" size={20} color={theme.colors.primary} />
+              <Text style={[styles.addMembersText, { color: theme.colors.primary }]}>添加成员</Text>
             </Pressable>
           ) : null}
         </View>
@@ -334,22 +352,25 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
             return (
               <View
                 key={member.userId}
-                style={[styles.memberRow, index > 0 && styles.rowDivider]}
+                style={[
+                  styles.memberRow,
+                  index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+                ]}
               >
                 <InitialAvatar name={displayName} userId={member.userId} size={46} />
                 <View style={styles.memberInfo}>
-                  <Text style={styles.memberName} numberOfLines={1}>{displayName}</Text>
-                  <Text style={styles.memberMeta}>
+                  <Text style={[styles.memberName, { color: theme.colors.text }]} numberOfLines={1}>{displayName}</Text>
+                  <Text style={[styles.memberMeta, { color: theme.colors.textSecondary }]}>
                     {roleLabel(member.role)}{member.muted ? ' · 已禁言' : ''}
                   </Text>
                 </View>
                 {busy ? (
-                  <View style={styles.memberControl}><ActivityIndicator size="small" color={COLORS.primary} /></View>
+                  <View style={styles.memberControl}><ActivityIndicator size="small" color={theme.colors.primary} /></View>
                 ) : canManageMember(member) ? (
                   <IconButton
                     name="ellipsis-horizontal"
                     accessibilityLabel={`管理${displayName}`}
-                    backgroundColor={COLORS.surfaceMuted}
+                    backgroundColor={theme.colors.surfaceMuted}
                     onPress={() => setSelectedMember(member)}
                   />
                 ) : null}
@@ -362,33 +383,41 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
           <Surface style={styles.dangerSurface}>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={isOwner ? '解散群聊' : '退出群聊'}
+              accessibilityState={{ disabled: pendingGroupAction != null }}
               disabled={pendingGroupAction != null}
               onPress={() => leaveOrDissolve(isOwner)}
               style={({ pressed }) => [styles.dangerRow, pressed && styles.rowPressed, pendingGroupAction != null && styles.disabled]}
             >
-              <View style={styles.dangerIcon}>
-                <Ionicons name={isOwner ? 'trash-outline' : 'exit-outline'} size={23} color={COLORS.danger} />
+              <View style={[styles.dangerIcon, { backgroundColor: theme.colors.dangerSoft }]}>
+                <Ionicons name={isOwner ? 'trash-outline' : 'exit-outline'} size={23} color={theme.colors.danger} />
               </View>
               <View style={styles.dangerTextWrap}>
-                <Text style={styles.dangerTitle}>{isOwner ? '解散群聊' : '退出群聊'}</Text>
-                <Text style={styles.dangerSubtitle}>
+                <Text style={[styles.dangerTitle, { color: theme.colors.danger }]}>{isOwner ? '解散群聊' : '退出群聊'}</Text>
+                <Text style={[styles.dangerSubtitle, { color: theme.colors.textSecondary }]}>
                   {isOwner ? '解散后，所有成员将无法继续使用此群聊' : '退出后将从你的会话列表中移除'}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={19} color={COLORS.textMuted} />
+              <Ionicons name="chevron-forward" size={19} color={theme.colors.textMuted} />
             </Pressable>
           </Surface>
         ) : (
           <AppButton label="重试加载群资料" onPress={() => void load()} disabled={refreshing} />
         )}
+        </AnimatedEntrance>
       </ScrollView>
 
       <Modal visible={showRename} transparent animationType="slide" onRequestClose={() => setShowRename(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowRename(false)} />
-          <View style={styles.compactSheet}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭修改群名称"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowRename(false)}
+          />
+          <View style={[styles.compactSheet, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>修改群名称</Text>
+              <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>修改群名称</Text>
               <IconButton name="close" accessibilityLabel="关闭" onPress={() => setShowRename(false)} />
             </View>
             <AppTextField
@@ -415,17 +444,22 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       </Modal>
 
       <Modal visible={showAddMembers} transparent animationType="slide" onRequestClose={() => setShowAddMembers(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddMembers(false)} />
-          <View style={styles.memberSheet}>
+        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭添加群成员"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowAddMembers(false)}
+          />
+          <View style={[styles.memberSheet, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.sheetHeader}>
               <View>
-                <Text style={styles.sheetTitle}>添加群成员</Text>
-                <Text style={styles.sheetSubtitle}>已选择 {addMemberIds.length} 人</Text>
+                <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>添加群成员</Text>
+                <Text style={[styles.sheetSubtitle, { color: theme.colors.textSecondary }]}>已选择 {addMemberIds.length} 人</Text>
               </View>
               <IconButton name="close" accessibilityLabel="关闭" onPress={() => setShowAddMembers(false)} />
             </View>
-            <View style={styles.selector}>
+            <View style={[styles.selector, { borderColor: theme.colors.border }]}>
               {directory ? (
                 <DepartmentContactPicker
                   model={directory}
@@ -462,15 +496,20 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       </Modal>
 
       <Modal visible={selectedMember != null} transparent animationType="slide" onRequestClose={() => setSelectedMember(null)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedMember(null)} />
+        <View style={[styles.modalOverlay, { backgroundColor: theme.colors.overlay }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭成员操作"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setSelectedMember(null)}
+          />
           {selectedMember ? (
-            <View style={styles.actionSheet}>
-              <View style={styles.actionMemberHeader}>
+            <View style={[styles.actionSheet, { backgroundColor: theme.colors.surface }]}>
+              <View style={[styles.actionMemberHeader, { borderBottomColor: theme.colors.border }]}>
                 <InitialAvatar name={displayNameOf(selectedMember)} userId={selectedMember.userId} size={48} />
                 <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>{displayNameOf(selectedMember)}</Text>
-                  <Text style={styles.memberMeta}>{roleLabel(selectedMember.role)}</Text>
+                  <Text style={[styles.memberName, { color: theme.colors.text }]}>{displayNameOf(selectedMember)}</Text>
+                  <Text style={[styles.memberMeta, { color: theme.colors.textSecondary }]}>{roleLabel(selectedMember.role)}</Text>
                 </View>
                 <IconButton name="close" accessibilityLabel="关闭" onPress={() => setSelectedMember(null)} />
               </View>
@@ -508,48 +547,46 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: COLORS.page },
+  page: { flex: 1 },
   content: { padding: SPACING.md, gap: SPACING.md, paddingBottom: SPACING.xxl },
+  entrance: { gap: SPACING.md },
   centerLoader: { marginTop: 64 },
   hero: { alignItems: 'center', paddingVertical: SPACING.lg, gap: SPACING.xs },
-  groupName: { color: COLORS.text, fontSize: TYPE.title, fontWeight: '800', marginTop: SPACING.xs },
-  groupMeta: { color: COLORS.textSecondary, fontSize: TYPE.body, textAlign: 'center' },
+  groupName: { fontSize: TYPE.title, fontWeight: '800', marginTop: SPACING.xs },
+  groupMeta: { fontSize: TYPE.body, textAlign: 'center' },
   settingRow: { minHeight: 62, paddingHorizontal: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   settingLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  settingLabel: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
-  settingValue: { flex: 1, color: COLORS.textSecondary, fontSize: TYPE.body, textAlign: 'right' },
+  settingLabel: { fontSize: TYPE.body, fontWeight: '700' },
+  settingValue: { flex: 1, fontSize: TYPE.body, textAlign: 'right' },
   sectionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xs },
-  sectionTitle: { color: COLORS.textSecondary, fontSize: TYPE.body, fontWeight: '600' },
+  sectionTitle: { fontSize: TYPE.body, fontWeight: '600' },
   addMembers: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, paddingHorizontal: SPACING.xs },
-  addMembersText: { color: COLORS.primary, fontSize: TYPE.body, fontWeight: '700' },
+  addMembersText: { fontSize: TYPE.body, fontWeight: '700' },
   memberRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border, marginLeft: SPACING.md },
   memberInfo: { flex: 1, minWidth: 0 },
-  memberName: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '700' },
-  memberMeta: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 3 },
+  memberName: { fontSize: TYPE.subtitle, fontWeight: '700' },
+  memberMeta: { fontSize: TYPE.caption, marginTop: 3 },
   memberControl: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   dangerSurface: { marginTop: SPACING.md },
   dangerRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.md },
-  dangerIcon: { width: 42, height: 42, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.dangerSoft },
+  dangerIcon: { width: 42, height: 42, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   dangerTextWrap: { flex: 1 },
-  dangerTitle: { color: COLORS.danger, fontSize: TYPE.body, fontWeight: '700' },
-  dangerSubtitle: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 3, lineHeight: 17 },
+  dangerTitle: { fontSize: TYPE.body, fontWeight: '700' },
+  dangerSubtitle: { fontSize: TYPE.caption, marginTop: 3, lineHeight: 17 },
   disabled: { opacity: 0.45 },
   rowPressed: { opacity: 0.62 },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.overlay },
-  compactSheet: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.md, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: COLORS.surface },
-  memberSheet: { height: '78%', padding: SPACING.md, paddingBottom: SPACING.xl, gap: SPACING.sm, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: COLORS.surface },
-  actionSheet: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.xxl, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: COLORS.surface },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  compactSheet: { padding: SPACING.md, paddingBottom: SPACING.xxl, gap: SPACING.md, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  memberSheet: { height: '78%', padding: SPACING.md, paddingBottom: SPACING.xl, gap: SPACING.sm, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+  actionSheet: { paddingHorizontal: SPACING.md, paddingTop: SPACING.md, paddingBottom: SPACING.xxl, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
   sheetHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sheetTitle: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '800' },
-  sheetSubtitle: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 3 },
+  sheetTitle: { fontSize: TYPE.subtitle, fontWeight: '800' },
+  sheetSubtitle: { fontSize: TYPE.caption, marginTop: 3 },
   sheetButtons: { flexDirection: 'row', gap: SPACING.sm },
   flexButton: { flex: 1 },
-  selector: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border, borderRadius: RADIUS.lg, overflow: 'hidden' },
-  actionMemberHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  actionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  actionIcon: { width: 38, height: 38, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceMuted },
-  actionIconDanger: { backgroundColor: COLORS.dangerSoft },
-  actionLabel: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '600' },
-  actionLabelDanger: { color: COLORS.danger },
+  selector: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  actionMemberHeader: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  actionRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  actionIcon: { width: 38, height: 38, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: TYPE.body, fontWeight: '600' },
 });

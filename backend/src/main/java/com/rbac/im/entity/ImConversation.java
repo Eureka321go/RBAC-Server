@@ -14,4 +14,5 @@ public class ImConversation extends BaseEntity {
     private Long groupId;
     private Long lastMsgSeq;
     private String lastMsgPreview;
+    private Long lastMsgTs;
 }

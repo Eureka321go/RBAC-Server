@@ -1,6 +1,7 @@
 package com.rbac.im.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.rbac.common.exception.BusinessException;
 import com.rbac.im.entity.ImConversation;
 import com.rbac.im.entity.ImConversationMember;
 import com.rbac.im.entity.ImGroupMember;
@@ -53,6 +54,7 @@ public class ConversationService {
             c.setCid(cid);
             c.setType("SINGLE");
             c.setLastMsgSeq(0L);
+            c.setLastMsgTs(0L);
             conversationMapper.insert(c);
             insertMember(cid, a);
             insertMember(cid, b);
@@ -82,6 +84,7 @@ public class ConversationService {
             c.setType("GROUP");
             c.setGroupId(groupId);
             c.setLastMsgSeq(0L);
+            c.setLastMsgTs(0L);
             conversationMapper.insert(c);
             for (Long uid : memberIds) {
                 insertMember(cid, uid);
@@ -128,6 +131,20 @@ public class ConversationService {
                         .eq(ImConversationMember::getCid, cid)
                         .eq(ImConversationMember::getUserId, userId));
         return count != null && count > 0;
+    }
+
+    /** 更新当前用户自己的会话免打扰设置。 */
+    @Transactional
+    public void setMuted(long userId, String cid, boolean muted) {
+        ImConversationMember member = memberMapper.selectOne(
+                new LambdaQueryWrapper<ImConversationMember>()
+                        .eq(ImConversationMember::getCid, cid)
+                        .eq(ImConversationMember::getUserId, userId));
+        if (member == null) {
+            throw new BusinessException(403, "im.conversation.notMember");
+        }
+        member.setMuted(muted ? 1 : 0);
+        memberMapper.updateById(member);
     }
 
     /** 会话当前 last_msg_seq；会话不存在或未初始化返回 0。用于已读位点钳制。 */
@@ -182,6 +199,10 @@ public class ConversationService {
                 .collect(Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getMentionSeq() == null ? 0L : m.getMentionSeq(),
                         (a, b) -> a));
+        Map<String, Boolean> mutedByCid = members.stream()
+                .collect(Collectors.toMap(ImConversationMember::getCid,
+                        m -> Integer.valueOf(1).equals(m.getMuted()),
+                        (a, b) -> a));
         // 2. 批量取会话本体（类型、群 id、最新消息序号与预览）
         List<String> cids = members.stream().map(ImConversationMember::getCid).toList();
         List<ImConversation> convs = conversationMapper.selectList(
@@ -223,10 +244,12 @@ public class ConversationService {
             vo.setGroupId(c.getGroupId());
             vo.setLastMsgSeq(lastMsgSeq);
             vo.setLastMsgPreview(c.getLastMsgPreview());
+            vo.setLastMsgTs(c.getLastMsgTs() == null ? 0L : c.getLastMsgTs());
             vo.setLastReadSeq(lastReadSeq);
             // 已读水位可能因并发/回填短暂超过 lastMsgSeq，兜底不出现负数未读
             vo.setUnreadCount(Math.max(0L, lastMsgSeq - lastReadSeq));
             vo.setMentionSeq(mentionSeq);
+            vo.setMuted(mutedByCid.getOrDefault(c.getCid(), false));
             // @我 的消息还没被读到 => 展示 @ 提醒
             vo.setHasMention(mentionSeq > lastReadSeq);
             if ("SINGLE".equals(c.getType())) {

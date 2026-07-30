@@ -3,6 +3,7 @@ package com.rbac.im.service;
 import com.rbac.common.exception.BusinessException;
 import com.rbac.im.config.MediaProperties;
 import com.rbac.im.vo.PresignResult;
+import com.rbac.im.vo.DownloadPresignResult;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -41,6 +42,14 @@ public class MediaService {
 
     /** 上传预签名：成员 + 白名单 + 大小校验，生成 objectKey 与预签名 PUT URL。 */
     public PresignResult presign(long userId, String cid, String type, String filename, String mime, long size) {
+        validateUploadRequest(userId, cid, type, mime, size);
+        String objectKey = buildObjectKey(cid, filename);
+        // 申报的 size/mime 一并入签名：客户端拿到 URL 后无法再改字节数或 Content-Type
+        String uploadUrl = storage.presignPut(objectKey, size, mime, Duration.ofSeconds(props.getPutTtlSeconds()));
+        return new PresignResult(objectKey, uploadUrl, props.getPutTtlSeconds());
+    }
+
+    public void validateUploadRequest(long userId, String cid, String type, String mime, long size) {
         if (!conversationService.isMember(cid, userId)) {
             throw new BusinessException(403, "im.conversation.notMember");
         }
@@ -54,10 +63,18 @@ public class MediaService {
         if (size <= 0 || size > limit.getMaxSize()) {
             throw new BusinessException(400, "im.media.tooLarge");
         }
-        String objectKey = buildKey(cid, filename);
-        // 申报的 size/mime 一并入签名：客户端拿到 URL 后无法再改字节数或 Content-Type
-        String uploadUrl = storage.presignPut(objectKey, size, mime, Duration.ofSeconds(props.getPutTtlSeconds()));
-        return new PresignResult(objectKey, uploadUrl, props.getPutTtlSeconds());
+    }
+
+    /** 为缓存中的过期 GET URL 签发新地址；当前用户必须仍在会话中。 */
+    public DownloadPresignResult presignDownload(long userId, String cid, String objectKey) {
+        if (!conversationService.isMember(cid, userId)) {
+            throw new BusinessException(403, "im.conversation.notMember");
+        }
+        if (!objectKeyBelongsToConversation(cid, objectKey) || storage.stat(objectKey).isEmpty()) {
+            throw new BusinessException(404, "im.media.objectNotFound");
+        }
+        String url = storage.presignGet(objectKey, Duration.ofSeconds(props.getGetTtlSeconds()));
+        return new DownloadPresignResult(objectKey, url, props.getGetTtlSeconds());
     }
 
     private boolean mimeAllowed(List<String> mimes, String mime) {
@@ -87,8 +104,32 @@ public class MediaService {
         if (!mimeAllowed(limit.getMimes(), stat.contentType())) {
             throw new MediaValidationException("MIME_NOT_ALLOWED");
         }
+        if ("AUDIO".equals(type)) {
+            validateAudioMetadata(body);
+        }
         body.put("size", stat.size());
         body.put("mime", stat.contentType());
+    }
+
+    private static void validateAudioMetadata(Map<String, Object> body) {
+        Object duration = body.get("duration");
+        Object waveform = body.get("waveform");
+        if (!(duration instanceof Number durationNumber)
+                || durationNumber.doubleValue() != durationNumber.longValue()
+                || durationNumber.longValue() < 1
+                || durationNumber.longValue() > 60
+                || !(waveform instanceof List<?> points)
+                || points.size() != 48) {
+            throw new MediaValidationException("INVALID_AUDIO_METADATA");
+        }
+        for (Object point : points) {
+            if (!(point instanceof Number pointNumber)
+                    || pointNumber.doubleValue() != pointNumber.longValue()
+                    || pointNumber.longValue() < 0
+                    || pointNumber.longValue() > 100) {
+                throw new MediaValidationException("INVALID_AUDIO_METADATA");
+            }
+        }
     }
 
     /**
@@ -99,7 +140,11 @@ public class MediaService {
         return Pattern.compile("^im/" + Pattern.quote(cid) + "/\\d{6}/[0-9a-f]{32}(\\.[a-z0-9]{1,10})?$");
     }
 
-    private String buildKey(String cid, String filename) {
+    public static boolean objectKeyBelongsToConversation(String cid, String objectKey) {
+        return cid != null && objectKey != null && objectKeyPattern(cid).matcher(objectKey).matches();
+    }
+
+    public String buildObjectKey(String cid, String filename) {
         String ext = "";
         if (filename != null) {
             int dot = filename.lastIndexOf('.');
@@ -114,5 +159,17 @@ public class MediaService {
         String ym = LocalDate.now().format(YM);
         String uuid = UUID.randomUUID().toString().replace("-", "");
         return "im/" + cid + "/" + ym + "/" + uuid + ext;
+    }
+
+    public String safeFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "file";
+        }
+        String normalized = filename.replace('\\', '/');
+        String basename = normalized.substring(normalized.lastIndexOf('/') + 1).trim();
+        if (basename.isEmpty()) {
+            return "file";
+        }
+        return basename.length() > 255 ? basename.substring(basename.length() - 255) : basename;
     }
 }

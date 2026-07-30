@@ -1,5 +1,6 @@
 import type { Database, Row } from '../ports/index';
 import { parseCid } from '../protocol/cid';
+import type { LinkCard } from '../chat/linkCard';
 
 export interface StoredMessage {
   cid: string;
@@ -23,10 +24,12 @@ export interface ConversationRow {
   displayName: string | null;
   lastMsgSeq: number;
   lastMsgPreview: string | null;
+  lastMsgTs: number;
   lastReadSeq: number;
   unreadCount: number;
   mentionSeq: number;
   hasMention: boolean;
+  muted: boolean;
   peerReadSeq: number | null;
   updatedAt: number;
 }
@@ -35,6 +38,8 @@ export interface ConversationReadState {
   lastReadSeq: number;
   peerReadSeq: number | null;
 }
+
+export type LinkPreviewMergeResult = 'updated' | 'missing' | 'ignored';
 
 export class MessageStore {
   constructor(private readonly db: Database) {}
@@ -55,6 +60,7 @@ export class MessageStore {
       await tx.exec(`DELETE FROM outbox`);
       await tx.exec(`DELETE FROM messages`);
       await tx.exec(`DELETE FROM conversations`);
+      await tx.exec(`DELETE FROM voice_heard`);
       await tx.exec(`DELETE FROM sync_meta`);
       await tx.exec(`INSERT INTO sync_meta (cid, synced_seq) VALUES (?, ?)`, [accountKey, userId]);
     });
@@ -81,7 +87,7 @@ export class MessageStore {
         m.clientMsgId,
         m.senderId,
         m.type,
-        m.body === null ? null : JSON.stringify(m.body),
+        m.recalled || m.body === null ? null : JSON.stringify(m.body),
         m.recalled ? 1 : 0,
         m.status,
         m.ts,
@@ -107,6 +113,72 @@ export class MessageStore {
       status: r.status as string,
       ts: r.ts as number,
     }));
+  }
+
+  async mergeLinkPreview(
+    cid: string,
+    seq: number,
+    link: LinkCard,
+  ): Promise<LinkPreviewMergeResult> {
+    const rows = await this.db.query<Row>(
+      `SELECT type, body_json, recalled FROM messages WHERE cid = ? AND seq = ?`,
+      [cid, seq],
+    );
+    if (rows.length === 0) return 'missing';
+    const row = rows[0];
+    if (row.type !== 'TEXT' || row.recalled === 1 || row.body_json == null) return 'ignored';
+
+    let body: unknown;
+    try {
+      body = JSON.parse(row.body_json as string);
+    } catch {
+      return 'ignored';
+    }
+    if (body == null || typeof body !== 'object' || Array.isArray(body)) return 'ignored';
+
+    await this.db.exec(
+      `UPDATE messages
+          SET body_json = ?
+        WHERE cid = ? AND seq = ? AND recalled = 0`,
+      [JSON.stringify({ ...(body as Record<string, unknown>), link }), cid, seq],
+    );
+    return 'updated';
+  }
+
+  /** 撤回目标只保留占位元数据；正文必须与 recalled 标记在同一条 UPDATE 中清除。 */
+  async markMessageRecalled(cid: string, targetSeq: number): Promise<void> {
+    await this.db.exec(
+      `UPDATE messages
+          SET recalled = 1, body_json = NULL
+        WHERE cid = ? AND seq = ?`,
+      [cid, targetSeq],
+    );
+  }
+
+  /**
+   * 查找某条消息对应的撤回操作者。
+   * 不依赖 SQLite JSON 扩展，保持 SDK Core 对不同数据库适配器的兼容性。
+   */
+  async findRecallOperatorId(cid: string, targetSeq: number): Promise<number | null> {
+    const rows = await this.db.query<Row>(
+      `SELECT sender_id, body_json
+         FROM messages
+        WHERE cid = ? AND type = 'RECALL'
+        ORDER BY seq DESC`,
+      [cid],
+    );
+    for (const row of rows) {
+      if (row.body_json == null) continue;
+      try {
+        const body = JSON.parse(row.body_json as string) as Record<string, unknown>;
+        if (body.targetSeq === targetSeq) {
+          return (row.sender_id as number | null) ?? null;
+        }
+      } catch {
+        // 单条损坏的控制消息不能阻断后续同步。
+      }
+    }
+    return null;
   }
 
   async upsertConversation(c: {
@@ -147,8 +219,8 @@ export class MessageStore {
     await this.db.exec(
       `INSERT INTO conversations
          (cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-          last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          last_msg_preview, last_msg_ts, last_read_seq, peer_read_seq, mention_seq, muted, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          type = excluded.type,
          group_id = excluded.group_id,
@@ -161,12 +233,14 @@ export class MessageStore {
            WHEN excluded.last_msg_seq >= conversations.last_msg_seq
            THEN excluded.last_msg_preview ELSE conversations.last_msg_preview END,
          last_msg_seq = MAX(conversations.last_msg_seq, excluded.last_msg_seq),
+         last_msg_ts = MAX(conversations.last_msg_ts, excluded.last_msg_ts),
          last_read_seq = MAX(conversations.last_read_seq, excluded.last_read_seq),
          peer_read_seq = CASE
            WHEN excluded.peer_read_seq IS NULL THEN conversations.peer_read_seq
            WHEN conversations.peer_read_seq IS NULL THEN excluded.peer_read_seq
            ELSE MAX(conversations.peer_read_seq, excluded.peer_read_seq) END,
          mention_seq = MAX(conversations.mention_seq, excluded.mention_seq),
+         muted = excluded.muted,
          updated_at = MAX(conversations.updated_at, excluded.updated_at)`,
       [
         c.cid,
@@ -177,9 +251,11 @@ export class MessageStore {
         c.displayName,
         c.lastMsgSeq,
         c.lastMsgPreview,
+        c.lastMsgTs,
         c.lastReadSeq,
         c.peerReadSeq,
         c.mentionSeq,
+        c.muted ? 1 : 0,
         c.updatedAt,
       ],
     );
@@ -189,8 +265,9 @@ export class MessageStore {
   async getConversationRows(): Promise<ConversationRow[]> {
     const rows = await this.db.query<Row>(
       `SELECT cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-              last_msg_preview, last_read_seq, peer_read_seq, mention_seq, updated_at
-         FROM conversations ORDER BY updated_at DESC`,
+              last_msg_preview, last_msg_ts, last_read_seq, peer_read_seq, mention_seq, muted,
+              updated_at
+         FROM conversations ORDER BY last_msg_ts DESC, updated_at DESC`,
     );
     return rows.map((r) => {
       const lastMsgSeq = r.last_msg_seq as number;
@@ -205,10 +282,12 @@ export class MessageStore {
         displayName: (r.display_name as string | null) ?? null,
         lastMsgSeq,
         lastMsgPreview: (r.last_msg_preview as string | null) ?? null,
+        lastMsgTs: typeof r.last_msg_ts === 'number' ? r.last_msg_ts : 0,
         lastReadSeq,
         unreadCount: Math.max(0, lastMsgSeq - lastReadSeq),
         mentionSeq,
         hasMention: mentionSeq > lastReadSeq,
+        muted: r.muted === 1,
         peerReadSeq: (r.peer_read_seq as number | null) ?? null,
         updatedAt: r.updated_at as number,
       };
@@ -221,6 +300,13 @@ export class MessageStore {
     await this.db.exec(
       `UPDATE conversations SET display_name = ?, updated_at = MAX(updated_at, ?) WHERE cid = ?`,
       [normalized, Date.now(), cid],
+    );
+  }
+
+  async setConversationMuted(cid: string, muted: boolean): Promise<void> {
+    await this.db.exec(
+      `UPDATE conversations SET muted = ? WHERE cid = ?`,
+      [muted ? 1 : 0, cid],
     );
   }
 
@@ -295,18 +381,31 @@ export class MessageStore {
     groupId: number | null;
     seq: number;
     preview: string | null;
+    ts: number;
   }): Promise<void> {
     await this.db.exec(
-      `INSERT INTO conversations (cid, type, group_id, last_msg_seq, last_msg_preview, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO conversations
+         (cid, type, group_id, last_msg_seq, last_msg_preview, last_msg_ts, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          last_msg_preview = CASE WHEN excluded.last_msg_seq > conversations.last_msg_seq
                                  THEN excluded.last_msg_preview
                                  ELSE conversations.last_msg_preview END,
          last_msg_seq = MAX(conversations.last_msg_seq, excluded.last_msg_seq),
+         last_msg_ts = CASE WHEN excluded.last_msg_seq >= conversations.last_msg_seq
+                            THEN MAX(conversations.last_msg_ts, excluded.last_msg_ts)
+                            ELSE conversations.last_msg_ts END,
          updated_at = CASE WHEN excluded.last_msg_seq >= conversations.last_msg_seq
                            THEN excluded.updated_at ELSE conversations.updated_at END`,
-      [c.cid, c.type, c.groupId, c.seq, c.preview, Date.now()],
+      [
+        c.cid,
+        c.type,
+        c.groupId,
+        c.seq,
+        c.preview,
+        Number.isFinite(c.ts) && c.ts > 0 ? c.ts : 0,
+        Date.now(),
+      ],
     );
   }
 

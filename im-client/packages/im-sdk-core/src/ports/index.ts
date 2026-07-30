@@ -45,11 +45,39 @@ export interface PickedMedia {
   filename: string;
   mime: string;
   size: number;
+  width?: number;
+  height?: number;
 }
 
 export interface MediaPicker {
-  pickImage(): Promise<PickedMedia | null>;
+  pickCameraImage(): Promise<PickedMedia | null>;
+  pickLibraryImage(): Promise<PickedMedia | null>;
   pickFile(): Promise<PickedMedia | null>;
+}
+
+/** 文件持久化、分片读取和二进制传输由平台适配层实现。 */
+export interface MediaBinaryPort {
+  persist(source: PickedMedia, taskId: string): Promise<PickedMedia>;
+  exists(uri: string): Promise<boolean>;
+  readChunkBase64(uri: string, offset: number, length: number): Promise<string>;
+  putBase64(
+    url: string,
+    base64: string,
+    contentType: string,
+    contentLength: number,
+  ): Promise<{ eTag: string | null }>;
+  getCachedDownload(cacheKey: string, filename: string): Promise<string | null>;
+  download(
+    url: string,
+    cacheKey: string,
+    filename: string,
+    onProgress: (done: number, total: number) => void,
+  ): Promise<string>;
+  remove(uri: string): Promise<void>;
+}
+
+export interface MediaOpenPort {
+  open(uri: string, mime: string): Promise<void>;
 }
 
 // —— 生命周期端口（M1 实现，AppState）——

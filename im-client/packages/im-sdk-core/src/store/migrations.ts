@@ -44,6 +44,49 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE conversations ADD COLUMN peer_id INTEGER`,
   `ALTER TABLE conversations ADD COLUMN peer_name TEXT`,
   `ALTER TABLE conversations ADD COLUMN display_name TEXT`,
+  `CREATE TABLE media_upload_task (
+     task_id TEXT PRIMARY KEY,
+     client_msg_id TEXT NOT NULL UNIQUE,
+     account_id INTEGER NOT NULL,
+     cid TEXT NOT NULL,
+     type TEXT NOT NULL,
+     local_uri TEXT NOT NULL,
+     filename TEXT NOT NULL,
+     mime TEXT NOT NULL,
+     size INTEGER NOT NULL,
+     width INTEGER,
+     height INTEGER,
+     mode TEXT,
+     server_task_id TEXT,
+     object_key TEXT,
+     part_size INTEGER,
+     status TEXT NOT NULL,
+     progress REAL NOT NULL DEFAULT 0,
+     error TEXT,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   )`,
+  `CREATE INDEX idx_media_upload_account_status
+     ON media_upload_task (account_id, status, updated_at)`,
+  `CREATE INDEX idx_media_upload_cid_created
+     ON media_upload_task (cid, created_at)`,
+  `ALTER TABLE media_upload_task ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'`,
+  `CREATE TABLE voice_heard (
+     account_id INTEGER NOT NULL,
+     cid TEXT NOT NULL,
+     seq INTEGER NOT NULL,
+     heard_at INTEGER NOT NULL,
+     PRIMARY KEY (account_id, cid, seq)
+   )`,
+  `CREATE INDEX idx_voice_heard_account_cid ON voice_heard (account_id, cid)`,
+  `ALTER TABLE conversations ADD COLUMN muted INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE conversations ADD COLUMN last_msg_ts INTEGER NOT NULL DEFAULT 0`,
+  `UPDATE conversations
+      SET last_msg_ts = COALESCE(
+        (SELECT MAX(messages.ts) FROM messages WHERE messages.cid = conversations.cid),
+        0
+      )
+    WHERE last_msg_ts = 0`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

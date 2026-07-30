@@ -162,9 +162,15 @@ export class ConnectionManager {
   }
 
   private onForeground(): void {
-    if (this.state !== 'connected') {
-      void this.openNow();
+    if (this.state === 'connected') {
+      // RN 进入后台后 JS 定时器会暂停，Redis 在线路由可能先于 WebSocket 过期。
+      // 回到前台立即重启心跳并发 PING：同一连接上的后续 SEND 会排在 PING 之后，
+      // 网关可先重新登记路由，避免消息已落库却收不到最终 PUSH。
+      this.startHeartbeat();
+      this.onHeartbeatTick();
+      return;
     }
+    void this.openNow();
   }
 
   private scheduleReconnect(): void {

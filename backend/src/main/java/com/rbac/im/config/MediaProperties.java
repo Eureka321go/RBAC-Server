@@ -23,6 +23,10 @@ public class MediaProperties {
     private String region = "us-east-1";
     private long putTtlSeconds = 300;
     private long getTtlSeconds = 300;
+    private long multipartThreshold = 5L * 1024 * 1024;
+    private long multipartPartSize = 5L * 1024 * 1024;
+    private long multipartSessionTtlSeconds = 86400;
+    private long cleanupDelayMs = 300000;
     /** key = 小写类型（image/audio/file）。 */
     private Map<String, Limit> limits = new HashMap<>();
 

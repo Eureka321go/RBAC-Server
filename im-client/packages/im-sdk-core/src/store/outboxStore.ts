@@ -1,7 +1,7 @@
 import type { Database, Row } from '../ports/index';
 import type { StoredMessage } from './messageStore';
 
-export type ChatStatus = 'sent' | 'sending' | 'acked' | 'failed';
+export type ChatStatus = 'sent' | 'uploading' | 'sending' | 'acked' | 'failed';
 
 /** 待确认消息：还没拿到服务端 seq，不能进 messages(cid, seq)。 */
 export interface OutboxRow {

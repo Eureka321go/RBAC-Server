@@ -3,13 +3,16 @@ package com.rbac.im.controller;
 import com.rbac.common.Result;
 import com.rbac.common.util.SecurityUtils;
 import com.rbac.im.dto.CreateSingleConversationRequest;
+import com.rbac.im.dto.SetConversationMuteRequest;
 import com.rbac.im.service.ConversationService;
 import com.rbac.im.service.SingleConversationService;
 import com.rbac.im.vo.CreateSingleConversationResult;
 import com.rbac.im.vo.ImConversationVO;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,5 +43,13 @@ public class ImConversationController {
             @Valid @RequestBody CreateSingleConversationRequest request) {
         return Result.success(singleConversationService.create(
                 SecurityUtils.getUserId(), request.getPeerId()));
+    }
+
+    @PutMapping("/conversations/{cid}/mute")
+    public Result<Void> setMuted(
+            @PathVariable String cid,
+            @Valid @RequestBody SetConversationMuteRequest request) {
+        conversationService.setMuted(SecurityUtils.getUserId(), cid, request.getMuted());
+        return Result.success();
     }
 }
