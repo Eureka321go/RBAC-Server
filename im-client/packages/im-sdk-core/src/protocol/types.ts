@@ -4,6 +4,7 @@ export const OP = {
   READ: 'READ',
   ACK: 'ACK',
   PUSH: 'PUSH',
+  LINK_PREVIEW: 'LINK_PREVIEW',
   ERROR: 'ERROR',
   PING: 'PING',
   PONG: 'PONG',

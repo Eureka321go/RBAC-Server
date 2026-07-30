@@ -215,6 +215,7 @@ export class ChatService {
     this.pushTimers.clear();
     this.pendingRecalls.forEach(({ timer }) => clearTimeout(timer));
     this.pendingRecalls.clear();
+    this.engine.clearPendingLinkPreviews();
   }
 
   private async dispatch(row: OutboxRow): Promise<void> {
@@ -288,6 +289,10 @@ export class ChatService {
   }
 
   private async onEnvelope(env: Envelope): Promise<void> {
+    if (env.op === OP.LINK_PREVIEW) {
+      await this.engine.applyLinkPreview(env);
+      return;
+    }
     if (env.op === OP.PUSH) {
       await this.engine.applyPush(env);
       if (env.clientMsgId) {
