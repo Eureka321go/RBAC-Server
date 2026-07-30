@@ -16,6 +16,7 @@ interface ConversationSnapshot {
   peerName: string | null;
   lastMsgSeq: number;
   lastMsgPreview: string | null;
+  lastMsgTs: number;
   lastReadSeq: number;
   unreadCount: number;
   mentionSeq: number;
@@ -132,6 +133,9 @@ export class SyncService {
           peerName: item.peerName ?? null,
           displayName: null,
           lastMsgPreview: item.lastMsgPreview ?? null,
+          lastMsgTs: Number.isFinite(item.lastMsgTs) && item.lastMsgTs > 0
+            ? item.lastMsgTs
+            : 0,
           peerReadSeq: item.peerReadSeq ?? null,
           updatedAt: now - index,
         });

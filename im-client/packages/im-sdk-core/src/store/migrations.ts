@@ -80,6 +80,13 @@ export const MIGRATIONS: string[] = [
    )`,
   `CREATE INDEX idx_voice_heard_account_cid ON voice_heard (account_id, cid)`,
   `ALTER TABLE conversations ADD COLUMN muted INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE conversations ADD COLUMN last_msg_ts INTEGER NOT NULL DEFAULT 0`,
+  `UPDATE conversations
+      SET last_msg_ts = COALESCE(
+        (SELECT MAX(messages.ts) FROM messages WHERE messages.cid = conversations.cid),
+        0
+      )
+    WHERE last_msg_ts = 0`,
 ];
 
 /** 幂等：用 _migrations 表记录已应用版本，可重复调用。 */

@@ -24,6 +24,7 @@ export interface ConversationRow {
   displayName: string | null;
   lastMsgSeq: number;
   lastMsgPreview: string | null;
+  lastMsgTs: number;
   lastReadSeq: number;
   unreadCount: number;
   mentionSeq: number;
@@ -218,8 +219,8 @@ export class MessageStore {
     await this.db.exec(
       `INSERT INTO conversations
          (cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-          last_msg_preview, last_read_seq, peer_read_seq, mention_seq, muted, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          last_msg_preview, last_msg_ts, last_read_seq, peer_read_seq, mention_seq, muted, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          type = excluded.type,
          group_id = excluded.group_id,
@@ -232,6 +233,7 @@ export class MessageStore {
            WHEN excluded.last_msg_seq >= conversations.last_msg_seq
            THEN excluded.last_msg_preview ELSE conversations.last_msg_preview END,
          last_msg_seq = MAX(conversations.last_msg_seq, excluded.last_msg_seq),
+         last_msg_ts = MAX(conversations.last_msg_ts, excluded.last_msg_ts),
          last_read_seq = MAX(conversations.last_read_seq, excluded.last_read_seq),
          peer_read_seq = CASE
            WHEN excluded.peer_read_seq IS NULL THEN conversations.peer_read_seq
@@ -249,6 +251,7 @@ export class MessageStore {
         c.displayName,
         c.lastMsgSeq,
         c.lastMsgPreview,
+        c.lastMsgTs,
         c.lastReadSeq,
         c.peerReadSeq,
         c.mentionSeq,
@@ -262,8 +265,9 @@ export class MessageStore {
   async getConversationRows(): Promise<ConversationRow[]> {
     const rows = await this.db.query<Row>(
       `SELECT cid, type, group_id, peer_id, peer_name, display_name, last_msg_seq,
-              last_msg_preview, last_read_seq, peer_read_seq, mention_seq, muted, updated_at
-         FROM conversations ORDER BY updated_at DESC`,
+              last_msg_preview, last_msg_ts, last_read_seq, peer_read_seq, mention_seq, muted,
+              updated_at
+         FROM conversations ORDER BY last_msg_ts DESC, updated_at DESC`,
     );
     return rows.map((r) => {
       const lastMsgSeq = r.last_msg_seq as number;
@@ -278,6 +282,7 @@ export class MessageStore {
         displayName: (r.display_name as string | null) ?? null,
         lastMsgSeq,
         lastMsgPreview: (r.last_msg_preview as string | null) ?? null,
+        lastMsgTs: typeof r.last_msg_ts === 'number' ? r.last_msg_ts : 0,
         lastReadSeq,
         unreadCount: Math.max(0, lastMsgSeq - lastReadSeq),
         mentionSeq,
@@ -376,18 +381,31 @@ export class MessageStore {
     groupId: number | null;
     seq: number;
     preview: string | null;
+    ts: number;
   }): Promise<void> {
     await this.db.exec(
-      `INSERT INTO conversations (cid, type, group_id, last_msg_seq, last_msg_preview, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO conversations
+         (cid, type, group_id, last_msg_seq, last_msg_preview, last_msg_ts, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(cid) DO UPDATE SET
          last_msg_preview = CASE WHEN excluded.last_msg_seq > conversations.last_msg_seq
                                  THEN excluded.last_msg_preview
                                  ELSE conversations.last_msg_preview END,
          last_msg_seq = MAX(conversations.last_msg_seq, excluded.last_msg_seq),
+         last_msg_ts = CASE WHEN excluded.last_msg_seq >= conversations.last_msg_seq
+                            THEN MAX(conversations.last_msg_ts, excluded.last_msg_ts)
+                            ELSE conversations.last_msg_ts END,
          updated_at = CASE WHEN excluded.last_msg_seq >= conversations.last_msg_seq
                            THEN excluded.updated_at ELSE conversations.updated_at END`,
-      [c.cid, c.type, c.groupId, c.seq, c.preview, Date.now()],
+      [
+        c.cid,
+        c.type,
+        c.groupId,
+        c.seq,
+        c.preview,
+        Number.isFinite(c.ts) && c.ts > 0 ? c.ts : 0,
+        Date.now(),
+      ],
     );
   }
 

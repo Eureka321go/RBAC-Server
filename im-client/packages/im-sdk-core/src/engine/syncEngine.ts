@@ -194,6 +194,7 @@ export class SyncEngine {
         groupId,
         seq: message.seq,
         preview: previewOf(message.type, message.body),
+        ts: message.ts,
       });
       await messages.advanceSyncedSeq(cid, message.seq);
     });
