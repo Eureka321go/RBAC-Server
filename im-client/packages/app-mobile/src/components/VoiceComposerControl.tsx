@@ -1,5 +1,12 @@
 import React, { useMemo, useRef } from 'react';
-import { PanResponder, StyleSheet, Text, View } from 'react-native';
+import {
+  PanResponder,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { IconButton } from './IconButton';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
@@ -7,6 +14,7 @@ interface Props {
   voiceMode: boolean;
   disabled: boolean;
   active: boolean;
+  iconStyle?: StyleProp<ViewStyle>;
   onToggleMode(): void;
   onStart(): Promise<void>;
   onCancellingChange(value: boolean): void;
@@ -17,6 +25,7 @@ export function VoiceComposerControl({
   voiceMode,
   disabled,
   active,
+  iconStyle,
   onToggleMode,
   onStart,
   onCancellingChange,
@@ -59,6 +68,7 @@ export function VoiceComposerControl({
         accessibilityLabel="切换到语音输入"
         disabled={disabled || active}
         color={COLORS.primary}
+        style={iconStyle}
         onPress={onToggleMode}
       />
     );
@@ -71,6 +81,7 @@ export function VoiceComposerControl({
         accessibilityLabel="切换到文字输入"
         disabled={disabled || active}
         color={COLORS.primary}
+        style={iconStyle}
         onPress={onToggleMode}
       />
       <View

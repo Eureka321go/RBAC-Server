@@ -880,12 +880,14 @@ export function ChatScreen({ route, navigation }: Props) {
             accessibilityLabel="添加图片或文件"
             disabled={voiceRecording.state.active || voiceRecording.state.starting}
             color={COLORS.primary}
+            style={styles.composerIcon}
             onPress={() => setAttachmentPickerVisible(true)}
           />
           <VoiceComposerControl
             voiceMode={voiceMode}
             disabled={false}
             active={voiceRecording.state.active || voiceRecording.state.starting}
+            iconStyle={styles.composerIcon}
             onToggleMode={() => void toggleVoiceMode()}
             onStart={voiceRecording.start}
             onCancellingChange={voiceRecording.setCancelling}
@@ -913,6 +915,7 @@ export function ChatScreen({ route, navigation }: Props) {
                   || voiceRecording.state.starting}
                 color={COLORS.white}
                 backgroundColor={draft.text.trim() === '' ? COLORS.textMuted : COLORS.primary}
+                style={styles.composerIcon}
                 onPress={() => void send()}
               />
             </>
@@ -998,12 +1001,13 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.xxs,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.border,
   },
+  composerIcon: { width: 36, height: 36 },
   input: {
     flex: 1,
     minHeight: 44,
