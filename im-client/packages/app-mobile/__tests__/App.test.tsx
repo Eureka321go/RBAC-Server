@@ -33,13 +33,30 @@ jest.mock('../src/screens/ConversationSettingsScreen', () => ({
 }));
 jest.mock('../src/screens/GroupDetailsScreen', () => ({ GroupDetailsScreen: () => null }));
 jest.mock('../src/components/ConnectionStatusBar', () => ({ ConnectionStatusBar: () => null }));
+jest.mock('../src/navigation/RootTabs', () => ({ RootTabs: () => null }));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(async () => 'system'),
+    setItem: jest.fn(async () => undefined),
+  },
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: React.PropsWithChildren) => children,
 }));
 
 jest.mock('@react-navigation/native', () => ({
+  DarkTheme: {
+    dark: true,
+    colors: {
+      background: '#000000', card: '#000000', text: '#ffffff',
+      border: '#333333', primary: '#8888ff', notification: '#ff0000',
+    },
+  },
   DefaultTheme: {
+    dark: false,
     colors: {
       background: '#ffffff', card: '#ffffff', text: '#000000',
       border: '#dddddd', primary: '#0000ff', notification: '#ff0000',

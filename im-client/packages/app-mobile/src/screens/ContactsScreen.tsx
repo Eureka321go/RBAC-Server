@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootTabScreenProps } from '../navigation/types';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import { buildContactDirectory, type ContactDirectoryModel } from '../contact/directory';
 import { AppButton } from '../components/AppButton';
@@ -13,7 +12,7 @@ import { StatusNotice } from '../components/StatusNotice';
 import { Surface } from '../components/Surface';
 import { COLORS, SPACING, TYPE } from '../ui/theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Contacts'>;
+type Props = RootTabScreenProps<'ContactsTab'>;
 
 export function ContactsScreen({ navigation }: Props) {
   const myId = useAppStore((s) => s.myId);

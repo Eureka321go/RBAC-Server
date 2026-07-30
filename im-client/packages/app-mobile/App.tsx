@@ -4,42 +4,43 @@
  * @format
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
-import { DefaultTheme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppStore } from './src/store';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { ContactsScreen } from './src/screens/ContactsScreen';
-import { ConversationsScreen } from './src/screens/ConversationsScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { CreateGroupScreen } from './src/screens/CreateGroupScreen';
 import { ConversationSettingsScreen } from './src/screens/ConversationSettingsScreen';
 import { GroupDetailsScreen } from './src/screens/GroupDetailsScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
-import { COLORS } from './src/ui/theme';
+import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
+import { RootTabs } from './src/navigation/RootTabs';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: COLORS.page,
-    card: COLORS.surface,
-    text: COLORS.text,
-    border: COLORS.border,
-    primary: COLORS.primary,
-  },
-};
-
-function App() {
+function AppContent() {
   const booted = useAppStore((x) => x.booted);
   const boot = useAppStore((x) => x.boot);
   const loggedIn = useAppStore((x) => x.loggedIn);
+  const { theme } = useAppTheme();
+  const navigationTheme = useMemo(() => {
+    const baseTheme = theme.isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        background: theme.colors.page,
+        card: theme.colors.surface,
+        text: theme.colors.text,
+        border: theme.colors.border,
+        primary: theme.colors.primary,
+      },
+    };
+  }, [theme]);
 
   useEffect(() => {
     void boot();
@@ -47,17 +48,15 @@ function App() {
 
   if (!booted) {
     return (
-      <SafeAreaProvider>
-        <View style={styles.center}>
-          <Text>初始化本地数据库…</Text>
-        </View>
-      </SafeAreaProvider>
+      <View style={[styles.center, { backgroundColor: theme.colors.page }]}>
+        <Text style={{ color: theme.colors.textSecondary }}>初始化本地数据库…</Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+    <>
+      <StatusBar barStyle={theme.statusBarStyle} backgroundColor={theme.colors.surface} />
       {loggedIn ? <ConnectionStatusBar /> : null}
       <NavigationContainer theme={navigationTheme}>
         <Stack.Navigator>
@@ -65,16 +64,7 @@ function App() {
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           ) : (
             <>
-              <Stack.Screen
-                name="Conversations"
-                component={ConversationsScreen}
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="Contacts"
-                component={ContactsScreen}
-                options={{ headerShown: false }}
-              />
+              <Stack.Screen name="Home" component={RootTabs} options={{ headerShown: false }} />
               <Stack.Screen
                 name="CreateGroup"
                 component={CreateGroupScreen}
@@ -99,12 +89,22 @@ function App() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.page },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default App;

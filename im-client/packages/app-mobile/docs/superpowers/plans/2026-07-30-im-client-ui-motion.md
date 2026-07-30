@@ -361,7 +361,7 @@ Expected: test and TypeScript commands exit 0 before commit.
 **Interfaces:**
 - Produces: `RootTabParamList`, `ROOT_TAB_ITEMS`, `RootTabs`, and root stack route `Home`.
 
-- [ ] **Step 1: Write failing tab metadata test**
+- [x] **Step 1: Write failing tab metadata test**
 
 ```ts
 test('declares the three authenticated tabs', () => {
@@ -370,13 +370,13 @@ test('declares the three authenticated tabs', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/RootTabs.test.tsx __tests__/App.test.tsx
 ```
 
-- [ ] **Step 3: Define typed routes**
+- [x] **Step 3: Define typed routes**
 
 ```ts
 export type RootTabParamList = {
@@ -395,7 +395,7 @@ export type RootStackParamList = {
 
 Use composite bottom-tab plus native-stack props for tab screens so `Chat` and `CreateGroup` navigation bubbles to the parent stack.
 
-- [ ] **Step 4: Implement the tab shell and wire App**
+- [x] **Step 4: Implement the tab shell and wire App**
 
 ```ts
 export const ROOT_TAB_ITEMS = [
@@ -407,12 +407,12 @@ export const ROOT_TAB_ITEMS = [
 
 The themed tab bar is 70 points plus safe-area bottom, uses no native header, and renders active tint from `theme.colors.primary`. `App` places `ThemeProvider` above `StatusBar` and `NavigationContainer`, renders `Home` when authenticated, and retains every secondary screen.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/RootTabs.test.tsx __tests__/App.test.tsx
 npx tsc --noEmit
-git add im-client/packages/app-mobile/App.tsx im-client/packages/app-mobile/src/navigation im-client/packages/app-mobile/src/screens/ProfileScreen.tsx im-client/packages/app-mobile/__tests__
+git add im-client/packages/app-mobile/App.tsx im-client/packages/app-mobile/src/navigation im-client/packages/app-mobile/src/screens/ProfileScreen.tsx im-client/packages/app-mobile/src/screens/ConversationsScreen.tsx im-client/packages/app-mobile/src/screens/ContactsScreen.tsx im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx im-client/packages/app-mobile/__tests__/RootTabs.test.tsx im-client/packages/app-mobile/__tests__/App.test.tsx im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "新增(IM客户端): 接入聊天通讯录我的标签栏"
 ```
 

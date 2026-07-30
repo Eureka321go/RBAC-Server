@@ -222,7 +222,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
               if (dissolve) await sdk.groups.dissolveGroup(groupId);
               else await sdk.groups.leaveGroup(groupId);
               await sdk.sync.removeLocalConversation(cid);
-              navigation.reset({ index: 0, routes: [{ name: 'Conversations' }] });
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
               void sdk.sync.syncAll().catch(() => {});
             } catch (cause) {
               if (mountedRef.current) {

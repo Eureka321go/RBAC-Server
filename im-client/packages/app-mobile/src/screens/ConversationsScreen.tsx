@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ConversationRow } from '@im/sdk-core';
 import { sdk } from '../sdk';
 import { useAppStore } from '../store';
@@ -10,9 +9,9 @@ import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
 import { formatConversationTime } from '../conversation/conversationTime';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootTabScreenProps } from '../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Conversations'>;
+type Props = RootTabScreenProps<'ChatsTab'>;
 
 function titleOf(row: ConversationRow, myId: number | null): string {
   const displayName = row.displayName?.trim();
@@ -111,7 +110,7 @@ export function ConversationsScreen({ navigation }: Props) {
               color={COLORS.primary}
               size={21}
               style={styles.actionButton}
-              onPress={() => navigation.navigate('Contacts')}
+              onPress={() => navigation.navigate('ContactsTab')}
             />
             <IconButton
               name="people-outline"
