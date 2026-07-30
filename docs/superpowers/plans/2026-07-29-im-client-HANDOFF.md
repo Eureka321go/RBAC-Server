@@ -5,7 +5,7 @@ meta:
 
 # 如何在新窗口继续开发 IM 前端
 
-本文记录 `feat/im` 分支截至 2026-07-30 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。语音消息与链接卡片已由用户手动验收通过；消息引用代码已完成，等待用户手动验收。
+本文记录 `feat/im` 分支截至 2026-07-30 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。语音消息、链接卡片、消息引用与富媒体长按已由用户手动验收通过；消息免打扰代码已完成，等待用户手动验收。
 
 ## 协作与提交约定
 
@@ -16,7 +16,7 @@ meta:
 
 ## 当前接手点
 
-当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本轮消息引用提交未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 与 `backend/src/main/java/com/rbac/im/service/ConversationService.java` 改动，本轮提交未包含也未覆盖它们。
+当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本轮消息引用与消息免打扰提交均未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 与 `backend/src/main/java/com/rbac/im/service/ConversationService.java` 改动，本轮提交未包含也未覆盖它们。
 
 本轮已完成以下功能：
 
@@ -63,11 +63,18 @@ meta:
 - SDK Core 统一构建和合法化 `TEXT body.quote`，发送中、失败重试、实时推送和离线同步共用同一结构
 - 移动端支持引用文本、图片、文件和语音后发送文本，输入区可取消，气泡可定位原消息并感知原消息撤回
 - 图片、文件和语音消息的内层触摸区会转发长按操作，并抑制长按松手后的预览、打开或播放
+- 服务端按当前用户的会话成员行持久化 `muted`，会话快照与 SDK SQLite 同步该设置
+- 移动端支持长按单聊或群聊开启、取消免打扰，并在列表展示静音图标；未读数与 @ 提醒保持不变
 
 关键提交如下：
 
 | 提交 | 内容 |
 | --- | --- |
+| `f47ac55` | 支持会话消息免打扰 |
+| `37bfa37` | 同步会话免打扰状态 |
+| `2a37389` | 持久化会话免打扰设置 |
+| `4e37ea7` | 规划消息免打扰实施步骤 |
+| `46dfaef` | 设计消息免打扰 |
 | `91961a1` | 恢复富媒体消息长按操作 |
 | `7271d54` | 重试定位较早消息 |
 | `ec85057` | 支持引用消息 |
@@ -258,6 +265,8 @@ git diff --check
 
 富媒体长按修复后，移动端 TypeScript 类型检查和 `git diff --check` 退出码均为 0。图片/文件与语音组件的 ESLint 结果分别保持既有的 1 个 `no-void` 警告，`ChatScreen.tsx` 的错误和警告数量也与修复前一致。
 
+消息免打扰完成后，后端跳过测试编译、SDK Core 与移动端 TypeScript 检查、`git diff --check` 均退出码为 0。会话操作面板和会话列表 ESLint 为 0 错误；会话列表仍为功能前已有的 5 个 `no-void` 警告。按用户约定没有运行自动化测试。
+
 ```bash
 cd /Users/xxmm/work/RBAC-Server
 mvn -f backend/pom.xml -Dmaven.test.skip=true package
@@ -277,8 +286,8 @@ mvn -f backend/pom.xml -Dmaven.test.skip=true package
 4. 图片与文件消息：代码已完成，等待用户手动验收。
 5. 语音消息：代码已完成，用户已手动验收通过。
 6. 链接卡片：代码已完成，用户已手动验收通过。
-7. 消息引用：代码已完成，等待用户手动验收。
-8. 消息免打扰：消息引用验收后开始设计。
+7. 消息引用：代码已完成，用户已手动验收通过，包括富媒体长按修复。
+8. 消息免打扰：代码已完成，等待用户手动验收。
 9. 置顶聊天：消息免打扰完成后开始设计。
 
 @ 提及的设计和实施记录位于：
@@ -379,6 +388,20 @@ mvn -f backend/pom.xml -Dmaven.test.skip=true package
 9. 客户端伪造或畸形引用字段不能伪造服务端快照，也不能阻断合法正文展示。
 10. 撤回引用回复后，正文、引用块和链接卡片均不再展示。
 
+消息免打扰设计和实施记录位于：
+
+- `docs/superpowers/specs/2026-07-30-im-client-conversation-mute-design.md`
+- `docs/superpowers/plans/2026-07-30-im-client-conversation-mute.md`
+
+消息免打扰手测需要覆盖：
+
+1. 单聊和群聊均可通过长按开启、取消免打扰。
+2. 长按不会同时进入聊天，普通点击仍能进入。
+3. 设置成功后列表静音图标立即变化，刷新、重进和重新登录后仍保持。
+4. 开启免打扰后新消息仍到达，未读数字与“有人@我”仍正常。
+5. 另一账号的同一会话状态不受影响。
+6. 断网或服务端拒绝时显示中文错误，图标和真实状态不发生假变化。
+
 相关实现现状：
 
 - 服务端已实现 `POST /api/im/upload/presign`，请求字段为 `cid/type/filename/mime/size`，响应为 `objectKey/uploadUrl/expiresIn`。
@@ -411,9 +434,9 @@ mvn -f backend/pom.xml -Dmaven.test.skip=true package
 继续开发 IM 前端。先完整阅读：
 docs/superpowers/plans/2026-07-29-im-client-HANDOFF.md
 
-当前分支是 feat/im，本轮消息引用提交尚未 push。语音消息和链接卡片已手动验收通过，消息引用等待手动验收。
+当前分支是 feat/im，本轮提交尚未 push。语音消息、链接卡片、消息引用和富媒体长按已手动验收通过，消息免打扰等待手动验收。
 不要新增或运行测试；每完成一项功能，只告诉我需要手测哪些场景。
 先检查工作区和最近提交，再从交接文档的“下一窗口优先处理的边界”继续。
-先让用户按文档清单手测消息引用；通过后设计消息免打扰，再设计置顶聊天。
+先让用户按文档清单手测消息免打扰；通过后设计置顶聊天。
 修改完成后先查看 git diff，再提交代码，不要主动 push。
 ```
