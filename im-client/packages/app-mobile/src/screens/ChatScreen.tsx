@@ -955,7 +955,7 @@ export function ChatScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: COLORS.page },
   banner: { paddingHorizontal: SPACING.md, paddingTop: SPACING.xs },
-  messageList: { paddingVertical: SPACING.xs },
+  messageList: { paddingTop: SPACING.xs },
   rowWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs },
   rowMine: { justifyContent: 'flex-end' },
   rowPeer: { justifyContent: 'flex-start' },
