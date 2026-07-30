@@ -11,7 +11,7 @@ import lombok.EqualsAndHashCode;
 public class ImConversationMember extends BaseEntity {
     private String cid;
     private Long userId;
-    private Long lastReadSeq;
-    private Long mentionSeq;
-    private Integer muted;
+    private Long lastReadSeq; // 我在这个会话里读到第几条（已读水位）
+    private Long mentionSeq; // 最近一次 @我 的消息序号
+    private Integer muted; // 是否免打扰
 }

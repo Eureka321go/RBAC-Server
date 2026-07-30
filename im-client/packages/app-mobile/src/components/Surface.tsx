@@ -16,7 +16,6 @@ export function Surface({ children, style }: Props) {
         {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.border,
-          shadowColor: theme.colors.shadow,
         },
         style,
       ]}
@@ -31,9 +30,5 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 2,
   },
 });

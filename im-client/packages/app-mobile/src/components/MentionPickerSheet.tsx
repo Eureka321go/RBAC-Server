@@ -100,7 +100,7 @@ export function MentionPickerSheet({
       visible={visible}
       transparent
       statusBarTranslucent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={close}
     >
       <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>

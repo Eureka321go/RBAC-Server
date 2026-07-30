@@ -94,7 +94,6 @@ export function RootTabs() {
             paddingBottom: Math.max(insets.bottom, 8),
             backgroundColor: theme.colors.tabBar,
             borderTopColor: theme.colors.border,
-            shadowColor: theme.colors.shadow,
           },
         ],
       }}
@@ -124,10 +123,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingTop: 7,
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 16,
   },
   item: { minHeight: 52 },
   label: { fontSize: 11, fontWeight: '700' },

@@ -29,7 +29,7 @@ export function MessageActionSheet({
       visible={visible}
       transparent
       statusBarTranslucent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>

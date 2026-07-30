@@ -1,14 +1,19 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Ionicons,
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons/static';
 import { InitialAvatar } from '../components/Avatar';
 import { AppButton } from '../components/AppButton';
-import { AppearanceSelector } from '../components/AppearanceSelector';
 import { AnimatedEntrance } from '../components/AnimatedEntrance';
 import { PresenceDot } from '../components/PresenceDot';
 import { RootScreenBackground } from '../components/RootScreenBackground';
 import { Surface } from '../components/Surface';
+import type { RootTabScreenProps } from '../navigation/types';
 import { useAppStore } from '../store';
 import { SPACING, TYPE } from '../ui/theme';
+import type { ThemeMode } from '../ui/themePreference';
 import { useAppTheme } from '../ui/ThemeProvider';
 
 const CONNECTION_LABELS: Record<string, string> = {
@@ -18,12 +23,77 @@ const CONNECTION_LABELS: Record<string, string> = {
   closed: '离线',
 };
 
-export function ProfileScreen() {
+const APPEARANCE_LABELS: Record<ThemeMode, string> = {
+  system: '跟随系统',
+  light: '浅色',
+  dark: '深色',
+};
+
+interface PreferenceRowProps {
+  icon: IoniconsIconName;
+  label: string;
+  value: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+  showDivider?: boolean;
+}
+
+function PreferenceRow({
+  icon,
+  label,
+  value,
+  accessibilityLabel,
+  onPress,
+  showDivider = false,
+}: PreferenceRowProps) {
+  const { theme } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.preferenceRow,
+        showDivider && {
+          borderTopColor: theme.colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+        },
+        pressed && { backgroundColor: theme.colors.surfaceMuted },
+      ]}
+    >
+      <View
+        style={[
+          styles.preferenceIcon,
+          { backgroundColor: theme.colors.primarySoft },
+        ]}
+      >
+        <Ionicons name={icon} size={20} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.preferenceLabel, { color: theme.colors.text }]}>
+        {label}
+      </Text>
+      <Text
+        style={[styles.preferenceValue, { color: theme.colors.textSecondary }]}
+      >
+        {value}
+      </Text>
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={theme.colors.textMuted}
+      />
+    </Pressable>
+  );
+}
+
+type Props = RootTabScreenProps<'ProfileTab'>;
+
+export function ProfileScreen({ navigation }: Props) {
   const myId = useAppStore(state => state.myId);
   const displayName = useAppStore(state => state.displayName);
   const connState = useAppStore(state => state.connState);
   const logout = useAppStore(state => state.logout);
-  const { theme } = useAppTheme();
+  const { theme, mode } = useAppTheme();
   const statusColor =
     connState === 'connected'
       ? theme.colors.success
@@ -70,19 +140,25 @@ export function ProfileScreen() {
         </AnimatedEntrance>
 
         <AnimatedEntrance index={2}>
-          <Surface style={styles.section}>
+          <Surface style={styles.preferences}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              外观
+              偏好设置
             </Text>
-            <Text
-              style={[
-                styles.sectionHint,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              选择更适合当前环境的界面
-            </Text>
-            <AppearanceSelector />
+            <PreferenceRow
+              icon="color-palette-outline"
+              label="外观"
+              value={APPEARANCE_LABELS[mode]}
+              accessibilityLabel="打开外观设置"
+              onPress={() => navigation.navigate('AppearanceSettings')}
+            />
+            <PreferenceRow
+              icon="language-outline"
+              label="语言"
+              value="简体中文"
+              accessibilityLabel="语言，简体中文"
+              onPress={() => undefined}
+              showDivider
+            />
           </Surface>
         </AnimatedEntrance>
 
@@ -132,7 +208,27 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   status: { fontSize: 11, fontWeight: '700' },
-  section: { padding: SPACING.md, gap: SPACING.xs },
-  sectionTitle: { fontSize: TYPE.subtitle, fontWeight: '800' },
-  sectionHint: { marginBottom: SPACING.xs, fontSize: TYPE.caption },
+  preferences: { paddingTop: SPACING.md },
+  sectionTitle: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xs,
+    fontSize: TYPE.subtitle,
+    fontWeight: '800',
+  },
+  preferenceRow: {
+    minHeight: 64,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  preferenceIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preferenceLabel: { flex: 1, fontSize: TYPE.body, fontWeight: '700' },
+  preferenceValue: { fontSize: TYPE.caption },
 });

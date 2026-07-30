@@ -183,17 +183,28 @@ public class ConversationService {
      */
     public List<ImConversationVO> listMyConversations(long userId) {
         // 1. 我参与的所有会话成员行：既给出会话范围（cid 列表），也给出我的已读/@水位
+        // selectList 返回所有匹配行（0 到 N 行）
         List<ImConversationMember> members = memberMapper.selectList(
+                    // 条件构造器
                 new LambdaQueryWrapper<ImConversationMember>()
+                        // MP 内部通过序列化 lambda 反解出方法名 getUserId → 属性名 userId → 列名
+                        //  user_id（驼峰转下划线）
                         .eq(ImConversationMember::getUserId, userId));
         if (members.isEmpty()) {
+            // 等价于"返回一个空数组"
             return List.of();
         }
         // cid -> 我的已读水位（null 视为 0，即一条都没读过）
+        //        把集合变成"流水线"。它本身不做任何事，只是开了一条管道，后面可以挂 map（变换）、filter（过滤）、distinct（
+        //        去重）等操作，最后用一个终结操作收口
         Map<String, Long> readSeqByCid = members.stream()
-                .collect(Collectors.toMap(ImConversationMember::getCid,
+                //  终结操作
+                .collect(
+                        // 把流里的元素收集成一个容器
+                        Collectors.toMap(ImConversationMember::getCid,
                         m -> m.getLastReadSeq() == null ? 0L : m.getLastReadSeq(),
-                        (a, b) -> a));
+                        (a, b) -> a)
+                );
         // cid -> 最近一次 @我 的消息序号（用于「有人@我」红点）
         Map<String, Long> mentionSeqByCid = members.stream()
                 .collect(Collectors.toMap(ImConversationMember::getCid,

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import { AnimatedEntrance } from '../components/AnimatedEntrance';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
@@ -27,8 +27,6 @@ export function ContactsScreen({ navigation }: Props) {
   const [hint, setHint] = useState<string | null>(null);
   const [openingPeerId, setOpeningPeerId] = useState<number | null>(null);
   const mountedRef = useRef(true);
-  const scrollRef = useRef<ScrollView>(null);
-  const directoryYRef = useRef(0);
   const { theme } = useAppTheme();
 
   const openChat = useCallback(
@@ -88,12 +86,7 @@ export function ContactsScreen({ navigation }: Props) {
 
   return (
     <RootScreenBackground>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.content}>
         <AnimatedEntrance style={styles.heading}>
           <Text style={[styles.eyebrow, { color: theme.colors.textMuted }]}>
             快速找到团队里的每个人
@@ -107,12 +100,6 @@ export function ContactsScreen({ navigation }: Props) {
           <PressableScale
             accessibilityRole="button"
             accessibilityLabel="浏览组织架构"
-            onPress={() =>
-              scrollRef.current?.scrollTo({
-                y: directoryYRef.current,
-                animated: true,
-              })
-            }
             style={[
               styles.shortcut,
               {
@@ -184,12 +171,8 @@ export function ContactsScreen({ navigation }: Props) {
           />
         ) : null}
 
-        <AnimatedEntrance index={2}>
-          <View
-            onLayout={event => {
-              directoryYRef.current = event.nativeEvent.layout.y;
-            }}
-          >
+        <AnimatedEntrance index={2} style={styles.directorySection}>
+          <View style={styles.directorySection}>
             <View style={styles.sectionHeading}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
                 组织成员
@@ -226,14 +209,14 @@ export function ContactsScreen({ navigation }: Props) {
             )}
           </View>
         </AnimatedEntrance>
-      </ScrollView>
+      </View>
     </RootScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.md,
@@ -269,9 +252,10 @@ const styles = StyleSheet.create({
   sectionHeading: { marginBottom: SPACING.xs },
   sectionTitle: { fontSize: TYPE.subtitle, fontWeight: '800' },
   sectionMeta: { marginTop: 3, fontSize: TYPE.caption },
-  directory: { height: 300 },
+  directorySection: { flex: 1 },
+  directory: { flex: 1 },
   loadingCard: {
-    minHeight: 180,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

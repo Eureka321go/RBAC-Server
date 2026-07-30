@@ -25,6 +25,7 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
+  AppearanceSettings: undefined;
   CreateGroup: undefined;
   Chat: ChatRouteParams;
   ConversationSettings: { cid: string; title: string };

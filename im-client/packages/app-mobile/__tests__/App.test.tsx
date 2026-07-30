@@ -14,7 +14,8 @@ const mockAppState = {
 };
 
 jest.mock('../src/store', () => ({
-  useAppStore: (selector: (state: typeof mockAppState) => unknown) => selector(mockAppState),
+  useAppStore: (selector: (state: typeof mockAppState) => unknown) =>
+    selector(mockAppState),
 }));
 
 jest.mock('../src/screens/LoginScreen', () => ({
@@ -24,15 +25,28 @@ jest.mock('../src/screens/LoginScreen', () => ({
     return ReactModule.createElement(NativeView, { testID: 'login-screen' });
   },
 }));
-jest.mock('../src/screens/ContactsScreen', () => ({ ContactsScreen: () => null }));
-jest.mock('../src/screens/ConversationsScreen', () => ({ ConversationsScreen: () => null }));
+jest.mock('../src/screens/ContactsScreen', () => ({
+  ContactsScreen: () => null,
+}));
+jest.mock('../src/screens/ConversationsScreen', () => ({
+  ConversationsScreen: () => null,
+}));
 jest.mock('../src/screens/ChatScreen', () => ({ ChatScreen: () => null }));
-jest.mock('../src/screens/CreateGroupScreen', () => ({ CreateGroupScreen: () => null }));
+jest.mock('../src/screens/CreateGroupScreen', () => ({
+  CreateGroupScreen: () => null,
+}));
 jest.mock('../src/screens/ConversationSettingsScreen', () => ({
   ConversationSettingsScreen: () => null,
 }));
-jest.mock('../src/screens/GroupDetailsScreen', () => ({ GroupDetailsScreen: () => null }));
-jest.mock('../src/components/ConnectionStatusBar', () => ({ ConnectionStatusBar: () => null }));
+jest.mock('../src/screens/GroupDetailsScreen', () => ({
+  GroupDetailsScreen: () => null,
+}));
+jest.mock('../src/screens/AppearanceSettingsScreen', () => ({
+  AppearanceSettingsScreen: () => null,
+}));
+jest.mock('../src/components/ConnectionStatusBar', () => ({
+  ConnectionStatusBar: () => null,
+}));
 jest.mock('../src/navigation/RootTabs', () => ({ RootTabs: () => null }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -51,15 +65,23 @@ jest.mock('@react-navigation/native', () => ({
   DarkTheme: {
     dark: true,
     colors: {
-      background: '#000000', card: '#000000', text: '#ffffff',
-      border: '#333333', primary: '#8888ff', notification: '#ff0000',
+      background: '#000000',
+      card: '#000000',
+      text: '#ffffff',
+      border: '#333333',
+      primary: '#8888ff',
+      notification: '#ff0000',
     },
   },
   DefaultTheme: {
     dark: false,
     colors: {
-      background: '#ffffff', card: '#ffffff', text: '#000000',
-      border: '#dddddd', primary: '#0000ff', notification: '#ff0000',
+      background: '#ffffff',
+      card: '#ffffff',
+      text: '#000000',
+      border: '#dddddd',
+      primary: '#0000ff',
+      notification: '#ff0000',
     },
   },
   NavigationContainer: ({ children }: React.PropsWithChildren) => children,

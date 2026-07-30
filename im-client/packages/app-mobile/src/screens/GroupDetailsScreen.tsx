@@ -570,7 +570,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       <Modal
         visible={showRename}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowRename(false)}
       >
         <View
@@ -634,7 +634,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       <Modal
         visible={showAddMembers}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowAddMembers(false)}
       >
         <View
@@ -717,7 +717,7 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
       <Modal
         visible={selectedMember != null}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setSelectedMember(null)}
       >
         <View

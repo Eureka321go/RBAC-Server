@@ -1,6 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import {
+  Ionicons,
+  type IoniconsIconName,
+} from '@react-native-vector-icons/ionicons/static';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
 import type { ThemeMode } from '../ui/themePreference';
@@ -20,8 +23,8 @@ export function AppearanceSelector() {
   const { theme, mode, setMode } = useAppTheme();
 
   return (
-    <View style={styles.row}>
-      {APPEARANCE_OPTIONS.map((option) => {
+    <View accessibilityRole="radiogroup" style={styles.list}>
+      {APPEARANCE_OPTIONS.map(option => {
         const selected = mode === option.mode;
         return (
           <PressableScale
@@ -33,24 +36,55 @@ export function AppearanceSelector() {
             style={[
               styles.option,
               {
-                backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surfaceMuted,
-                borderColor: selected ? theme.colors.primary : theme.colors.border,
+                backgroundColor: selected
+                  ? theme.colors.primarySoft
+                  : theme.colors.surfaceMuted,
+                borderColor: selected
+                  ? theme.colors.primary
+                  : theme.colors.border,
               },
             ]}
           >
-            <Ionicons
-              name={option.icon}
-              size={20}
-              color={selected ? theme.colors.primary : theme.colors.textSecondary}
-            />
+            <View
+              style={[
+                styles.icon,
+                { backgroundColor: theme.colors.primarySoft },
+              ]}
+            >
+              <Ionicons
+                name={option.icon}
+                size={21}
+                color={
+                  selected ? theme.colors.primary : theme.colors.textSecondary
+                }
+              />
+            </View>
             <Text
               style={[
                 styles.label,
-                { color: selected ? theme.colors.primary : theme.colors.textSecondary },
+                {
+                  color: selected
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary,
+                },
               ]}
             >
               {option.label}
             </Text>
+            {selected ? (
+              <Ionicons
+                name="checkmark-circle"
+                size={23}
+                color={theme.colors.primary}
+              />
+            ) : (
+              <View
+                style={[
+                  styles.unselected,
+                  { borderColor: theme.colors.borderStrong },
+                ]}
+              />
+            )}
           </PressableScale>
         );
       })}
@@ -59,17 +93,23 @@ export function AppearanceSelector() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: SPACING.xs },
+  list: { gap: SPACING.xs },
   option: {
-    flex: 1,
-    minWidth: 0,
-    height: 78,
+    minHeight: 64,
     borderWidth: 1,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+  },
+  icon: {
+    width: 40,
+    height: 40,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.xxs,
   },
-  label: { fontSize: TYPE.caption, fontWeight: '700' },
+  label: { flex: 1, fontSize: TYPE.body, fontWeight: '700' },
+  unselected: { width: 22, height: 22, borderRadius: 11, borderWidth: 1 },
 });

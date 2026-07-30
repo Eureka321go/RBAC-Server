@@ -19,7 +19,6 @@ export function ChatComposerSurface({ header, children, footer }: Props) {
           {
             backgroundColor: theme.colors.surfaceElevated,
             borderColor: theme.colors.border,
-            shadowColor: theme.colors.shadow,
           },
         ]}
       >
@@ -40,10 +39,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 26,
-    elevation: 10,
   },
   row: {
     minHeight: 58,
