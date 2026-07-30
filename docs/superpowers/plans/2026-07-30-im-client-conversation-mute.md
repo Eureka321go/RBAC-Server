@@ -30,6 +30,7 @@
 - 修改 `im-client/packages/im-sdk-core/src/store/migrations.ts`：增加 SQLite 字段。
 - 修改 `im-client/packages/im-sdk-core/src/store/messageStore.ts`：读写本地免打扰状态。
 - 修改 `im-client/packages/im-sdk-core/src/sync/syncService.ts`：同步快照并封装设置调用。
+- 新建 `im-client/packages/app-mobile/src/components/ConversationMuteSetting.tsx`：复用免打扰状态读取、更新和错误反馈。
 - 新建 `im-client/packages/app-mobile/src/screens/ConversationSettingsScreen.tsx`：承载单聊会话级设置。
 - 修改 `im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx`：在群设置中承载免打扰开关。
 - 修改 `im-client/packages/app-mobile/src/screens/ChatScreen.tsx`、`navigation/types.ts` 与 `App.tsx`：接入设置页导航。
@@ -189,6 +190,7 @@ git commit -m "功能(IM客户端)：同步会话免打扰状态"
 
 **Files:**
 - Delete: `im-client/packages/app-mobile/src/components/ConversationActionSheet.tsx`
+- Create: `im-client/packages/app-mobile/src/components/ConversationMuteSetting.tsx`
 - Create: `im-client/packages/app-mobile/src/screens/ConversationSettingsScreen.tsx`
 - Modify: `im-client/packages/app-mobile/src/screens/GroupDetailsScreen.tsx`
 - Modify: `im-client/packages/app-mobile/src/screens/ChatScreen.tsx`
