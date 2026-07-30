@@ -6,6 +6,7 @@ import {
   FlatList,
   Alert,
   AppState,
+  Keyboard,
   Pressable,
   StyleSheet,
 } from 'react-native';
@@ -45,6 +46,7 @@ import { VoiceRecordingOverlay } from '../components/VoiceRecordingOverlay';
 import { LinkCardContent } from '../components/LinkCardContent';
 import { MessageQuoteContent } from '../components/MessageQuoteContent';
 import { OutgoingMessageState } from '../components/OutgoingMessageState';
+import { EmojiPicker } from '../components/EmojiPicker';
 import { useVoiceRecording } from '../voice/useVoiceRecording';
 import {
   voiceMessageKey,
@@ -58,6 +60,12 @@ import {
   type MentionDraftState,
   type MentionTrigger,
 } from '../mention/mentionDraft';
+import {
+  deleteBackward,
+  replaceSelection,
+  type TextEditResult,
+  type TextSelection,
+} from '../emoji/emojiTextEditing';
 import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
@@ -185,6 +193,7 @@ export function ChatScreen({ route, navigation }: Props) {
   const [downloadingObjectKey, setDownloadingObjectKey] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [emojiPickerVisible, setEmojiPickerVisible] = useState(false);
   const [heardVoiceSeqs, setHeardVoiceSeqs] = useState<Set<number>>(() => new Set());
 
   // 组件是否仍处于挂载状态；卸载后用它守卫所有异步回调里的 setState，避免对已卸载组件调用。
@@ -200,6 +209,10 @@ export function ChatScreen({ route, navigation }: Props) {
   const quoteScrollRetryCountRef = useRef(0);
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const draftRef = useRef(draft);
+  const draftSelectionRef = useRef<TextSelection>(draftSelection);
+  draftRef.current = draft;
+  draftSelectionRef.current = draftSelection;
 
   const showBanner = useCallback((message: string) => {
     if (!mountedRef.current) return;
@@ -275,6 +288,7 @@ export function ChatScreen({ route, navigation }: Props) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') {
+        setEmojiPickerVisible(false);
         void voiceRecording.cancel();
         void voicePlaybackCoordinator.pause();
       }
@@ -340,8 +354,12 @@ export function ChatScreen({ route, navigation }: Props) {
     quoteScrollTargetRef.current = null;
     quoteScrollRetryCountRef.current = 0;
     setRecallingSeq(null);
-    setDraft(emptyMentionDraft());
-    setDraftSelection({ start: 0, end: 0 });
+    const emptyDraft = emptyMentionDraft();
+    const initialSelection = { start: 0, end: 0 };
+    draftRef.current = emptyDraft;
+    draftSelectionRef.current = initialSelection;
+    setDraft(emptyDraft);
+    setDraftSelection(initialSelection);
     setMentionTrigger(null);
     setMentionPickerVisible(false);
     setAttachmentPickerVisible(false);
@@ -349,6 +367,7 @@ export function ChatScreen({ route, navigation }: Props) {
     setDownloadingObjectKey(null);
     setDownloadProgress(0);
     setVoiceMode(false);
+    setEmojiPickerVisible(false);
     setHeardVoiceSeqs(new Set());
     if (syncOnOpen) {
       void sdk.sync.syncConversation(cid).then(safeReload).catch((cause) => {
@@ -485,21 +504,28 @@ export function ChatScreen({ route, navigation }: Props) {
   }, [items]);
 
   const send = useCallback(async () => {
-    const { text } = draft;
+    const currentDraft = draftRef.current;
+    const { text } = currentDraft;
     if (text.trim() === '') return;
     const options = {
-      ...toSendTextOptions(draft),
+      ...toSendTextOptions(currentDraft),
       quote: quoteDraft ?? undefined,
     };
     await sdk.chat.sendText(cid, text, options);
-    setDraft(emptyMentionDraft());
-    setDraftSelection({ start: 0, end: 0 });
+    const emptyDraft = emptyMentionDraft();
+    const initialSelection = { start: 0, end: 0 };
+    draftRef.current = emptyDraft;
+    draftSelectionRef.current = initialSelection;
+    setDraft(emptyDraft);
+    setDraftSelection(initialSelection);
     setMentionTrigger(null);
     setMentionPickerVisible(false);
+    setEmojiPickerVisible(false);
     setQuoteDraft(null);
-  }, [cid, draft, quoteDraft]);
+  }, [cid, quoteDraft]);
 
   const toggleVoiceMode = useCallback(async () => {
+    setEmojiPickerVisible(false);
     if (voiceMode) {
       setVoiceMode(false);
       requestAnimationFrame(() => inputRef.current?.focus());
@@ -537,8 +563,11 @@ export function ChatScreen({ route, navigation }: Props) {
   );
 
   const changeDraftText = useCallback((nextText: string) => {
-    const trigger = findInsertedMentionTrigger(draft.text, nextText);
-    setDraft(applyMentionTextChange(draft, nextText));
+    const currentDraft = draftRef.current;
+    const trigger = findInsertedMentionTrigger(currentDraft.text, nextText);
+    const nextDraft = applyMentionTextChange(currentDraft, nextText);
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
     if (conversationType !== 'GROUP' || trigger == null) return;
     if (membersLoading) {
       showBanner('群成员正在加载，请稍后重试');
@@ -550,7 +579,7 @@ export function ChatScreen({ route, navigation }: Props) {
     }
     setMentionTrigger(trigger);
     setMentionPickerVisible(true);
-  }, [conversationType, draft, membersLoadFailed, membersLoading, showBanner]);
+  }, [conversationType, membersLoadFailed, membersLoading, showBanner]);
 
   const closeMentionPicker = useCallback(() => {
     setMentionPickerVisible(false);
@@ -569,13 +598,67 @@ export function ChatScreen({ route, navigation }: Props) {
           userId: member.userId,
           displayName: member.displayName?.trim() || `用户 #${member.userId}`,
         }));
-    const result = insertMentionSelection(draft, mentionTrigger, mentionSelection);
+    const result = insertMentionSelection(draftRef.current, mentionTrigger, mentionSelection);
+    const nextSelection = { start: result.cursor, end: result.cursor };
+    draftRef.current = result.state;
+    draftSelectionRef.current = nextSelection;
     setDraft(result.state);
-    setDraftSelection({ start: result.cursor, end: result.cursor });
+    setDraftSelection(nextSelection);
     setMentionPickerVisible(false);
     setMentionTrigger(null);
     requestAnimationFrame(() => inputRef.current?.focus());
-  }, [closeMentionPicker, draft, mentionTrigger]);
+  }, [closeMentionPicker, mentionTrigger]);
+
+  const applyTextEdit = useCallback((edit: (
+    text: string,
+    selection: TextSelection,
+  ) => TextEditResult) => {
+    const currentDraft = draftRef.current;
+    const result = edit(currentDraft.text, draftSelectionRef.current);
+    const nextDraft = applyMentionTextChange(currentDraft, result.text);
+    draftRef.current = nextDraft;
+    draftSelectionRef.current = result.selection;
+    setDraft(nextDraft);
+    setDraftSelection(result.selection);
+    setMentionTrigger(null);
+    setMentionPickerVisible(false);
+  }, []);
+
+  const insertEmoji = useCallback((emoji: string) => {
+    applyTextEdit((text, selection) => replaceSelection(text, selection, emoji));
+  }, [applyTextEdit]);
+
+  const deleteEmojiBackward = useCallback(() => {
+    applyTextEdit(deleteBackward);
+  }, [applyTextEdit]);
+
+  const toggleEmojiPicker = useCallback(() => {
+    if (emojiPickerVisible) {
+      setEmojiPickerVisible(false);
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    setVoiceMode(false);
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    setEmojiPickerVisible(true);
+  }, [emojiPickerVisible]);
+
+  const openKeyboardFromInput = useCallback(() => {
+    if (emojiPickerVisible) setEmojiPickerVisible(false);
+  }, [emojiPickerVisible]);
+
+  const openAttachmentPicker = useCallback(() => {
+    setEmojiPickerVisible(false);
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    setAttachmentPickerVisible(true);
+  }, []);
+
+  const updateDraftSelection = useCallback((selection: TextSelection) => {
+    draftSelectionRef.current = selection;
+    setDraftSelection(selection);
+  }, []);
 
   const senderNameForMessage = useCallback((message: ChatMessage): string => {
     const mine = message.senderId === myId;
@@ -881,7 +964,7 @@ export function ChatScreen({ route, navigation }: Props) {
             disabled={voiceRecording.state.active || voiceRecording.state.starting}
             color={COLORS.primary}
             style={styles.composerIcon}
-            onPress={() => setAttachmentPickerVisible(true)}
+            onPress={openAttachmentPicker}
           />
           <VoiceComposerControl
             voiceMode={voiceMode}
@@ -895,18 +978,28 @@ export function ChatScreen({ route, navigation }: Props) {
           />
           {!voiceMode ? (
             <>
-              <TextInput
-                ref={inputRef}
-                style={styles.input}
-                placeholder="说点什么"
-                placeholderTextColor={COLORS.textMuted}
-                value={draft.text}
-                selection={draftSelection}
-                editable={!voiceRecording.state.active && !voiceRecording.state.starting}
-                onChangeText={changeDraftText}
-                onSelectionChange={(event) => setDraftSelection(event.nativeEvent.selection)}
-                onSubmitEditing={() => void send()}
-              />
+              <View style={styles.inputShell}>
+                <TextInput
+                  ref={inputRef}
+                  style={styles.input}
+                  placeholder="说点什么"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={draft.text}
+                  selection={draftSelection}
+                  editable={!voiceRecording.state.active && !voiceRecording.state.starting}
+                  onPressIn={openKeyboardFromInput}
+                  onChangeText={changeDraftText}
+                  onSelectionChange={(event) => updateDraftSelection(event.nativeEvent.selection)}
+                  onSubmitEditing={() => void send()}
+                />
+                <IconButton
+                  name={emojiPickerVisible ? 'keypad-outline' : 'happy-outline'}
+                  accessibilityLabel={emojiPickerVisible ? '切换到键盘' : '打开常用表情'}
+                  color={COLORS.primary}
+                  style={styles.inputEmojiButton}
+                  onPress={toggleEmojiPicker}
+                />
+              </View>
               <IconButton
                 name="send"
                 accessibilityLabel="发送"
@@ -921,6 +1014,9 @@ export function ChatScreen({ route, navigation }: Props) {
             </>
           ) : null}
         </View>
+        {emojiPickerVisible && !voiceMode ? (
+          <EmojiPicker onSelect={insertEmoji} onDelete={deleteEmojiBackward} />
+        ) : null}
       </SafeAreaView>
       <MessageActionSheet
         visible={selectedMessage != null}
@@ -1008,17 +1104,27 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
   },
   composerIcon: { width: 36, height: 36 },
-  input: {
+  inputShell: {
     flex: 1,
     minHeight: 44,
     maxHeight: 108,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.pill,
     backgroundColor: COLORS.surfaceMuted,
+    overflow: 'hidden',
+  },
+  input: {
+    flex: 1,
+    minHeight: 42,
+    maxHeight: 106,
     color: COLORS.text,
     fontSize: TYPE.body,
-    paddingHorizontal: SPACING.md,
+    paddingLeft: SPACING.md,
+    paddingRight: SPACING.xxs,
     paddingVertical: SPACING.xs,
   },
+  inputEmojiButton: { width: 36, height: 36, marginRight: SPACING.xxs },
 });
