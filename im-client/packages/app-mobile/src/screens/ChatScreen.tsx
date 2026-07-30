@@ -195,6 +195,9 @@ export function ChatScreen({ route, navigation }: Props) {
   // 横幅自动消失的定时器；每次新错误到来时需要清掉旧的，重新计时 3 秒。
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quoteScrollTargetRef = useRef<number | null>(null);
+  const quoteScrollRetryCountRef = useRef(0);
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -334,6 +337,8 @@ export function ChatScreen({ route, navigation }: Props) {
     setSelectedMessage(null);
     setQuoteDraft(null);
     setHighlightedSeq(null);
+    quoteScrollTargetRef.current = null;
+    quoteScrollRetryCountRef.current = 0;
     setRecallingSeq(null);
     setDraft(emptyMentionDraft());
     setDraftSelection({ start: 0, end: 0 });
@@ -400,6 +405,10 @@ export function ChatScreen({ route, navigation }: Props) {
         clearTimeout(highlightTimerRef.current);
         highlightTimerRef.current = null;
       }
+      if (scrollRetryTimerRef.current != null) {
+        clearTimeout(scrollRetryTimerRef.current);
+        scrollRetryTimerRef.current = null;
+      }
       offMsg();
       offRead();
       offConnection();
@@ -428,6 +437,8 @@ export function ChatScreen({ route, navigation }: Props) {
       showBanner('原消息暂未加载');
       return;
     }
+    quoteScrollTargetRef.current = index;
+    quoteScrollRetryCountRef.current = 0;
     listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
     setHighlightedSeq(targetSeq);
     if (highlightTimerRef.current != null) clearTimeout(highlightTimerRef.current);
@@ -436,6 +447,34 @@ export function ChatScreen({ route, navigation }: Props) {
       if (mountedRef.current) setHighlightedSeq(null);
     }, 1600);
   }, [data, showBanner]);
+
+  const retryQuotedMessageScroll = useCallback((info: {
+    index: number;
+    averageItemLength: number;
+  }) => {
+    if (quoteScrollTargetRef.current !== info.index) return;
+    if (quoteScrollRetryCountRef.current >= 1 || info.averageItemLength <= 0) {
+      quoteScrollTargetRef.current = null;
+      showBanner('原消息暂未加载');
+      return;
+    }
+    quoteScrollRetryCountRef.current += 1;
+    listRef.current?.scrollToOffset({
+      offset: info.averageItemLength * info.index,
+      animated: false,
+    });
+    if (scrollRetryTimerRef.current != null) clearTimeout(scrollRetryTimerRef.current);
+    scrollRetryTimerRef.current = setTimeout(() => {
+      scrollRetryTimerRef.current = null;
+      if (quoteScrollTargetRef.current !== info.index) return;
+      listRef.current?.scrollToIndex({
+        index: info.index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+      quoteScrollTargetRef.current = null;
+    }, 100);
+  }, [showBanner]);
 
   useEffect(() => {
     const activeKey = voicePlaybackCoordinator.getSnapshot().key;
@@ -676,7 +715,7 @@ export function ChatScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.messageList}
         data={data}
         keyExtractor={(m) => (m.seq != null ? `s:${m.seq}` : `c:${m.clientMsgId}`)}
-        onScrollToIndexFailed={() => showBanner('原消息暂未加载')}
+        onScrollToIndexFailed={retryQuotedMessageScroll}
         renderItem={({ item }) => {
           if (item.recalled) {
             const operatorId = item.seq == null ? null : recallOperators.get(item.seq);
