@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   FlatList,
-  ActivityIndicator,
   Alert,
   AppState,
   Pressable,
@@ -45,6 +44,7 @@ import { VoiceMessageContent } from '../components/VoiceMessageContent';
 import { VoiceRecordingOverlay } from '../components/VoiceRecordingOverlay';
 import { LinkCardContent } from '../components/LinkCardContent';
 import { MessageQuoteContent } from '../components/MessageQuoteContent';
+import { OutgoingMessageState } from '../components/OutgoingMessageState';
 import { useVoiceRecording } from '../voice/useVoiceRecording';
 import {
   voiceMessageKey,
@@ -767,6 +767,7 @@ export function ChatScreen({ route, navigation }: Props) {
           );
           const quotable = canQuoteMessage(item);
           const actionable = recallable || quotable;
+          const recalling = item.seq != null && recallingSeq === item.seq;
           const messageQuote = item.type === 'TEXT'
             ? normalizeMessageQuote(item.body?.quote)
             : null;
@@ -784,6 +785,14 @@ export function ChatScreen({ route, navigation }: Props) {
             ]}>
               {!mine ? (
                 <InitialAvatar name={senderName} userId={senderId} size={36} />
+              ) : null}
+              {mine ? (
+                <OutgoingMessageState
+                  message={item}
+                  recalling={recalling}
+                  onCancelUpload={() => cancelUpload(item)}
+                  onRetry={() => retryMessage(item)}
+                />
               ) : null}
               <View style={styles.messageContent}>
                 {showSenderName ? (
@@ -850,25 +859,6 @@ export function ChatScreen({ route, navigation }: Props) {
                   </Text>
                 ) : null}
               </View>
-              {item.status === 'sending' || item.status === 'acked' || recallingSeq === item.seq ? (
-                <ActivityIndicator size="small" />
-              ) : null}
-              {item.status === 'uploading' && typeof item.body?.uploadTaskId === 'string' ? (
-                <IconButton
-                  name="close-circle-outline"
-                  accessibilityLabel="取消上传"
-                  color={COLORS.textSecondary}
-                  onPress={() => void cancelUpload(item)}
-                />
-              ) : null}
-              {item.status === 'failed' && item.clientMsgId ? (
-                <IconButton
-                  name="alert-circle"
-                  accessibilityLabel="重新发送"
-                  color={COLORS.danger}
-                  onPress={() => void retryMessage(item)}
-                />
-              ) : null}
               {mine ? (
                 <InitialAvatar name={senderName} userId={senderId} size={36} />
               ) : null}
