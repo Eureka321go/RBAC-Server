@@ -4,7 +4,8 @@ import type { ContactMember } from '@im/sdk-core';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import type { ContactDirectoryModel } from '../contact/directory';
 import { InitialAvatar } from './Avatar';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Location = number | 'unassigned' | null;
 
@@ -34,6 +35,7 @@ export function DepartmentContactPicker({
   onSelectionChange,
   onMemberPress,
 }: Props) {
+  const { theme } = useAppTheme();
   const [location, setLocation] = useState<Location>(null);
 
   const isUnavailable = (userId: number) => disabledIds.has(userId) || excludedIds.has(userId);
@@ -111,8 +113,8 @@ export function DepartmentContactPicker({
   };
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.breadcrumbs}>
+    <View style={[styles.wrap, { backgroundColor: theme.colors.surface }]}>
+      <View style={[styles.breadcrumbs, { borderBottomColor: theme.colors.border }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="返回通讯录根目录"
@@ -120,7 +122,11 @@ export function DepartmentContactPicker({
           hitSlop={8}
           onPress={() => setLocation(null)}
         >
-          <Text style={[styles.crumb, location == null && styles.crumbCurrent]}>通讯录</Text>
+          <Text style={[
+            styles.crumb,
+            { color: location == null ? theme.colors.text : theme.colors.primary },
+            location == null && styles.crumbCurrent,
+          ]}>通讯录</Text>
         </Pressable>
         {breadcrumbs.map((crumb, index) => {
           const current = index === breadcrumbs.length - 1;
@@ -129,7 +135,7 @@ export function DepartmentContactPicker({
               <Ionicons
                 name="chevron-forward"
                 size={15}
-                color={COLORS.textMuted}
+                color={theme.colors.textMuted}
                 style={styles.separator}
               />
               <Pressable
@@ -139,7 +145,11 @@ export function DepartmentContactPicker({
                 hitSlop={8}
                 onPress={() => setLocation(crumb.id)}
               >
-                <Text style={[styles.crumb, current && styles.crumbCurrent]}>{crumb.name}</Text>
+                <Text style={[
+                  styles.crumb,
+                  { color: current ? theme.colors.text : theme.colors.primary },
+                  current && styles.crumbCurrent,
+                ]}>{crumb.name}</Text>
               </Pressable>
             </React.Fragment>
           );
@@ -151,26 +161,28 @@ export function DepartmentContactPicker({
         keyExtractor={(row) => row.kind === 'department'
           ? `d:${row.departmentId}`
           : row.kind === 'member' ? `m:${row.memberId}` : 'unassigned'}
-        ListEmptyComponent={<Text style={styles.empty}>当前部门暂无成员或子部门</Text>}
+        ListEmptyComponent={(
+          <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>当前部门暂无成员或子部门</Text>
+        )}
         renderItem={({ item }) => {
           if (item.kind === 'unassigned') {
             const availableIds = model.unassignedMemberIds.filter((id) => !isUnavailable(id));
             const allSelected = availableIds.length > 0
               && availableIds.every((userId) => selectedIds.has(userId));
             return (
-              <View style={styles.departmentRow}>
+              <View style={[styles.departmentRow, { borderBottomColor: theme.colors.border }]}>
                 <Pressable style={styles.departmentOpen} onPress={() => setLocation('unassigned')}>
-                  <View style={styles.departmentIcon}>
-                    <Ionicons name="folder-outline" size={20} color={COLORS.primary} />
+                  <View style={[styles.departmentIcon, { backgroundColor: theme.colors.primarySoft }]}>
+                    <Ionicons name="folder-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.grow}>
-                    <Text style={styles.departmentName}>未分配部门</Text>
-                    <Text style={styles.meta}>{availableIds.length} 人</Text>
+                    <Text style={[styles.departmentName, { color: theme.colors.text }]}>未分配部门</Text>
+                    <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>{availableIds.length} 人</Text>
                   </View>
                 </Pressable>
                 {mode === 'multiple' && availableIds.length > 0 ? (
                   <Pressable disabled={disabled} onPress={toggleUnassigned}>
-                    <Text style={styles.selectAll}>{allSelected ? '取消全选' : '全选'}</Text>
+                    <Text style={[styles.selectAll, { color: theme.colors.primary }]}>{allSelected ? '取消全选' : '全选'}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -183,20 +195,20 @@ export function DepartmentContactPicker({
             const allSelected = availableIds.length > 0
               && availableIds.every((userId) => selectedIds.has(userId));
             return (
-              <View style={styles.departmentRow}>
+              <View style={[styles.departmentRow, { borderBottomColor: theme.colors.border }]}>
                 <Pressable style={styles.departmentOpen} onPress={() => setLocation(department.id)}>
-                  <View style={styles.departmentIcon}>
-                    <Ionicons name="folder-outline" size={20} color={COLORS.primary} />
+                  <View style={[styles.departmentIcon, { backgroundColor: theme.colors.primarySoft }]}>
+                    <Ionicons name="folder-outline" size={20} color={theme.colors.primary} />
                   </View>
                   <View style={styles.grow}>
-                    <Text style={styles.departmentName}>{department.name}</Text>
-                    <Text style={styles.meta}>{availableIds.length} 人</Text>
+                    <Text style={[styles.departmentName, { color: theme.colors.text }]}>{department.name}</Text>
+                    <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>{availableIds.length} 人</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
                 </Pressable>
                 {mode === 'multiple' && availableIds.length > 0 ? (
                   <Pressable disabled={disabled} onPress={() => toggleDepartment(department.id)}>
-                    <Text style={styles.selectAll}>{allSelected ? '取消全选' : '全选'}</Text>
+                    <Text style={[styles.selectAll, { color: theme.colors.primary }]}>{allSelected ? '取消全选' : '全选'}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -210,18 +222,29 @@ export function DepartmentContactPicker({
           return (
             <Pressable
               disabled={unavailable}
-              style={[styles.memberRow, selected && styles.selectedRow, unavailable && styles.unavailable]}
+              style={[
+                styles.memberRow,
+                { borderBottomColor: theme.colors.border },
+                selected && { backgroundColor: theme.colors.primarySoft },
+                unavailable && styles.unavailable,
+              ]}
               onPress={() => toggleMember(member)}
             >
               {mode === 'multiple' ? (
-                <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                  {selected ? <Ionicons name="checkmark" size={17} color={COLORS.white} /> : null}
+                <View style={[
+                  styles.checkbox,
+                  {
+                    borderColor: selected ? theme.colors.primary : theme.colors.borderStrong,
+                    backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
+                  },
+                ]}>
+                  {selected ? <Ionicons name="checkmark" size={17} color={theme.colors.white} /> : null}
                 </View>
               ) : null}
               <InitialAvatar name={member.displayName} userId={member.userId} size={38} />
               <View style={styles.grow}>
-                <Text style={styles.memberName}>{member.displayName}</Text>
-                <Text style={styles.meta}>#{member.userId}{unavailable ? ' · 不可选择' : ''}</Text>
+                <Text style={[styles.memberName, { color: theme.colors.text }]}>{member.displayName}</Text>
+                <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>#{member.userId}{unavailable ? ' · 不可选择' : ''}</Text>
               </View>
             </Pressable>
           );
@@ -232,23 +255,21 @@ export function DepartmentContactPicker({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, minHeight: 180, backgroundColor: COLORS.surface },
-  breadcrumbs: { minHeight: 52, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  crumb: { color: COLORS.primary, fontSize: TYPE.body, lineHeight: 22, fontWeight: '500', paddingVertical: 5 },
-  crumbCurrent: { color: COLORS.text, fontWeight: '700' },
+  wrap: { flex: 1, minHeight: 180 },
+  breadcrumbs: { minHeight: 52, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth },
+  crumb: { fontSize: TYPE.body, lineHeight: 22, fontWeight: '500', paddingVertical: 5 },
+  crumbCurrent: { fontWeight: '700' },
   separator: { marginHorizontal: SPACING.xs },
-  departmentRow: { minHeight: 64, paddingHorizontal: SPACING.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  departmentRow: { minHeight: 64, paddingHorizontal: SPACING.sm, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth },
   departmentOpen: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  departmentIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primarySoft },
+  departmentIcon: { width: 36, height: 36, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   grow: { flex: 1 },
-  departmentName: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
-  selectAll: { color: COLORS.primary, fontSize: 13, fontWeight: '600', padding: SPACING.sm },
-  memberRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  selectedRow: { backgroundColor: COLORS.primarySoft },
+  departmentName: { fontSize: TYPE.body, fontWeight: '700' },
+  selectAll: { fontSize: 13, fontWeight: '600', padding: SPACING.sm },
+  memberRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   unavailable: { opacity: 0.45 },
-  checkbox: { width: 24, height: 24, borderWidth: 1, borderColor: COLORS.borderStrong, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface },
-  checkboxSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
-  memberName: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '600' },
-  meta: { color: COLORS.textSecondary, fontSize: TYPE.caption, marginTop: 2 },
-  empty: { color: COLORS.textSecondary, textAlign: 'center', paddingVertical: SPACING.xl },
+  checkbox: { width: 24, height: 24, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  memberName: { fontSize: TYPE.body, fontWeight: '600' },
+  meta: { fontSize: TYPE.caption, marginTop: 2 },
+  empty: { textAlign: 'center', paddingVertical: SPACING.xl },
 });

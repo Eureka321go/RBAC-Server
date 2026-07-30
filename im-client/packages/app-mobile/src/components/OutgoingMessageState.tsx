@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { ChatMessage } from '@im/sdk-core';
-import { COLORS } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 import { IconButton } from './IconButton';
 
 interface Props {
@@ -18,13 +18,14 @@ export function OutgoingMessageState({
   onCancelUpload,
   onRetry,
 }: Props) {
+  const { theme } = useAppTheme();
   if (message.status === 'failed' && message.clientMsgId != null) {
     return (
       <View style={styles.slot}>
         <IconButton
           name="alert-circle"
           accessibilityLabel="重新发送"
-          color={COLORS.danger}
+          color={theme.colors.danger}
           onPress={onRetry}
         />
       </View>
@@ -39,11 +40,11 @@ export function OutgoingMessageState({
           <IconButton
             name="close-circle-outline"
             accessibilityLabel="取消上传"
-            color={COLORS.textSecondary}
+            color={theme.colors.textSecondary}
             onPress={onCancelUpload}
           />
         ) : (
-          <ActivityIndicator size="small" color={COLORS.textMuted} />
+          <ActivityIndicator size="small" color={theme.colors.textMuted} />
         )}
       </View>
     );
@@ -52,7 +53,7 @@ export function OutgoingMessageState({
   if (message.status === 'sending' || message.status === 'acked' || recalling) {
     return (
       <View style={styles.slot}>
-        <ActivityIndicator size="small" color={COLORS.textMuted} />
+        <ActivityIndicator size="small" color={theme.colors.textMuted} />
       </View>
     );
   }

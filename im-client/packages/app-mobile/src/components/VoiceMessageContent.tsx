@@ -10,7 +10,8 @@ import {
   voiceMessageKey,
   voicePlaybackCoordinator,
 } from '../voice/voicePlaybackCoordinator';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   message: ChatMessage;
@@ -31,6 +32,7 @@ export function VoiceMessageContent({
   onError,
   onLongPress,
 }: Props) {
+  const { theme } = useAppTheme();
   const longPressedRef = useRef(false);
   const snapshot = useSyncExternalStore(
     voicePlaybackCoordinator.subscribe,
@@ -78,9 +80,9 @@ export function VoiceMessageContent({
     >
       <View style={styles.control}>
         {status === 'downloading' ? (
-          <ActivityIndicator size="small" color={COLORS.voiceWavePlayed} />
+          <ActivityIndicator size="small" color={theme.colors.voiceWavePlayed} />
         ) : (
-          <Ionicons name={icon} size={22} color={COLORS.voiceWavePlayed} />
+          <Ionicons name={icon} size={22} color={theme.colors.voiceWavePlayed} />
         )}
       </View>
       <View style={styles.waveform}>
@@ -93,15 +95,22 @@ export function VoiceMessageContent({
                 styles.bar,
                 {
                   height: 6 + (value / 100) * 22,
-                  backgroundColor: played ? COLORS.voiceWavePlayed : COLORS.voiceWaveIdle,
+                  backgroundColor: played
+                    ? theme.colors.voiceWavePlayed
+                    : theme.colors.voiceWaveIdle,
                 },
               ]}
             />
           );
         })}
       </View>
-      <Text style={styles.duration}>{duration}''</Text>
-      {!mine && !heard ? <View accessibilityLabel="未听" style={styles.unheard} /> : null}
+      <Text style={[styles.duration, { color: theme.colors.textSecondary }]}>{duration}''</Text>
+      {!mine && !heard ? (
+        <View
+          accessibilityLabel="未听"
+          style={[styles.unheard, { backgroundColor: theme.colors.voiceUnread }]}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -126,7 +135,6 @@ const styles = StyleSheet.create({
   duration: {
     minWidth: 22,
     flexShrink: 0,
-    color: COLORS.textSecondary,
     fontSize: TYPE.caption,
     textAlign: 'right',
   },
@@ -137,7 +145,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.voiceUnread,
   },
   pressed: { opacity: 0.68 },
 });

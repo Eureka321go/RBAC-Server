@@ -647,23 +647,23 @@ Expected: focused, full, and TypeScript checks pass before commit.
 **Interfaces:**
 - Produces: zero direct `COLORS` imports outside theme definition and full dark coverage.
 
-- [ ] **Step 1: Record remaining static imports**
+- [x] **Step 1: Record remaining static imports**
 
 ```bash
 rg -l "import .*COLORS.*ui/theme" src --glob "*.tsx"
 ```
 
-- [ ] **Step 2: Convert secondary screens**
+- [x] **Step 2: Convert secondary screens**
 
 Replace static styles with theme-derived styles, themed shared headers, surfaces, rows, selection states, and buttons. Add one top-level entrance per screen. Preserve all SDK calls and route parameters.
 
-- [ ] **Step 3: Convert remaining content and overlays**
+- [x] **Step 3: Convert remaining content and overlays**
 
 Map backgrounds to `page`, `surface`, or `surfaceMuted`; text to `text` or `textSecondary`; separators to `border`; selected/playback to `primary`; destructive to `danger`; warnings to `warning`; modal scrims to `overlay`; recording scrims to `recordingOverlay`. Preserve public props, callbacks, labels, playback, and recording effects.
 
 `VoiceRecordingOverlay` maps the existing recording level to a clamped `1.0–1.18` scale and `0.72–1.0` opacity on its microphone halo without starting a second audio subscription. When reduced motion is enabled, the halo remains static. Loading and empty-state illustrations use one `AnimatedEntrance` and do not loop.
 
-- [ ] **Step 4: Verify dynamic theme coverage**
+- [x] **Step 4: Verify dynamic theme coverage**
 
 ```bash
 rg -n "import .*COLORS.*ui/theme" src --glob "*.tsx"
@@ -674,7 +674,7 @@ npm test -- --runInBand
 
 Expected: ripgrep has no output; lint, TypeScript, and tests exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add im-client/packages/app-mobile/src/screens im-client/packages/app-mobile/src/components

@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import type { ChatMessage } from '@im/sdk-core';
-import { COLORS, TYPE } from '../ui/theme';
+import { TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Segment = { text: string; mentioned: boolean };
 
@@ -77,13 +78,16 @@ interface Props {
 }
 
 export function MentionText({ body }: Props) {
+  const { theme } = useAppTheme();
   const segments = parseMentionSegments(body);
   return (
-    <Text style={styles.text}>
+    <Text style={[styles.text, { color: theme.colors.text }]}>
       {segments.map((segment, index) => (
         <Text
           key={`${index}:${segment.text.length}`}
-          style={segment.mentioned ? styles.mentioned : undefined}
+          style={segment.mentioned
+            ? [styles.mentioned, { color: theme.colors.mention }]
+            : undefined}
         >
           {segment.text}
         </Text>
@@ -93,6 +97,6 @@ export function MentionText({ body }: Props) {
 }
 
 const styles = StyleSheet.create({
-  text: { color: COLORS.text, fontSize: TYPE.body, lineHeight: 21 },
-  mentioned: { color: COLORS.mention, fontWeight: '700' },
+  text: { fontSize: TYPE.body, lineHeight: 21 },
+  mentioned: { fontWeight: '700' },
 });

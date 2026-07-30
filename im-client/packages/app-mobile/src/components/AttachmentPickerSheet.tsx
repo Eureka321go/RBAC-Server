@@ -2,7 +2,8 @@ import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
 import { IconButton } from './IconButton';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type AttachmentKind = 'camera' | 'library' | 'file';
 
@@ -19,6 +20,7 @@ const ACTIONS: Array<{ kind: AttachmentKind; label: string; icon: IoniconsIconNa
 ];
 
 export function AttachmentPickerSheet({ visible, onClose, onSelect }: Props) {
+  const { theme } = useAppTheme();
   return (
     <Modal
       visible={visible}
@@ -27,16 +29,16 @@ export function AttachmentPickerSheet({ visible, onClose, onSelect }: Props) {
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="关闭附件选择"
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <Text style={styles.title}>发送附件</Text>
+        <View style={[styles.sheet, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>发送附件</Text>
             <IconButton name="close" accessibilityLabel="关闭" onPress={onClose} />
           </View>
           <View style={styles.actions}>
@@ -48,10 +50,10 @@ export function AttachmentPickerSheet({ visible, onClose, onSelect }: Props) {
                 onPress={() => onSelect(action.kind)}
                 style={({ pressed }) => [styles.action, pressed && styles.pressed]}
               >
-                <View style={styles.iconWrap}>
-                  <Ionicons name={action.icon} size={28} color={COLORS.primary} />
+                <View style={[styles.iconWrap, { backgroundColor: theme.colors.primarySoft }]}>
+                  <Ionicons name={action.icon} size={28} color={theme.colors.primary} />
                 </View>
-                <Text style={styles.actionText}>{action.label}</Text>
+                <Text style={[styles.actionText, { color: theme.colors.text }]}>{action.label}</Text>
               </Pressable>
             ))}
           </View>
@@ -62,14 +64,13 @@ export function AttachmentPickerSheet({ visible, onClose, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.overlay },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.xxl,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    backgroundColor: COLORS.surface,
   },
   header: {
     minHeight: 52,
@@ -77,9 +78,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
-  title: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '800' },
+  title: { fontSize: TYPE.subtitle, fontWeight: '800' },
   actions: { flexDirection: 'row', gap: SPACING.lg, paddingVertical: SPACING.lg },
   action: { alignItems: 'center', gap: SPACING.xs },
   iconWrap: {
@@ -88,8 +88,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primarySoft,
   },
-  actionText: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '600' },
+  actionText: { fontSize: TYPE.body, fontWeight: '600' },
   pressed: { opacity: 0.62 },
 });

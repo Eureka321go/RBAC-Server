@@ -6,7 +6,8 @@ import {
 } from '@react-native-vector-icons/ionicons/static';
 import type { MessageQuote, QuotedMessageType } from '@im/sdk-core';
 import { IconButton } from './IconButton';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   quote: MessageQuote;
@@ -34,28 +35,32 @@ export function MessageQuoteContent({
   onLongPress,
   onClose,
 }: Props) {
+  const { theme } = useAppTheme();
   const longPressedRef = useRef(false);
   const content = recalled ? (
-    <Text style={styles.recalled}>原消息已撤回</Text>
+    <Text style={[styles.recalled, { color: theme.colors.textMuted }]}>原消息已撤回</Text>
   ) : (
     <>
       <View style={styles.heading}>
-        <Ionicons name={iconName(quote.type)} size={14} color={COLORS.primary} />
-        <Text style={styles.sender} numberOfLines={1}>{quote.senderName}</Text>
+        <Ionicons name={iconName(quote.type)} size={14} color={theme.colors.primary} />
+        <Text style={[styles.sender, { color: theme.colors.primary }]} numberOfLines={1}>{quote.senderName}</Text>
       </View>
-      <Text style={styles.summary} numberOfLines={1}>{quote.summary}</Text>
+      <Text style={[styles.summary, { color: theme.colors.textSecondary }]} numberOfLines={1}>{quote.summary}</Text>
     </>
   );
 
   if (mode === 'composer') {
     return (
-      <View style={styles.composerWrap}>
+      <View style={[
+        styles.composerWrap,
+        { borderLeftColor: theme.colors.primary, backgroundColor: theme.colors.surfaceMuted },
+      ]}>
         <View style={styles.content}>{content}</View>
         <IconButton
           name="close"
           accessibilityLabel="取消引用"
           size={18}
-          color={COLORS.textSecondary}
+          color={theme.colors.textSecondary}
           onPress={() => onClose?.()}
           style={styles.closeButton}
         />
@@ -85,7 +90,14 @@ export function MessageQuoteContent({
       onPressIn={() => {
         longPressedRef.current = false;
       }}
-      style={({ pressed }) => [styles.messageWrap, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.messageWrap,
+        {
+          borderLeftColor: theme.colors.primary,
+          backgroundColor: theme.colors.primarySoft,
+        },
+        pressed && styles.pressed,
+      ]}
     >
       {content}
     </Pressable>
@@ -101,9 +113,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     paddingLeft: SPACING.sm,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceMuted,
   },
   messageWrap: {
     minWidth: 180,
@@ -112,15 +122,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xs,
     paddingVertical: SPACING.xxs,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
     borderRadius: RADIUS.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.52)',
   },
   content: { flex: 1, gap: SPACING.xxs },
   heading: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xxs },
-  sender: { flex: 1, color: COLORS.primary, fontSize: TYPE.caption, fontWeight: '700' },
-  summary: { color: COLORS.textSecondary, fontSize: TYPE.caption, lineHeight: 17 },
-  recalled: { color: COLORS.textMuted, fontSize: TYPE.caption, fontStyle: 'italic' },
+  sender: { flex: 1, fontSize: TYPE.caption, fontWeight: '700' },
+  summary: { fontSize: TYPE.caption, lineHeight: 17 },
+  recalled: { fontSize: TYPE.caption, fontStyle: 'italic' },
   closeButton: { width: 40, height: 40 },
   pressed: { opacity: 0.68 },
 });

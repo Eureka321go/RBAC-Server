@@ -11,7 +11,8 @@ import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 import type { ChatMessage } from '@im/sdk-core';
 import { displayableImageUri, formatBytes, safeFilename } from '../media/mediaPresentation';
 import { routeMediaUrl } from '../sdk';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   message: ChatMessage;
@@ -37,6 +38,7 @@ function progressOf(message: ChatMessage): number {
 function ImageMessage({ message, onPreview, onRefreshImage, onLongPress }: Pick<Props,
   'message' | 'onPreview' | 'onRefreshImage' | 'onLongPress'
 >) {
+  const { theme } = useAppTheme();
   const objectKey = typeof message.body?.objectKey === 'string' ? message.body.objectKey : null;
   const filename = safeFilename(message.body?.filename);
   // 有 objectKey 的远程图片统一先落缓存，避免把短期预签名 URL 直接交给原生图片管线。
@@ -92,7 +94,7 @@ function ImageMessage({ message, onPreview, onRefreshImage, onLongPress }: Pick<
       onPressIn={() => {
         longPressedRef.current = false;
       }}
-      style={[styles.imageWrap, dimensions]}
+      style={[styles.imageWrap, { backgroundColor: theme.colors.surfaceMuted }, dimensions]}
     >
       {uri != null ? (
         <Image
@@ -102,13 +104,16 @@ function ImageMessage({ message, onPreview, onRefreshImage, onLongPress }: Pick<
           onError={refresh}
         />
       ) : (
-        <Ionicons name="image-outline" size={34} color={COLORS.textMuted} />
+        <Ionicons name="image-outline" size={34} color={theme.colors.textMuted} />
       )}
       {uploading ? (
         <View style={styles.uploadOverlay}>
-          <Text style={styles.uploadText}>{Math.round(progress * 100)}%</Text>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          <Text style={[styles.uploadText, { color: theme.colors.white }]}>{Math.round(progress * 100)}%</Text>
+          <View style={[styles.progressTrack, { backgroundColor: theme.colors.borderStrong }]}>
+            <View style={[
+              styles.progressFill,
+              { width: `${Math.round(progress * 100)}%`, backgroundColor: theme.colors.primary },
+            ]} />
           </View>
         </View>
       ) : null}
@@ -119,6 +124,7 @@ function ImageMessage({ message, onPreview, onRefreshImage, onLongPress }: Pick<
 function FileMessage({ message, onOpenFile, onLongPress, downloading, downloadProgress }: Pick<Props,
   'message' | 'onOpenFile' | 'onLongPress' | 'downloading' | 'downloadProgress'
 >) {
+  const { theme } = useAppTheme();
   const longPressedRef = useRef(false);
   const uploadProgress = progressOf(message);
   const progress = downloading ? downloadProgress : uploadProgress;
@@ -145,19 +151,22 @@ function FileMessage({ message, onOpenFile, onLongPress, downloading, downloadPr
       }}
       style={({ pressed }) => [styles.fileCard, pressed && styles.pressed]}
     >
-      <View style={styles.fileIcon}>
+      <View style={[styles.fileIcon, { backgroundColor: theme.colors.primarySoft }]}>
         {downloading ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={theme.colors.primary} />
         ) : (
-          <Ionicons name="document-text-outline" size={28} color={COLORS.primary} />
+          <Ionicons name="document-text-outline" size={28} color={theme.colors.primary} />
         )}
       </View>
       <View style={styles.fileMeta}>
-        <Text style={styles.filename} numberOfLines={2}>{safeFilename(message.body?.filename)}</Text>
-        <Text style={styles.fileSize}>{formatBytes(message.body?.size)}</Text>
+        <Text style={[styles.filename, { color: theme.colors.text }]} numberOfLines={2}>{safeFilename(message.body?.filename)}</Text>
+        <Text style={[styles.fileSize, { color: theme.colors.textSecondary }]}>{formatBytes(message.body?.size)}</Text>
         {busy ? (
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          <View style={[styles.progressTrack, { backgroundColor: theme.colors.borderStrong }]}>
+            <View style={[
+              styles.progressFill,
+              { width: `${Math.round(progress * 100)}%`, backgroundColor: theme.colors.primary },
+            ]} />
           </View>
         ) : null}
       </View>
@@ -178,7 +187,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceMuted,
   },
   uploadOverlay: {
     position: 'absolute',
@@ -191,15 +199,14 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     backgroundColor: 'rgba(15,23,42,0.42)',
   },
-  uploadText: { color: COLORS.white, fontSize: TYPE.caption, fontWeight: '800' },
+  uploadText: { fontSize: TYPE.caption, fontWeight: '800' },
   progressTrack: {
     width: '100%',
     height: 4,
     overflow: 'hidden',
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.borderStrong,
   },
-  progressFill: { height: '100%', borderRadius: RADIUS.pill, backgroundColor: COLORS.primary },
+  progressFill: { height: '100%', borderRadius: RADIUS.pill },
   fileCard: { minWidth: 210, maxWidth: 250, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   fileIcon: {
     width: 48,
@@ -207,10 +214,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.primarySoft,
   },
   fileMeta: { flex: 1, gap: SPACING.xxs },
-  filename: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
-  fileSize: { color: COLORS.textSecondary, fontSize: TYPE.caption },
+  filename: { fontSize: TYPE.body, fontWeight: '700' },
+  fileSize: { fontSize: TYPE.caption },
   pressed: { opacity: 0.68 },
 });

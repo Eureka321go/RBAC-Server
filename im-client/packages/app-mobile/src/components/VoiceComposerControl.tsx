@@ -8,7 +8,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { IconButton } from './IconButton';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   voiceMode: boolean;
@@ -31,6 +32,7 @@ export function VoiceComposerControl({
   onCancellingChange,
   onFinish,
 }: Props) {
+  const { theme } = useAppTheme();
   const cancellingRef = useRef(false);
   const gestureActiveRef = useRef(false);
   const panResponder = useMemo(() => PanResponder.create({
@@ -67,7 +69,7 @@ export function VoiceComposerControl({
         name="mic-outline"
         accessibilityLabel="切换到语音输入"
         disabled={disabled || active}
-        color={COLORS.primary}
+        color={theme.colors.primary}
         style={iconStyle}
         onPress={onToggleMode}
       />
@@ -80,7 +82,7 @@ export function VoiceComposerControl({
         name="keypad-outline"
         accessibilityLabel="切换到文字输入"
         disabled={disabled || active}
-        color={COLORS.primary}
+        color={theme.colors.primary}
         style={iconStyle}
         onPress={onToggleMode}
       />
@@ -92,11 +94,14 @@ export function VoiceComposerControl({
         {...panResponder.panHandlers}
         style={[
           styles.holdButton,
-          active && styles.holdButtonActive,
+          {
+            borderColor: active ? theme.colors.primary : theme.colors.border,
+            backgroundColor: active ? theme.colors.primarySoft : theme.colors.surfaceMuted,
+          },
           disabled && styles.disabled,
         ]}
       >
-        <Text style={styles.holdText}>{active ? '松开发送' : '按住说话'}</Text>
+        <Text style={[styles.holdText, { color: theme.colors.text }]}>{active ? '松开发送' : '按住说话'}</Text>
       </View>
     </View>
   );
@@ -110,11 +115,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.surfaceMuted,
   },
-  holdButtonActive: { backgroundColor: COLORS.primarySoft, borderColor: COLORS.primary },
-  holdText: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '700' },
+  holdText: { fontSize: TYPE.body, fontWeight: '700' },
   disabled: { opacity: 0.5 },
 });

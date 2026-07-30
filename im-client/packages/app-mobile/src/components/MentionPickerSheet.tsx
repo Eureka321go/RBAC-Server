@@ -13,7 +13,8 @@ import type { GroupMember, GroupRole } from '@im/sdk-core';
 import { InitialAvatar } from './Avatar';
 import { AppButton } from './AppButton';
 import { IconButton } from './IconButton';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 export type MentionPickerSelection =
   | { kind: 'members'; members: GroupMember[] }
@@ -38,6 +39,7 @@ export function MentionPickerSheet({
   onClose,
   onConfirm,
 }: Props) {
+  const { theme } = useAppTheme();
   const [query, setQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(() => new Set());
   const [selectedAll, setSelectedAll] = useState(false);
@@ -101,25 +103,25 @@ export function MentionPickerSheet({
       animationType="slide"
       onRequestClose={close}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="关闭提及成员选择"
           style={StyleSheet.absoluteFill}
           onPress={close}
         />
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <Text style={styles.title}>提及成员</Text>
+        <View style={[styles.sheet, { backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>提及成员</Text>
             <IconButton name="close" accessibilityLabel="关闭" onPress={close} />
           </View>
-          <View style={styles.searchWrap}>
-            <Ionicons name="search" size={19} color={COLORS.textMuted} />
+          <View style={[styles.searchWrap, { backgroundColor: theme.colors.surfaceMuted }]}>
+            <Ionicons name="search" size={19} color={theme.colors.textMuted} />
             <TextInput
               autoCorrect={false}
               placeholder="搜索群成员"
-              placeholderTextColor={COLORS.textMuted}
-              style={styles.searchInput}
+              placeholderTextColor={theme.colors.textMuted}
+              style={[styles.searchInput, { color: theme.colors.text }]}
               value={query}
               onChangeText={setQuery}
             />
@@ -133,25 +135,37 @@ export function MentionPickerSheet({
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: selectedAll }}
-                style={[styles.memberRow, selectedAll && styles.selectedRow]}
+                style={[
+                  styles.memberRow,
+                  { borderBottomColor: theme.colors.border },
+                  selectedAll && { backgroundColor: theme.colors.primarySoft },
+                ]}
                 onPress={() => {
                   setSelectedAll((current) => !current);
                   setSelectedUserIds(new Set());
                 }}
               >
-                <View style={[styles.checkbox, selectedAll && styles.checkboxSelected]}>
-                  {selectedAll ? <Ionicons name="checkmark" size={17} color={COLORS.white} /> : null}
+                <View style={[
+                  styles.checkbox,
+                  {
+                    borderColor: selectedAll ? theme.colors.primary : theme.colors.borderStrong,
+                    backgroundColor: selectedAll ? theme.colors.primary : theme.colors.surface,
+                  },
+                ]}>
+                  {selectedAll ? <Ionicons name="checkmark" size={17} color={theme.colors.white} /> : null}
                 </View>
-                <View style={styles.allAvatar}>
-                  <Ionicons name="people" size={21} color={COLORS.primary} />
+                <View style={[styles.allAvatar, { backgroundColor: theme.colors.primarySoft }]}>
+                  <Ionicons name="people" size={21} color={theme.colors.primary} />
                 </View>
                 <View style={styles.grow}>
-                  <Text style={styles.memberName}>所有人</Text>
-                  <Text style={styles.meta}>提醒全部群成员</Text>
+                  <Text style={[styles.memberName, { color: theme.colors.text }]}>所有人</Text>
+                  <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>提醒全部群成员</Text>
                 </View>
               </Pressable>
             ) : null}
-            ListEmptyComponent={<Text style={styles.empty}>没有匹配的群成员</Text>}
+            ListEmptyComponent={(
+              <Text style={[styles.empty, { color: theme.colors.textSecondary }]}>没有匹配的群成员</Text>
+            )}
             renderItem={({ item }) => {
               const selected = selectedUserIds.has(item.userId);
               const name = item.displayName?.trim() || `用户 #${item.userId}`;
@@ -159,16 +173,26 @@ export function MentionPickerSheet({
                 <Pressable
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
-                  style={[styles.memberRow, selected && styles.selectedRow]}
+                  style={[
+                    styles.memberRow,
+                    { borderBottomColor: theme.colors.border },
+                    selected && { backgroundColor: theme.colors.primarySoft },
+                  ]}
                   onPress={() => toggleMember(item.userId)}
                 >
-                  <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-                    {selected ? <Ionicons name="checkmark" size={17} color={COLORS.white} /> : null}
+                  <View style={[
+                    styles.checkbox,
+                    {
+                      borderColor: selected ? theme.colors.primary : theme.colors.borderStrong,
+                      backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
+                    },
+                  ]}>
+                    {selected ? <Ionicons name="checkmark" size={17} color={theme.colors.white} /> : null}
                   </View>
                   <InitialAvatar name={name} userId={item.userId} size={38} />
                   <View style={styles.grow}>
-                    <Text style={styles.memberName}>{name}</Text>
-                    <Text style={styles.meta}>#{item.userId}</Text>
+                    <Text style={[styles.memberName, { color: theme.colors.text }]}>{name}</Text>
+                    <Text style={[styles.meta, { color: theme.colors.textSecondary }]}>#{item.userId}</Text>
                   </View>
                 </Pressable>
               );
@@ -186,7 +210,7 @@ export function MentionPickerSheet({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.overlay },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     height: '76%',
     paddingHorizontal: SPACING.md,
@@ -194,7 +218,6 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxl,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    backgroundColor: COLORS.surface,
   },
   header: {
     minHeight: 52,
@@ -202,9 +225,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
-  title: { color: COLORS.text, fontSize: TYPE.subtitle, fontWeight: '800' },
+  title: { fontSize: TYPE.subtitle, fontWeight: '800' },
   searchWrap: {
     minHeight: 46,
     marginVertical: SPACING.sm,
@@ -213,9 +235,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surfaceMuted,
   },
-  searchInput: { flex: 1, color: COLORS.text, fontSize: TYPE.body, paddingVertical: SPACING.xs },
+  searchInput: { flex: 1, fontSize: TYPE.body, paddingVertical: SPACING.xs },
   list: { flex: 1, marginBottom: SPACING.sm },
   memberRow: {
     minHeight: 64,
@@ -224,30 +245,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
-  selectedRow: { backgroundColor: COLORS.primarySoft },
   checkbox: {
     width: 24,
     height: 24,
     borderWidth: 1,
-    borderColor: COLORS.borderStrong,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
   },
-  checkboxSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primary },
   allAvatar: {
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primarySoft,
   },
   grow: { flex: 1 },
-  memberName: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '600' },
-  meta: { marginTop: 2, color: COLORS.textSecondary, fontSize: TYPE.caption },
-  empty: { color: COLORS.textSecondary, textAlign: 'center', paddingVertical: SPACING.xl },
+  memberName: { fontSize: TYPE.body, fontWeight: '600' },
+  meta: { marginTop: 2, fontSize: TYPE.caption },
+  empty: { textAlign: 'center', paddingVertical: SPACING.xl },
 });

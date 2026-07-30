@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { Linking, Pressable, StyleSheet, Text } from 'react-native';
 import { normalizeLinkCard, type ChatMessage } from '@im/sdk-core';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   body: ChatMessage['body'];
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function LinkCardContent({ body, onLongPress, onOpenError }: Props) {
+  const { theme } = useAppTheme();
   const longPressedRef = useRef(false);
   const card = normalizeLinkCard(body?.link);
   if (card == null) return null;
@@ -49,14 +51,18 @@ export function LinkCardContent({ body, onLongPress, onOpenError }: Props) {
       onPressIn={() => {
         longPressedRef.current = false;
       }}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        { borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surfaceMuted },
+        pressed && styles.pressed,
+      ]}
     >
-      <Text style={styles.site} numberOfLines={1}>
+      <Text style={[styles.site, { color: theme.colors.textSecondary }]} numberOfLines={1}>
         {card.siteName ?? hostname}
       </Text>
-      <Text style={styles.title} numberOfLines={2}>{card.title}</Text>
+      <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={2}>{card.title}</Text>
       {card.description == null ? null : (
-        <Text style={styles.description} numberOfLines={2}>
+        <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
           {card.description}
         </Text>
       )}
@@ -73,24 +79,19 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     gap: SPACING.xxs,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.borderStrong,
     borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.surfaceMuted,
   },
   pressed: { opacity: 0.72 },
   site: {
-    color: COLORS.textSecondary,
     fontSize: TYPE.caption,
     lineHeight: 17,
   },
   title: {
-    color: COLORS.text,
     fontSize: TYPE.body,
     lineHeight: 20,
     fontWeight: '700',
   },
   description: {
-    color: COLORS.textSecondary,
     fontSize: TYPE.caption,
     lineHeight: 17,
   },
