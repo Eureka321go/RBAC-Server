@@ -10,5 +10,6 @@ export type RootStackParamList = {
     groupId?: number;
     syncOnOpen?: boolean;
   };
+  ConversationSettings: { cid: string; title: string };
   GroupDetails: { cid: string; groupId: number; title: string };
 };

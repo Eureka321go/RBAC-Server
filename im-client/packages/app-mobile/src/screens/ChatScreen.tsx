@@ -702,11 +702,17 @@ export function ChatScreen({ route, navigation }: Props) {
       <CompactScreenHeader
         title={displayTitle}
         onBack={() => navigation.goBack()}
-        rightIcon={conversationType === 'GROUP' && groupId != null ? 'settings-outline' : undefined}
-        rightAccessibilityLabel="群资料"
-        onRightPress={conversationType === 'GROUP' && groupId != null
-          ? () => navigation.navigate('GroupDetails', { cid, groupId, title: displayTitle })
-          : undefined}
+        rightIcon="settings-outline"
+        rightAccessibilityLabel={conversationType === 'GROUP' ? '群设置' : '会话设置'}
+        onRightPress={() => {
+          if (conversationType === 'GROUP') {
+            if (groupId != null) {
+              navigation.navigate('GroupDetails', { cid, groupId, title: displayTitle });
+            }
+            return;
+          }
+          navigation.navigate('ConversationSettings', { cid, title: displayTitle });
+        }}
       />
       {banner ? <View style={styles.banner}><StatusNotice message={banner} tone="error" /></View> : null}
       <FlatList

@@ -17,6 +17,7 @@ import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
 import { GroupAvatar, InitialAvatar } from '../components/Avatar';
 import { CompactScreenHeader } from '../components/CompactScreenHeader';
+import { ConversationMuteSetting } from '../components/ConversationMuteSetting';
 import { DepartmentContactPicker } from '../components/DepartmentContactPicker';
 import { IconButton } from '../components/IconButton';
 import { StatusNotice } from '../components/StatusNotice';
@@ -292,6 +293,8 @@ export function GroupDetailsScreen({ route, navigation }: Props) {
             群号 #{groupId} · {detail?.memberCount ?? members.length} 人 · {detail ? roleLabel(detail.myRole) : ''}
           </Text>
         </View>
+
+        <ConversationMuteSetting cid={cid} />
 
         {canManage ? (
           <Surface>
