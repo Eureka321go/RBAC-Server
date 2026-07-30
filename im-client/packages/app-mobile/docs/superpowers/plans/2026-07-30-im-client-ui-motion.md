@@ -106,7 +106,7 @@ Expected: Jest, lint, and TypeScript all exit 0.
 - Consumes: npm workspace `app-mobile`.
 - Produces: bottom tabs, AsyncStorage, and native linear gradient imports.
 
-- [ ] **Step 1: Verify the dependencies are absent**
+- [x] **Step 1: Verify the dependencies are absent**
 
 ```bash
 npm ls @react-navigation/bottom-tabs @react-native-async-storage/async-storage react-native-linear-gradient
@@ -114,7 +114,7 @@ npm ls @react-navigation/bottom-tabs @react-native-async-storage/async-storage r
 
 Expected: the packages are not resolved for `app-mobile`.
 
-- [ ] **Step 2: Install the workspace dependencies**
+- [x] **Step 2: Install the workspace dependencies**
 
 Run from `im-client`:
 
@@ -122,7 +122,7 @@ Run from `im-client`:
 npm install --workspace app-mobile @react-navigation/bottom-tabs @react-native-async-storage/async-storage react-native-linear-gradient
 ```
 
-- [ ] **Step 3: Verify exact resolution**
+- [x] **Step 3: Verify exact resolution**
 
 ```bash
 npm ls --workspace app-mobile @react-navigation/bottom-tabs @react-native-async-storage/async-storage react-native-linear-gradient
@@ -130,10 +130,10 @@ npm ls --workspace app-mobile @react-navigation/bottom-tabs @react-native-async-
 
 Expected: exit 0 and one resolved version per package.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
-git add im-client/package-lock.json im-client/packages/app-mobile/package.json
+git add im-client/package-lock.json im-client/packages/app-mobile/package.json im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "构建(IM客户端): 添加主题导航视觉依赖"
 ```
 
