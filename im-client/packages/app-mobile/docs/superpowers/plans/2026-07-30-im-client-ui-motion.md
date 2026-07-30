@@ -253,7 +253,7 @@ Expected: tests pass before commit.
 **Interfaces:**
 - Produces: `resolveMotion`, `AnimatedEntrance`, `PressableScale`, and `PresenceDot`.
 
-- [ ] **Step 1: Write the failing motion policy test**
+- [x] **Step 1: Write the failing motion policy test**
 
 ```ts
 test('removes stagger and loops when motion is reduced', () => {
@@ -262,13 +262,13 @@ test('removes stagger and loops when motion is reduced', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/motion.test.ts
 ```
 
-- [ ] **Step 3: Implement motion policy**
+- [x] **Step 3: Implement motion policy**
 
 ```ts
 export function resolveMotion(reduceMotion: boolean) {
@@ -280,12 +280,12 @@ export function resolveMotion(reduceMotion: boolean) {
 
 `AnimatedEntrance` animates opacity and translateY with the native driver. `PressableScale` animates `1 → 0.97 → 1`, preserves disabled and accessibility props, and enforces a 44-point target. `PresenceDot` loops opacity only when allowed and stops the animation in effect cleanup.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/motion.test.ts
 npx eslint src/ui/motion.ts src/components/AnimatedEntrance.tsx src/components/PressableScale.tsx src/components/PresenceDot.tsx
-git add im-client/packages/app-mobile/src/ui/motion.ts im-client/packages/app-mobile/src/components/AnimatedEntrance.tsx im-client/packages/app-mobile/src/components/PressableScale.tsx im-client/packages/app-mobile/src/components/PresenceDot.tsx im-client/packages/app-mobile/__tests__/motion.test.ts
+git add im-client/packages/app-mobile/src/ui/motion.ts im-client/packages/app-mobile/src/components/AnimatedEntrance.tsx im-client/packages/app-mobile/src/components/PressableScale.tsx im-client/packages/app-mobile/src/components/PresenceDot.tsx im-client/packages/app-mobile/__tests__/motion.test.ts im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "新增(IM客户端): 添加无障碍动效基础组件"
 ```
 
