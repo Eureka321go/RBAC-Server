@@ -5,7 +5,7 @@ meta:
 
 # 如何在新窗口继续开发 IM 前端
 
-本文记录 `feat/im` 分支在 2026-07-29 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。群聊 @ 提及、聊天气泡配色、图片/文件富媒体与语音消息代码已完成，等待用户手动验收；下一项开发目标是链接卡片。
+本文记录 `feat/im` 分支截至 2026-07-30 的可运行状态。新窗口可直接继续开发，不需要重新梳理单聊、离线同步和双模拟器环境。语音消息已由用户手动验收通过；链接卡片代码已完成，等待用户手动验收。
 
 ## 协作与提交约定
 
@@ -16,7 +16,7 @@ meta:
 
 ## 当前接手点
 
-当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本交接文档提交前，当前分支比 `origin/feat/im` 领先 11 个提交，未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 与 `backend/src/main/java/com/rbac/im/service/ConversationService.java` 改动，本轮提交未包含也未覆盖它们。
+当前工作区在 `/Users/xxmm/work/RBAC-Server`，分支为 `feat/im`。本地语音消息和链接卡片提交均未主动 push。工作区另有用户自己的 `backend/src/main/java/com/rbac/im/entity/ImConversationMember.java` 与 `backend/src/main/java/com/rbac/im/service/ConversationService.java` 改动，本轮提交未包含也未覆盖它们。
 
 本轮已完成以下功能：
 
@@ -55,11 +55,20 @@ meta:
 - AUDIO 复用现有直传、断点恢复、失败重试、取消、ACK/PUSH 和撤回链路，客户端与服务端上限均为 20 MiB
 - 播放器全局单实例，支持点击播放/暂停/继续和切换消息；来电、后台、耳机断开及撤回会暂停或停止且不自动恢复
 - 接收语音只有完整播放结束才写入 SQLite `voice_heard` 并消除本地未听点，状态按账号隔离且不上传服务端
+- SDK Core 将实时 `LINK_PREVIEW` 按 `cid + seq` 合并到 SQLite 原文本消息，不推进同步位点、未读数或会话排序
+- 实时增量和 REST 同步共用链接卡片合法化规则，重复帧幂等，早到帧只在内存保留最多 100 项和 60 秒
+- 链接卡片展示站点名或域名、标题和描述，不请求第三方缩略图；点击只通过系统默认浏览器打开 `http(s)`
+- 链接抓取、字段校验或浏览器打开失败时降级为原文本或中文提示，不影响发送、提及、撤回和已读链路
 
 关键提交如下：
 
 | 提交 | 内容 |
 | --- | --- |
+| `b2def5e` | 展示并打开链接卡片 |
+| `256c1af` | 接入链接卡片增量帧 |
+| `5c359ce` | 持久化链接卡片增量 |
+| `ee1cfb4` | 规划链接卡片实施步骤 |
+| `34013b4` | 设计链接卡片持久化与展示 |
 | `511c7a0` | 统一语音录音文件扩展名 |
 | `3110714` | 接入语音录制发送与播放交互 |
 | `1fecbb4` | 实现按住录音与振幅浮层 |
@@ -133,6 +142,8 @@ meta:
 - `src/components/VoiceComposerControl.tsx`：键盘/语音切换、按住录音和上滑取消手势
 - `src/components/VoiceRecordingOverlay.tsx`：录音时长、取消区和实时振幅浮层
 - `src/components/VoiceMessageContent.tsx`：48 点波形、播放进度和本地未听点
+- `packages/im-sdk-core/src/chat/linkCard.ts`：链接卡片字段、URL 协议和长度的统一合法化
+- `src/components/LinkCardContent.tsx`：无缩略图卡片、无障碍标签和系统浏览器打开
 - `packages/im-sdk-core/src/media/`：上传任务 SQLite 存储、大小分流和断点续传状态机
 - `packages/im-sdk-rn/src/adapters/rnMedia*.ts`：原生选择、持久副本、分片传输、下载和文件打开
 - `src/components/ConnectionStatusBar.tsx`：顶部连接状态安全区
@@ -220,7 +231,7 @@ npm run android -- --deviceId emulator-5554 --no-packager
 
 后续排查发现：应用在后台超过 Redis 在线路由的 120 秒生存时间后，React Native 的心跳定时器可能暂停，但 WebSocket 仍保留 `connected` 状态。此时消息能到达后端并落库，网关也能收到出站事件，却因用户路由已过期而无法下发最终 `PUSH`，界面会停留在 `acked` 转圈状态。`62ef0ee` 已在前台恢复时立即重启心跳并发送 `PING`，让紧随其后的 `SEND` 之前先重建路由。该修复尚待用户按下文步骤手动验证。
 
-语音消息完成后再次执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此没有运行 Jest、Vitest、JUnit 或 E2E，新窗口只需说明建议手测项，由用户执行：
+链接卡片完成后再次执行了以下静态检查，命令退出码均为 0。用户明确要求后续功能开发不新增或代跑测试，因此没有运行 Jest、Vitest、JUnit 或 E2E，新窗口只需说明建议手测项，由用户执行：
 
 ```bash
 cd /Users/xxmm/work/RBAC-Server/im-client
@@ -228,6 +239,8 @@ npx tsc -p packages/im-sdk-core --noEmit
 npx tsc -p packages/app-mobile --noEmit
 git diff --check
 ```
+
+同时执行了 `npm run lint --workspace packages/app-mobile`。当前基线仍有 4 个 `react-hooks/exhaustive-deps` 错误和 64 个警告，主要来自语音录制 Hook 依赖与既有 `no-void` 规则；错误数量在本轮改动前后相同。新增 `LinkCardContent.tsx` 单文件 ESLint 退出码为 0，本轮没有扩大范围修改旧 lint 问题。
 
 ```bash
 cd /Users/xxmm/work/RBAC-Server
@@ -245,8 +258,8 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 2. @ 提及：代码已完成，等待用户手动验收。
 3. 聊天气泡配色：代码已完成，等待用户确认己方淡绿色、对端白色、正文黑色和提及浅蓝色。
 4. 图片与文件消息：代码已完成，等待用户手动验收。
-5. 语音消息：代码已完成，等待 Android/iOS 用户手动验收。
-6. 链接卡片：下一项开发目标。
+5. 语音消息：代码已完成，用户已手动验收通过。
+6. 链接卡片：代码已完成，等待用户手动验收。
 
 @ 提及的设计和实施记录位于：
 
@@ -310,6 +323,24 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 11. 两分钟内撤回语音，双端停止播放并显示撤回占位。
 12. 键盘/语音模式往返切换后，尚未发送的文字草稿保持不变。
 
+链接卡片设计和实施记录位于：
+
+- `docs/superpowers/specs/2026-07-30-im-client-link-card-design.md`
+- `docs/superpowers/plans/2026-07-30-im-client-link-card.md`
+
+链接卡片手测需要覆盖：
+
+1. 发送含一个链接的文本，正文先出现，卡片随后异步补上。
+2. 卡片显示站点名或域名、标题和可选描述，不请求或展示缩略图。
+3. 点击卡片由系统默认浏览器打开最终 `http(s)` 地址。
+4. 一条文本包含多个链接时只显示首个链接的卡片。
+5. 单聊、群聊和双方实时接收时的卡片表现一致。
+6. 接收方离线后重新同步、退出聊天页再进入，卡片仍存在。
+7. 抓取失败、无标题、非法协议或字段畸形时只显示原文本。
+8. 卡片到达后仍可长按撤回；长按不会误开浏览器，撤回后正文与卡片都不再显示。
+9. `@` 提及和链接在同一文本中时，高亮与卡片互不影响。
+10. 重复增量帧不生成重复卡片，也不改变未读数和会话排序。
+
 相关实现现状：
 
 - 服务端已实现 `POST /api/im/upload/presign`，请求字段为 `cid/type/filename/mime/size`，响应为 `objectKey/uploadUrl/expiresIn`。
@@ -323,7 +354,8 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 
 继续开发前需保留以下上下文：
 
-- 当前移动端已完整接入单聊文本、群聊文本、已读回执、消息撤回、群聊 @ 提及、图片和文件。
+- 当前移动端已完整接入单聊文本、群聊文本、已读回执、消息撤回、群聊 @ 提及、图片、文件、语音和无缩略图链接卡片。
+- 链接卡片首版刻意不请求第三方 `image`；若以后需要缩略图，应由后端安全抓取并缓存到自有对象存储，不能让客户端自动加载任意 OG 图片地址。
 - 应用被系统杀死期间不会继续后台上传；重启进入同一账号后才恢复缺失分片。若以后要求杀进程后仍上传，需要 Android/iOS 原生后台任务。
 - 下载文件保存在应用缓存目录，当前没有主动按时间清理；系统可在空间不足时回收，长期可补一个缓存清理策略。
 - 当前气泡颜色定义在 `src/ui/theme.ts`：`messageMine=#D5F0E2`、`mention=#5B8DEF`；不要通过修改全局 `successSoft` 调整消息气泡。
@@ -341,9 +373,9 @@ mvn -f im-gateway/pom.xml -Dmaven.test.skip=true package
 继续开发 IM 前端。先完整阅读：
 docs/superpowers/plans/2026-07-29-im-client-HANDOFF.md
 
-当前分支是 feat/im，本地语音消息提交尚未 push。群聊 @ 提及、最新气泡配色、图片/文件富媒体与语音消息等待手动验收。
+当前分支是 feat/im，本地语音消息和链接卡片提交尚未 push。语音消息已手动验收通过，链接卡片等待手动验收。
 不要新增或运行测试；每完成一项功能，只告诉我需要手测哪些场景。
 先检查工作区和最近提交，再从交接文档的“下一窗口优先处理的边界”继续。
-先让用户按文档清单手测语音录制、发送、播放和未听状态；通过后设计链接卡片。
+先让用户按文档清单手测链接卡片；通过后再确定下一项客户端消息能力。
 修改完成后先查看 git diff，再提交代码，不要主动 push。
 ```
