@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props extends TextInputProps {
   label?: string;
@@ -9,12 +10,14 @@ interface Props extends TextInputProps {
 
 export function AppTextField({ label, error, style, onFocus, onBlur, ...props }: Props) {
   const [focused, setFocused] = useState(false);
+  const { theme } = useAppTheme();
+  const { colors } = theme;
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.text }]}>{label}</Text> : null}
       <TextInput
         {...props}
-        placeholderTextColor={COLORS.textMuted}
+        placeholderTextColor={colors.textMuted}
         onFocus={(event) => {
           setFocused(true);
           onFocus?.(event);
@@ -23,28 +26,29 @@ export function AppTextField({ label, error, style, onFocus, onBlur, ...props }:
           setFocused(false);
           onBlur?.(event);
         }}
-        style={[styles.input, focused && styles.focused, error && styles.invalid, style]}
+        style={[
+          styles.input,
+          { backgroundColor: colors.surface, borderColor: colors.borderStrong, color: colors.text },
+          focused && { borderColor: colors.primary, borderWidth: 1.5 },
+          error && { borderColor: colors.danger },
+          style,
+        ]}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: SPACING.xs },
-  label: { color: COLORS.text, fontSize: TYPE.body, fontWeight: '600' },
+  label: { fontSize: TYPE.body, fontWeight: '600' },
   input: {
     minHeight: 50,
     borderWidth: 1,
-    borderColor: COLORS.borderStrong,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    color: COLORS.text,
     fontSize: TYPE.body,
   },
-  focused: { borderColor: COLORS.primary, borderWidth: 1.5 },
-  invalid: { borderColor: COLORS.danger },
-  error: { color: COLORS.danger, fontSize: TYPE.caption },
+  error: { fontSize: TYPE.caption },
 });

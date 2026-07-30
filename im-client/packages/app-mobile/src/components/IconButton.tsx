@@ -1,7 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
-import { COLORS, RADIUS } from '../ui/theme';
+import { RADIUS } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
+import { PressableScale } from './PressableScale';
 
 interface Props {
   name: IoniconsIconName;
@@ -18,29 +20,30 @@ export function IconButton({
   name,
   accessibilityLabel,
   onPress,
-  color = COLORS.text,
+  color,
   backgroundColor = 'transparent',
   size = 22,
   disabled = false,
   style,
 }: Props) {
+  const { theme } = useAppTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       disabled={disabled}
       hitSlop={4}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.button,
         { backgroundColor },
-        pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}
     >
-      <Ionicons name={name} size={size} color={color} />
-    </Pressable>
+      <Ionicons name={name} size={size} color={color ?? theme.colors.text} />
+    </PressableScale>
   );
 }
 
@@ -52,6 +55,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.66 },
   disabled: { opacity: 0.4 },
 });

@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons/static';
-import { COLORS, RADIUS, SPACING, TYPE } from '../ui/theme';
+import { RADIUS, SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 type Tone = 'info' | 'warning' | 'error';
 
@@ -10,13 +11,13 @@ interface Props {
   tone?: Tone;
 }
 
-const tones = {
-  info: { background: COLORS.primarySoft, foreground: COLORS.primary, icon: 'information-circle' as const },
-  warning: { background: COLORS.warningSoft, foreground: COLORS.warning, icon: 'alert-circle' as const },
-  error: { background: COLORS.dangerSoft, foreground: COLORS.danger, icon: 'close-circle' as const },
-};
-
 export function StatusNotice({ message, tone = 'info' }: Props) {
+  const { theme } = useAppTheme();
+  const tones = {
+    info: { background: theme.colors.primarySoft, foreground: theme.colors.primary, icon: 'information-circle' as const },
+    warning: { background: theme.colors.warningSoft, foreground: theme.colors.warning, icon: 'alert-circle' as const },
+    error: { background: theme.colors.dangerSoft, foreground: theme.colors.danger, icon: 'close-circle' as const },
+  };
   const selected = tones[tone];
   return (
     <View accessibilityRole="alert" style={[styles.notice, { backgroundColor: selected.background }]}>

@@ -308,7 +308,7 @@ Expected: test and lint commands exit 0 before commit.
 - Consumes: `useAppTheme`, `PressableScale`, `PresenceDot`, and `LinearGradient`.
 - Produces: unchanged public props plus light/dark rendering.
 
-- [ ] **Step 1: Write a failing themed render test**
+- [x] **Step 1: Write a failing themed render test**
 
 ```tsx
 async function renderWithTheme(node: React.ReactNode) {
@@ -327,22 +327,22 @@ test('renders themed surface and button', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 ```bash
 npm test -- --runInBand __tests__/themedPrimitives.test.tsx
 ```
 
-- [ ] **Step 3: Convert the eight primitives**
+- [x] **Step 3: Convert the eight primitives**
 
 Each calls `useAppTheme` and builds styles from `theme`. The primary button gradient is `['#5272EF', '#7B6AF5']` in light and `['#765CFF', '#A86EFF']` in dark. Avatar uses deterministic two-color pairs. Surface derives background, border, and platform shadow from theme. Connection status uses `PresenceDot` only for connecting and reconnecting. Existing props, roles, labels, and callbacks remain unchanged.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 ```bash
 npm test -- --runInBand __tests__/themedPrimitives.test.tsx
 npx tsc --noEmit
-git add im-client/packages/app-mobile/src/components im-client/packages/app-mobile/__tests__/themedPrimitives.test.tsx
+git add im-client/packages/app-mobile/src/components/AppButton.tsx im-client/packages/app-mobile/src/components/AppTextField.tsx im-client/packages/app-mobile/src/components/Avatar.tsx im-client/packages/app-mobile/src/components/CompactScreenHeader.tsx im-client/packages/app-mobile/src/components/IconButton.tsx im-client/packages/app-mobile/src/components/StatusNotice.tsx im-client/packages/app-mobile/src/components/Surface.tsx im-client/packages/app-mobile/src/components/ConnectionStatusBar.tsx im-client/packages/app-mobile/__tests__/themedPrimitives.test.tsx im-client/packages/app-mobile/docs/superpowers/plans/2026-07-30-im-client-ui-motion.md
 git commit -m "重构(IM客户端): 统一主题化基础组件"
 ```
 

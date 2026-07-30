@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons, type IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
-import { COLORS, SPACING, TYPE } from '../ui/theme';
+import { SPACING, TYPE } from '../ui/theme';
+import { useAppTheme } from '../ui/ThemeProvider';
 
 interface Props {
   title: string;
@@ -21,28 +22,36 @@ export function CompactScreenHeader({
   rightAccessibilityLabel,
   onRightPress,
 }: Props) {
+  const { theme } = useAppTheme();
+  const { colors } = theme;
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="返回"
         hitSlop={8}
-        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.back,
+          pressed && { backgroundColor: colors.surfaceMuted },
+        ]}
         onPress={onBack}
       >
-        <Ionicons name="chevron-back" size={28} color={COLORS.text} />
+        <Ionicons name="chevron-back" size={28} color={colors.text} />
       </Pressable>
-      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
       {(rightLabel || rightIcon) && onRightPress ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={rightAccessibilityLabel ?? rightLabel}
           hitSlop={8}
-          style={({ pressed }) => [styles.right, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.right,
+            pressed && { backgroundColor: colors.surfaceMuted },
+          ]}
           onPress={onRightPress}
         >
-          {rightIcon ? <Ionicons name={rightIcon} size={23} color={COLORS.primary} /> : null}
-          {rightLabel ? <Text style={styles.rightText}>{rightLabel}</Text> : null}
+          {rightIcon ? <Ionicons name={rightIcon} size={23} color={colors.primary} /> : null}
+          {rightLabel ? <Text style={[styles.rightText, { color: colors.primary }]}>{rightLabel}</Text> : null}
         </Pressable>
       ) : (
         <View style={styles.balance} />
@@ -57,9 +66,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
   back: {
     width: 44,
@@ -68,11 +75,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { backgroundColor: COLORS.surfaceMuted },
   title: {
     flex: 1,
     textAlign: 'center',
-    color: COLORS.text,
     fontSize: TYPE.subtitle,
     fontWeight: '700',
   },
@@ -84,5 +89,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rightText: { color: COLORS.primary, fontSize: 14, fontWeight: '600' },
+  rightText: { fontSize: 14, fontWeight: '600' },
 });
