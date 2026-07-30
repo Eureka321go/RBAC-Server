@@ -11,6 +11,7 @@ export * from './sync/syncService';
 export * from './auth/authService';
 export * from './connection/connectionManager';
 export * from './chat/chatService';
+export * from './chat/linkCard';
 export * from './chat/mentionPayload';
 export * from './media/mediaTypes';
 export * from './media/mediaUploadStore';

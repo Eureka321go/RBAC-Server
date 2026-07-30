@@ -1,5 +1,6 @@
 import type { Database, Row } from '../ports/index';
 import { parseCid } from '../protocol/cid';
+import type { LinkCard } from '../chat/linkCard';
 
 export interface StoredMessage {
   cid: string;
@@ -35,6 +36,8 @@ export interface ConversationReadState {
   lastReadSeq: number;
   peerReadSeq: number | null;
 }
+
+export type LinkPreviewMergeResult = 'updated' | 'missing' | 'ignored';
 
 export class MessageStore {
   constructor(private readonly db: Database) {}
@@ -108,6 +111,36 @@ export class MessageStore {
       status: r.status as string,
       ts: r.ts as number,
     }));
+  }
+
+  async mergeLinkPreview(
+    cid: string,
+    seq: number,
+    link: LinkCard,
+  ): Promise<LinkPreviewMergeResult> {
+    const rows = await this.db.query<Row>(
+      `SELECT type, body_json, recalled FROM messages WHERE cid = ? AND seq = ?`,
+      [cid, seq],
+    );
+    if (rows.length === 0) return 'missing';
+    const row = rows[0];
+    if (row.type !== 'TEXT' || row.recalled === 1 || row.body_json == null) return 'ignored';
+
+    let body: unknown;
+    try {
+      body = JSON.parse(row.body_json as string);
+    } catch {
+      return 'ignored';
+    }
+    if (body == null || typeof body !== 'object' || Array.isArray(body)) return 'ignored';
+
+    await this.db.exec(
+      `UPDATE messages
+          SET body_json = ?
+        WHERE cid = ? AND seq = ? AND recalled = 0`,
+      [JSON.stringify({ ...(body as Record<string, unknown>), link }), cid, seq],
+    );
+    return 'updated';
   }
 
   /** 撤回目标只保留占位元数据；正文必须与 recalled 标记在同一条 UPDATE 中清除。 */
