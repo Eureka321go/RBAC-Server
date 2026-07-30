@@ -1,3 +1,5 @@
+import { normalizeMessageQuote, type MessageQuote } from './quotePayload';
+
 export type TextMentionRange =
   | { userId: number; start: number; end: number }
   | { mentionAll: true; start: number; end: number };
@@ -6,6 +8,7 @@ export interface SendTextOptions {
   mentions?: readonly number[];
   mentionAll?: boolean;
   mentionRanges?: readonly TextMentionRange[];
+  quote?: MessageQuote;
 }
 
 function isPositiveSafeInteger(value: number): boolean {
@@ -47,9 +50,9 @@ export function buildTextMessageBody(
       return validRanges;
     }, []);
 
-  if (!mentionAll && mentions.length === 0) return { text };
-
   const body: Record<string, unknown> = { text };
+  const quote = normalizeMessageQuote(options.quote);
+  if (quote != null) body.quote = quote;
   if (mentionAll) {
     body.mentionAll = true;
   } else {

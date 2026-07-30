@@ -13,6 +13,7 @@ export * from './connection/connectionManager';
 export * from './chat/chatService';
 export * from './chat/linkCard';
 export * from './chat/mentionPayload';
+export * from './chat/quotePayload';
 export * from './media/mediaTypes';
 export * from './media/mediaUploadStore';
 export * from './media/mediaUploadService';

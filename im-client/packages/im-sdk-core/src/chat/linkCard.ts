@@ -1,3 +1,5 @@
+import { normalizeMessageQuote } from './quotePayload';
+
 export interface LinkCard {
   url: string;
   title: string;
@@ -57,8 +59,16 @@ export function normalizeLinkCard(value: unknown): LinkCard | null {
 export function normalizeTextMessageBody(
   body: Record<string, unknown> | null,
 ): Record<string, unknown> | null {
-  if (body == null || !Object.prototype.hasOwnProperty.call(body, 'link')) return body;
-  const { link: rawLink, ...rest } = body;
-  const link = normalizeLinkCard(rawLink);
-  return link == null ? rest : { ...rest, link };
+  if (body == null) return null;
+  const hasLink = Object.prototype.hasOwnProperty.call(body, 'link');
+  const hasQuote = Object.prototype.hasOwnProperty.call(body, 'quote');
+  if (!hasLink && !hasQuote) return body;
+  const { link: rawLink, quote: rawQuote, ...rest } = body;
+  const link = hasLink ? normalizeLinkCard(rawLink) : null;
+  const quote = hasQuote ? normalizeMessageQuote(rawQuote) : null;
+  return {
+    ...rest,
+    ...(link == null ? {} : { link }),
+    ...(quote == null ? {} : { quote }),
+  };
 }
