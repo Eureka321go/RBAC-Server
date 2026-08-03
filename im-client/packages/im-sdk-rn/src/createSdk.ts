@@ -35,7 +35,7 @@ const DEVICE_ID_KEY = 'im.installationDeviceId';
 
 export interface SdkConfig {
   apiBaseUrl: string; // 例：http://10.0.2.2:8080/api
-  wsBaseUrl: string;  // 例：ws://10.0.2.2:9001/im
+  wsBaseUrl: string; // 例：ws://10.0.2.2:9001/im
   /** 客户端实际可达的对象存储地址；仅在它与预签名地址不同时用于路由传输。 */
   mediaTransportBaseUrl?: string;
   deviceId?: string;
@@ -48,7 +48,7 @@ export function createSdk(config: SdkConfig) {
   // 缓存 Promise 可避免启动与前台恢复同时触发连接时重复生成两个标识。
   let installationDeviceId: Promise<string> | null = null;
   const getInstallationDeviceId = (): Promise<string> => {
-    installationDeviceId ??= store.get(DEVICE_ID_KEY).then(async (saved) => {
+    installationDeviceId ??= store.get(DEVICE_ID_KEY).then(async saved => {
       if (saved != null && saved !== '') return saved;
       const created = rnIds.uuid();
       await store.set(DEVICE_ID_KEY, created);
@@ -56,7 +56,9 @@ export function createSdk(config: SdkConfig) {
     });
     return installationDeviceId;
   };
-  const http = new AxiosHttp(config.apiBaseUrl, () => store.get(TOKEN_KEYS.access));
+  const http = new AxiosHttp(config.apiBaseUrl, () =>
+    store.get(TOKEN_KEYS.access),
+  );
   const auth = new AuthService(http, store);
   http.configureAuthRecovery({
     refreshAccessToken: () => auth.refreshAccessToken(),
@@ -113,7 +115,7 @@ export function createSdk(config: SdkConfig) {
     player: new RnVoicePlayer(),
     heard: new VoiceHeardStore(db),
   };
-  engine.onClientMessageSettled((clientMsgId) => media.settle(clientMsgId));
+  engine.onClientMessageSettled(clientMsgId => media.settle(clientMsgId));
 
   // 建表是异步的；调用方必须先 await ready 再用 chat。
   const ready = runMigrations(db);
@@ -122,7 +124,7 @@ export function createSdk(config: SdkConfig) {
     // SyncService 已通过 syncState 报错；这里兜住 Promise，避免自动触发产生未处理拒绝。
     void ready.then(() => sync.syncAll()).catch(() => {});
   };
-  connection.on('state', (state) => {
+  connection.on('state', state => {
     if (state === 'connected') {
       triggerSync();
       void ready.then(() => media.resumeAll()).catch(() => {});
@@ -135,5 +137,18 @@ export function createSdk(config: SdkConfig) {
     }
   });
 
-  return { auth, connection, chat, contacts, groups, sync, media, voice, http, ids: rnIds, ready };
+  return {
+    auth,
+    connection,
+    chat,
+    contacts,
+    groups,
+    sync,
+    media,
+    voice,
+    http,
+    ids: rnIds,
+    installationDeviceId: getInstallationDeviceId,
+    ready,
+  };
 }

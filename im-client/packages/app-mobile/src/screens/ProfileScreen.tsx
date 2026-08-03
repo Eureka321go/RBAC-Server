@@ -1,5 +1,13 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  AppState,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   Ionicons,
   type IoniconsIconName,
@@ -15,6 +23,7 @@ import { useAppStore } from '../store';
 import { SPACING, TYPE } from '../ui/theme';
 import type { ThemeMode } from '../ui/themePreference';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { nativePush } from '../push/nativePush';
 
 const CONNECTION_LABELS: Record<string, string> = {
   connected: '在线',
@@ -94,6 +103,23 @@ export function ProfileScreen({ navigation }: Props) {
   const connState = useAppStore(state => state.connState);
   const logout = useAppStore(state => state.logout);
   const { theme, mode } = useAppTheme();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => {
+      void nativePush.areNotificationsEnabled().then(enabled => {
+        if (mounted) setNotificationsEnabled(enabled);
+      });
+    };
+    refresh();
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') refresh();
+    });
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
   const statusColor =
     connState === 'connected'
       ? theme.colors.success
@@ -150,6 +176,14 @@ export function ProfileScreen({ navigation }: Props) {
               value={APPEARANCE_LABELS[mode]}
               accessibilityLabel="打开外观设置"
               onPress={() => navigation.navigate('AppearanceSettings')}
+            />
+            <PreferenceRow
+              icon="notifications-outline"
+              label="通知"
+              value={notificationsEnabled ? '已开启' : '已关闭'}
+              accessibilityLabel="打开系统通知设置"
+              onPress={() => void Linking.openSettings().catch(() => {})}
+              showDivider
             />
             <PreferenceRow
               icon="language-outline"

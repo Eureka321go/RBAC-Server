@@ -4,14 +4,25 @@
 
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
+import { AppState } from 'react-native';
 import App from '../App';
 
 const mockBoot = jest.fn(async () => {});
 const mockAppState = {
   booted: true,
   loggedIn: false,
+  myId: null as number | null,
   boot: mockBoot,
 };
+
+jest.mock('../src/push/pushPermission', () => ({
+  reconcilePushRegistrationOnForeground: jest.fn(async () => undefined),
+}));
+jest.mock('../src/push/pushRegistration', () => ({ pushRegistration: {} }));
+jest.mock('../src/push/nativePush', () => ({ nativePush: {} }));
+const mockReconcilePushRegistrationOnForeground =
+  require('../src/push/pushPermission')
+    .reconcilePushRegistrationOnForeground as jest.Mock;
 
 jest.mock('../src/store', () => ({
   useAppStore: (selector: (state: typeof mockAppState) => unknown) =>
@@ -105,4 +116,33 @@ test('boots and renders the login route', async () => {
 
   expect(mockBoot).toHaveBeenCalledTimes(1);
   expect(renderer.root.findByProps({ testID: 'login-screen' })).toBeTruthy();
+});
+
+test('reconciles push registration when a logged-in app enters foreground', async () => {
+  mockAppState.loggedIn = true;
+  mockAppState.myId = 42;
+  let onChange: ((state: string) => void) | undefined;
+  const remove = jest.fn();
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_type, listener) => {
+      onChange = listener as (state: string) => void;
+      return { remove };
+    });
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+  await ReactTestRenderer.act(async () => onChange?.('active'));
+
+  expect(mockReconcilePushRegistrationOnForeground).toHaveBeenCalledWith(
+    42,
+    expect.anything(),
+    expect.anything(),
+  );
+  await ReactTestRenderer.act(async () => renderer.unmount());
+  expect(remove).toHaveBeenCalledTimes(1);
+  mockAppState.loggedIn = false;
+  mockAppState.myId = null;
 });

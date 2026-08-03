@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { TransportState } from '@im/sdk-core';
 import { sdk } from './sdk';
+import {
+  cancelPendingPushPermissionPrompt,
+  handlePushPermissionAfterLogin,
+} from './push/pushPermission';
+import { pushRegistration } from './push/pushRegistration';
 
 interface AppState {
   booted: boolean;
@@ -14,9 +19,11 @@ interface AppState {
   logout: () => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set) => {
-  sdk.connection.on('state', (s) => set({ connState: s }));
+export const useAppStore = create<AppState>(set => {
+  sdk.connection.on('state', s => set({ connState: s }));
   sdk.auth.onSessionExpired(() => {
+    cancelPendingPushPermissionPrompt();
+    void pushRegistration.deactivate();
     sdk.connection.stop();
     set({
       loggedIn: false,
@@ -49,6 +56,7 @@ export const useAppStore = create<AppState>((set) => {
             myId: me.id,
             displayName: me.nickname?.trim() || me.username,
           });
+          void handlePushPermissionAfterLogin(me.id).catch(() => {});
           await sdk.connection.start();
         } catch {
           // token 过期/被强退：fetchMe 会抛错，清掉本地残留 token，保持未登录态，
@@ -78,12 +86,15 @@ export const useAppStore = create<AppState>((set) => {
           myId: me.id,
           displayName: me.nickname?.trim() || me.username,
         });
+        void handlePushPermissionAfterLogin(me.id).catch(() => {});
         await sdk.connection.start();
       } catch (e) {
         set({ error: (e as Error).message });
       }
     },
     async logout() {
+      cancelPendingPushPermissionPrompt();
+      await pushRegistration.deactivate().catch(() => {});
       await sdk.voice.recording.cancel().catch(() => {});
       await sdk.voice.player.stop().catch(() => {});
       await sdk.voice.audioSession.deactivate().catch(() => {});
