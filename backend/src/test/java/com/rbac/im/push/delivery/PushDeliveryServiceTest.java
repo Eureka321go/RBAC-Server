@@ -14,6 +14,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
@@ -125,12 +126,16 @@ class PushDeliveryServiceTest {
         SendResponse delivered = sendResponse(true, null);
         SendResponse unregistered = sendResponse(false, MessagingErrorCode.UNREGISTERED);
         SendResponse unavailable = sendResponse(false, MessagingErrorCode.UNAVAILABLE);
-        when(batchResponse.getResponses()).thenReturn(List.of(delivered, unregistered, unavailable));
+        SendResponse senderMismatch = sendResponse(false, MessagingErrorCode.SENDER_ID_MISMATCH);
+        SendResponse invalidArgument = sendResponse(false, MessagingErrorCode.INVALID_ARGUMENT);
+        when(batchResponse.getResponses()).thenReturn(
+                List.of(delivered, unregistered, unavailable, senderMismatch, invalidArgument));
         when(messaging.sendEach(anyList())).thenReturn(batchResponse);
         FirebaseAdminFcmGateway firebaseGateway = new FirebaseAdminFcmGateway(
-                messaging, new PushProperties(true, 30, 86400));
+                messagingProvider(messaging), new PushProperties(true, 30, 86400));
         List<FcmRequest> requests = List.of(
-                request("FID", "fid-value"), request("TOKEN", "token-value"), request("FID", "fid-2"));
+                request("FID", "fid-value"), request("TOKEN", "token-value"), request("FID", "fid-2"),
+                request("FID", "fid-3"), request("FID", "fid-4"));
 
         List<FcmSendResult> results = firebaseGateway.send(requests);
 
@@ -148,7 +153,26 @@ class PushDeliveryServiceTest {
         assertThat(results).containsExactly(
                 FcmSendResult.delivered(),
                 new FcmSendResult(false, PushFailureKind.PERMANENT, "UNREGISTERED"),
-                new FcmSendResult(false, PushFailureKind.TRANSIENT, "UNAVAILABLE"));
+                new FcmSendResult(false, PushFailureKind.TRANSIENT, "UNAVAILABLE"),
+                new FcmSendResult(false, PushFailureKind.PERMANENT, "SENDER_ID_MISMATCH"),
+                new FcmSendResult(false, PushFailureKind.TRANSIENT, "INVALID_ARGUMENT"));
+    }
+
+    @Test
+    void deliver_disablesSenderMismatchButNotInvalidArgument() {
+        PushCandidate candidate = candidate();
+        when(resolver.resolve(candidate)).thenReturn(targets(2));
+        when(presentations.resolve(candidate)).thenReturn(new PushPresentation("研发群", "张三"));
+        when(payloadFactory.create(any(), any(), any())).thenReturn(Map.of("msgId", candidate.msgId()));
+        when(gateway.send(anyList())).thenReturn(List.of(
+                new FcmSendResult(false, PushFailureKind.PERMANENT, "SENDER_ID_MISMATCH"),
+                new FcmSendResult(false, PushFailureKind.TRANSIENT, "INVALID_ARGUMENT")));
+
+        assertThatThrownBy(() -> service.deliver(candidate))
+                .isInstanceOf(TransientPushException.class)
+                .hasMessage("INVALID_ARGUMENT");
+        verify(registrations).disableTargetHash("hash-0");
+        verify(registrations, never()).disableTargetHash("hash-1");
     }
 
     @Test
@@ -158,7 +182,7 @@ class PushDeliveryServiceTest {
         when(exception.getMessagingErrorCode()).thenReturn(MessagingErrorCode.QUOTA_EXCEEDED);
         when(messaging.sendEach(anyList())).thenThrow(exception);
         FirebaseAdminFcmGateway firebaseGateway = new FirebaseAdminFcmGateway(
-                messaging, new PushProperties(true, 30, 60));
+                messagingProvider(messaging), new PushProperties(true, 30, 60));
 
         assertThat(firebaseGateway.send(List.of(request("FID", "fid-1"), request("FID", "fid-2"))))
                 .containsExactly(
@@ -170,7 +194,7 @@ class PushDeliveryServiceTest {
     void firebaseGateway_rejectsOversizedBatchBeforeCallingFirebase() {
         FirebaseMessaging messaging = mock(FirebaseMessaging.class);
         FirebaseAdminFcmGateway firebaseGateway = new FirebaseAdminFcmGateway(
-                messaging, new PushProperties(true, 30, 60));
+                messagingProvider(messaging), new PushProperties(true, 30, 60));
         List<FcmRequest> oversized = new ArrayList<>();
         for (int index = 0; index < 501; index++) {
             oversized.add(request("FID", "fid-" + index));
@@ -186,7 +210,7 @@ class PushDeliveryServiceTest {
     void firebaseGateway_rejectsUnknownTargetTypeBeforeCallingFirebase() {
         FirebaseMessaging messaging = mock(FirebaseMessaging.class);
         FirebaseAdminFcmGateway firebaseGateway = new FirebaseAdminFcmGateway(
-                messaging, new PushProperties(true, 30, 60));
+                messagingProvider(messaging), new PushProperties(true, 30, 60));
 
         assertThatThrownBy(() -> firebaseGateway.send(List.of(request("APNS", "target"))))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -231,5 +255,12 @@ class PushDeliveryServiceTest {
             when(response.getException()).thenReturn(exception);
         }
         return response;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ObjectProvider<FirebaseMessaging> messagingProvider(FirebaseMessaging messaging) {
+        ObjectProvider<FirebaseMessaging> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(messaging);
+        return provider;
     }
 }

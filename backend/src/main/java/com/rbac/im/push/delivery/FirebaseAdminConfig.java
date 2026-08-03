@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.annotation.EnableKafkaRetryTopic;
 
 import java.io.IOException;
@@ -18,19 +19,23 @@ import java.io.IOException;
 @EnableKafkaRetryTopic
 public class FirebaseAdminConfig {
 
-    @Bean
+    static final String FIREBASE_APP_NAME = "rbac-im-push";
+
+    @Bean(destroyMethod = "delete")
+    @Lazy
     FirebaseApp firebaseApp() {
         try {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.getApplicationDefault())
                     .build();
-            return FirebaseApp.initializeApp(options);
+            return FirebaseApp.initializeApp(options, FIREBASE_APP_NAME);
         } catch (IOException | RuntimeException exception) {
             throw new IllegalStateException("Firebase Admin initialization failed");
         }
     }
 
     @Bean
+    @Lazy
     FirebaseMessaging firebaseMessaging(FirebaseApp app) {
         return FirebaseMessaging.getInstance(app);
     }

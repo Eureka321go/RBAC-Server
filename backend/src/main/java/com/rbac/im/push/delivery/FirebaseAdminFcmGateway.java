@@ -8,6 +8,7 @@ import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.SendResponse;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -19,11 +20,11 @@ public class FirebaseAdminFcmGateway implements FcmGateway {
 
     private static final int MAX_BATCH_SIZE = 500;
 
-    private final FirebaseMessaging messaging;
+    private final ObjectProvider<FirebaseMessaging> messagingProvider;
     private final PushProperties properties;
 
-    public FirebaseAdminFcmGateway(FirebaseMessaging messaging, PushProperties properties) {
-        this.messaging = messaging;
+    public FirebaseAdminFcmGateway(ObjectProvider<FirebaseMessaging> messagingProvider, PushProperties properties) {
+        this.messagingProvider = messagingProvider;
         this.properties = properties;
     }
 
@@ -34,11 +35,13 @@ public class FirebaseAdminFcmGateway implements FcmGateway {
         }
         List<Message> messages = requests.stream().map(this::message).toList();
         try {
-            BatchResponse response = messaging.sendEach(messages);
+            BatchResponse response = messagingProvider.getObject().sendEach(messages);
             return response.getResponses().stream().map(this::result).toList();
         } catch (FirebaseMessagingException exception) {
             FcmSendResult result = failure(exception.getMessagingErrorCode());
             return new ArrayList<>(java.util.Collections.nCopies(requests.size(), result));
+        } catch (RuntimeException exception) {
+            return failures(requests.size(), "INTERNAL");
         }
     }
 
@@ -67,8 +70,14 @@ public class FirebaseAdminFcmGateway implements FcmGateway {
     private FcmSendResult failure(MessagingErrorCode errorCode) {
         String reason = errorCode == null ? "UNKNOWN" : PushMetrics.safeReason(errorCode.name());
         PushFailureKind kind = errorCode == MessagingErrorCode.UNREGISTERED
+                || errorCode == MessagingErrorCode.SENDER_ID_MISMATCH
                 ? PushFailureKind.PERMANENT
                 : PushFailureKind.TRANSIENT;
         return new FcmSendResult(false, kind, reason);
+    }
+
+    private List<FcmSendResult> failures(int size, String reason) {
+        FcmSendResult result = new FcmSendResult(false, PushFailureKind.TRANSIENT, reason);
+        return new ArrayList<>(java.util.Collections.nCopies(size, result));
     }
 }
