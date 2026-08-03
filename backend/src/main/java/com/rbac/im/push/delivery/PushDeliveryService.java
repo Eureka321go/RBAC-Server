@@ -3,6 +3,8 @@ package com.rbac.im.push.delivery;
 import com.rbac.im.push.candidate.PushCandidate;
 import com.rbac.im.push.registration.ImPushRegistration;
 import com.rbac.im.push.registration.PushRegistrationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +17,7 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "rbac.im.push", name = "enabled", havingValue = "true")
 public class PushDeliveryService {
 
+    private static final Logger log = LoggerFactory.getLogger(PushDeliveryService.class);
     private static final int MAX_BATCH_SIZE = 500;
 
     private final PushRecipientResolver resolver;
@@ -60,6 +63,8 @@ public class PushDeliveryService {
                 }
             }
             if (transientReason != null) {
+                log.warn("推送投递失败 msgId={} reason={}",
+                        PushCandidateConsumer.safeMsgId(candidate.msgId()), transientReason);
                 throw new TransientPushException(transientReason);
             }
         } finally {
