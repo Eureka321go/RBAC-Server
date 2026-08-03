@@ -83,9 +83,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.appmobile"
+    namespace "com.rayim.eureka32.app"
     defaultConfig {
-        applicationId "com.appmobile"
+        applicationId "com.rayim.eureka32.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

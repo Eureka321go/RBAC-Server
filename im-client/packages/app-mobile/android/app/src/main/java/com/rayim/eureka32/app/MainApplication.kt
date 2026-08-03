@@ -1,4 +1,4 @@
-package com.appmobile
+package com.rayim.eureka32.app
 
 import android.app.Application
 import com.facebook.react.PackageList
