@@ -21,6 +21,10 @@ interface NotificationStateSource {
   areNotificationsEnabled(): Promise<boolean>;
 }
 
+interface PushAccountBridge extends NotificationStateSource {
+  setActiveUserId(userId: number): Promise<void>;
+}
+
 interface PermissionStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
@@ -135,6 +139,16 @@ export async function handlePushPermissionAfterLogin(
     permissionPromptVisible = false;
     throw cause;
   }
+}
+
+export async function preparePushAfterLogin(
+  userId: number,
+  manager: RegistrationManager = pushRegistration,
+  push: PushAccountBridge = nativePush,
+  storage: PermissionStorage = AsyncStorage,
+): Promise<void> {
+  await runAutomaticPushAction(() => push.setActiveUserId(userId));
+  await handlePushPermissionAfterLogin(userId, manager, push, storage);
 }
 
 export async function reconcilePushRegistrationOnForeground(

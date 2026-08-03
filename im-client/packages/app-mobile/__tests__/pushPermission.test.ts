@@ -4,6 +4,7 @@ import {
   PERMISSION_PROMPTED_KEY,
   cancelPendingPushPermissionPrompt,
   handlePushPermissionAfterLogin,
+  preparePushAfterLogin,
   reconcilePushRegistrationOnForeground,
   shouldPromptForNotifications,
 } from '../src/push/pushPermission';
@@ -17,11 +18,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 const storage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const manager = {
-  activate: jest.fn(async () => undefined),
-  deactivate: jest.fn(async () => undefined),
-  refreshIfDue: jest.fn(async () => undefined),
+  activate: jest.fn<Promise<void>, [number]>(async () => undefined),
+  deactivate: jest.fn<Promise<void>, []>(async () => undefined),
+  refreshIfDue: jest.fn<Promise<void>, []>(async () => undefined),
 };
-const push = { areNotificationsEnabled: jest.fn(async () => false) };
+const push = {
+  areNotificationsEnabled: jest.fn(async () => false),
+  setActiveUserId: jest.fn(async () => undefined),
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -31,6 +35,7 @@ beforeEach(() => {
   manager.deactivate.mockResolvedValue(undefined);
   manager.refreshIfDue.mockResolvedValue(undefined);
   push.areNotificationsEnabled.mockResolvedValue(false);
+  push.setActiveUserId.mockResolvedValue(undefined);
   Object.defineProperty(Platform, 'OS', {
     configurable: true,
     value: 'android',
@@ -70,6 +75,46 @@ test('Android 12 activates immediately without an explanation', async () => {
   await handlePushPermissionAfterLogin(42, manager, push, storage);
 
   expect(alert).not.toHaveBeenCalled();
+  expect(manager.activate).toHaveBeenCalledWith(42);
+});
+
+test('prepare binds the native account before a pending remote registration', async () => {
+  push.areNotificationsEnabled.mockResolvedValue(true);
+  let finishRegistration: (() => void) | undefined;
+  manager.activate.mockImplementation(
+    () =>
+      new Promise<void>(resolve => {
+        finishRegistration = resolve;
+      }),
+  );
+
+  const preparing = preparePushAfterLogin(42, manager, push, storage);
+  for (
+    let index = 0;
+    index < 20 && manager.activate.mock.calls.length === 0;
+    index += 1
+  ) {
+    await Promise.resolve();
+  }
+
+  expect(push.setActiveUserId).toHaveBeenCalledWith(42);
+  expect(push.setActiveUserId.mock.invocationCallOrder[0]).toBeLessThan(
+    manager.activate.mock.invocationCallOrder[0],
+  );
+  finishRegistration?.();
+  await preparing;
+});
+
+test('native binding failure does not block best-effort registration', async () => {
+  push.setActiveUserId.mockRejectedValue(new Error('native unavailable'));
+  push.areNotificationsEnabled.mockResolvedValue(true);
+  manager.activate.mockRejectedValue(new Error('PUT failed'));
+  jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+  await expect(
+    preparePushAfterLogin(42, manager, push, storage),
+  ).resolves.toBeUndefined();
+
   expect(manager.activate).toHaveBeenCalledWith(42);
 });
 

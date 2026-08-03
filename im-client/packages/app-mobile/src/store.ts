@@ -3,7 +3,7 @@ import type { TransportState } from '@im/sdk-core';
 import { sdk } from './sdk';
 import {
   cancelPendingPushPermissionPrompt,
-  handlePushPermissionAfterLogin,
+  preparePushAfterLogin,
 } from './push/pushPermission';
 import { pushRegistration } from './push/pushRegistration';
 
@@ -56,7 +56,7 @@ export const useAppStore = create<AppState>(set => {
             myId: me.id,
             displayName: me.nickname?.trim() || me.username,
           });
-          void handlePushPermissionAfterLogin(me.id).catch(() => {});
+          void preparePushAfterLogin(me.id).catch(() => {});
           await sdk.connection.start();
         } catch {
           // token 过期/被强退：fetchMe 会抛错，清掉本地残留 token，保持未登录态，
@@ -86,7 +86,7 @@ export const useAppStore = create<AppState>(set => {
           myId: me.id,
           displayName: me.nickname?.trim() || me.username,
         });
-        void handlePushPermissionAfterLogin(me.id).catch(() => {});
+        void preparePushAfterLogin(me.id).catch(() => {});
         await sdk.connection.start();
       } catch (e) {
         set({ error: (e as Error).message });
