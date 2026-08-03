@@ -22,13 +22,8 @@ public class PushRecipientResolver {
     private final Clock clock;
 
     public PushRecipientResolver(ImConversationMemberMapper memberMapper,
-                                 PushRegistrationService registrations) {
-        this(memberMapper, registrations, Clock.systemDefaultZone());
-    }
-
-    PushRecipientResolver(ImConversationMemberMapper memberMapper,
-                          PushRegistrationService registrations,
-                          Clock clock) {
+                                 PushRegistrationService registrations,
+                                 Clock clock) {
         this.memberMapper = memberMapper;
         this.registrations = registrations;
         this.clock = clock;
