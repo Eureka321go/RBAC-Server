@@ -2,6 +2,7 @@ package com.appmobile
 
 import android.app.Application
 import com.appmobile.push.AppVisibilityTracker
+import com.appmobile.push.bridge.PushNotificationPackage
 import com.appmobile.push.notification.NotificationChannels
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -17,7 +18,7 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          add(PushNotificationPackage())
         },
     )
   }

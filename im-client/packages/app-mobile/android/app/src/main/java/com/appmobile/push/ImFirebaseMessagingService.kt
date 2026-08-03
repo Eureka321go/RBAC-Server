@@ -1,6 +1,7 @@
 package com.appmobile.push
 
 import com.appmobile.push.ImPushMessageLogic.Action
+import com.appmobile.push.bridge.PushEventQueue
 import com.appmobile.push.model.PushPayload
 import com.appmobile.push.notification.NotificationCoordinator
 import com.appmobile.push.store.PushStateStore
@@ -13,11 +14,12 @@ class ImFirebaseMessagingService : FirebaseMessagingService() {
     private val coordinator: NotificationCoordinator by lazy {
         NotificationCoordinator(applicationContext)
     }
+    private val eventQueue: PushEventQueue by lazy { PushEventQueue(applicationContext) }
 
     override fun onMessageReceived(message: RemoteMessage) {
         val payload = PushPayload.parse(message.data) ?: return
         when (logic.handle(payload, state.activeUserId(), AppVisibilityTracker.isForeground).action) {
-            Action.EMIT_FOREGROUND_SYNC -> state.enqueueForegroundMessage(payload.cid)
+            Action.EMIT_FOREGROUND_SYNC -> eventQueue.enqueueForegroundMessage(payload.cid)
             Action.SHOW_NOTIFICATION -> coordinator.show(payload)
             Action.DROP_ACCOUNT_MISMATCH,
             Action.DROP_DUPLICATE,
@@ -26,6 +28,6 @@ class ImFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     override fun onDeletedMessages() {
-        state.markSyncAllRequired()
+        eventQueue.markSyncAllRequired()
     }
 }
