@@ -69,6 +69,9 @@ public class PushRegistrationService {
     }
 
     public List<ImPushRegistration> findFreshEnabledByUserIds(Collection<Long> userIds, LocalDateTime freshAfter) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
         return mapper.selectFreshEnabled(userIds, freshAfter);
     }
 

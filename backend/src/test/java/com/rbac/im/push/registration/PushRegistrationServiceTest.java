@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PushRegistrationServiceTest {
@@ -117,6 +118,14 @@ class PushRegistrationServiceTest {
 
         assertThat(registrations).containsExactly(expected);
         verify(mapper).selectFreshEnabled(List.of(20L, 21L), freshAfter);
+    }
+
+    @Test
+    void findFreshEnabledByUserIds_returnsEmptyWithoutQueryingMapperWhenUserIdsAreEmpty() {
+        List<ImPushRegistration> registrations = service.findFreshEnabledByUserIds(List.of(), LocalDateTime.now(clock));
+
+        assertThat(registrations).isEmpty();
+        verifyNoInteractions(mapper);
     }
 
     private PushRegistrationRequest request(String targetValue) {
