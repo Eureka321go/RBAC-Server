@@ -22,3 +22,6 @@ logs/
 
 # macOS
 .DS_Store
+
+# Firebase app configuration contains project credentials.
+**/google-services.json
