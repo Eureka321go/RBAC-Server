@@ -30,7 +30,7 @@ class InboundLinkTriggerTest {
         dispatcher = mock(OutboundDispatcher.class);
         mediaService = mock(MediaService.class);
         linkPreview = mock(LinkPreviewService.class);
-        consumer = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, mock(RecallService.class), mock(MentionService.class), mock(ReadService.class));
+        consumer = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, mock(RecallService.class), mock(MentionService.class), mock(ReadService.class), mock(QuoteService.class));
         when(conversationService.isMember(anyString(), anyLong())).thenReturn(true);
         when(conversationService.isGroupMuted(anyString(), anyLong())).thenReturn(false);
     }
