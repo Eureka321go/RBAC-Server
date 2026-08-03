@@ -69,6 +69,7 @@ import {
 } from '../emoji/emojiTextEditing';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { nativePush } from '../push/nativePush';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -284,6 +285,10 @@ export function ChatScreen({ route, navigation }: Props) {
   });
   const cancelVoiceRecording = voiceRecording.cancel;
   const ensureVoicePermission = voiceRecording.ensurePermission;
+
+  useEffect(() => {
+    nativePush.clearConversationNotification(cid).catch(() => {});
+  }, [cid]);
 
   useFocusEffect(useCallback(() => () => {
     void cancelVoiceRecording();

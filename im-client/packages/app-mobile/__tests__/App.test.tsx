@@ -14,15 +14,31 @@ const mockAppState = {
   myId: null as number | null,
   boot: mockBoot,
 };
+let mockNavigationContainerProps: Record<string, unknown> = {};
 
 jest.mock('../src/push/pushPermission', () => ({
   reconcilePushRegistrationOnForeground: jest.fn(async () => undefined),
 }));
 jest.mock('../src/push/pushRegistration', () => ({ pushRegistration: {} }));
 jest.mock('../src/push/nativePush', () => ({ nativePush: {} }));
+jest.mock('../src/navigation/navigationRef', () => ({
+  navigationRef: {isReady: jest.fn(() => false)},
+}));
+jest.mock('../src/push/PushCoordinator', () => ({
+  PushCoordinator: ({navigationRevision}: {navigationRevision: number}) => {
+    const ReactModule = require('react');
+    const {View: NativeView} = require('react-native');
+    return ReactModule.createElement(NativeView, {
+      testID: 'push-coordinator',
+      navigationRevision,
+    });
+  },
+}));
 const mockReconcilePushRegistrationOnForeground =
   require('../src/push/pushPermission')
     .reconcilePushRegistrationOnForeground as jest.Mock;
+const mockNavigationRef =
+  require('../src/navigation/navigationRef').navigationRef;
 
 jest.mock('../src/store', () => ({
   useAppStore: (selector: (state: typeof mockAppState) => unknown) =>
@@ -95,7 +111,15 @@ jest.mock('@react-navigation/native', () => ({
       notification: '#ff0000',
     },
   },
-  NavigationContainer: ({ children }: React.PropsWithChildren) => children,
+  NavigationContainer: require('react').forwardRef(
+    (
+      {children, ...props}: React.PropsWithChildren,
+      ref: React.ForwardedRef<unknown>,
+    ) => {
+      mockNavigationContainerProps = {...props, ref};
+      return children;
+    },
+  ),
 }));
 
 jest.mock('@react-navigation/native-stack', () => ({
@@ -145,4 +169,33 @@ test('reconciles push registration when a logged-in app enters foreground', asyn
   expect(remove).toHaveBeenCalledTimes(1);
   mockAppState.loggedIn = false;
   mockAppState.myId = null;
+});
+
+test('wires navigation readiness and state changes into push flushing', async () => {
+  let renderer!: ReactTestRenderer.ReactTestRenderer;
+  await ReactTestRenderer.act(async () => {
+    renderer = ReactTestRenderer.create(<App />);
+  });
+
+  expect(mockNavigationContainerProps.ref).toBe(mockNavigationRef);
+  expect(
+    renderer.root.findByProps({testID: 'push-coordinator'}).props
+      .navigationRevision,
+  ).toBe(0);
+
+  await ReactTestRenderer.act(async () => {
+    (mockNavigationContainerProps.onReady as () => void)();
+  });
+  expect(
+    renderer.root.findByProps({testID: 'push-coordinator'}).props
+      .navigationRevision,
+  ).toBe(1);
+
+  await ReactTestRenderer.act(async () => {
+    (mockNavigationContainerProps.onStateChange as () => void)();
+  });
+  expect(
+    renderer.root.findByProps({testID: 'push-coordinator'}).props
+      .navigationRevision,
+  ).toBe(2);
 });
