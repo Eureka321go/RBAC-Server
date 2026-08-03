@@ -106,7 +106,10 @@ function subscribe(eventName: EventName, listener: (payload: unknown) => void): 
   if (!nativeModule) return noop;
   const subscription = new NativeEventEmitter(nativeModule).addListener(eventName, listener);
   nativeModule.listenerReady?.(eventName);
+  let removed = false;
   return () => {
+    if (removed) return;
+    removed = true;
     nativeModule.listenerRemoved?.(eventName);
     subscription.remove();
   };

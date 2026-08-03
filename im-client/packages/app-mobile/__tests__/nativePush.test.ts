@@ -14,15 +14,27 @@ const mockPushModule = {
 };
 
 type Listener = (payload: unknown) => void;
-const mockListeners = new Map<string, Listener>();
+const mockListeners = new Map<string, Set<Listener>>();
+const mockSubscriptionRemovers: jest.Mock[] = [];
+
+function emit(event: string, payload: unknown) {
+  mockListeners.get(event)?.forEach(listener => listener(payload));
+}
 
 jest.mock('react-native', () => ({
   NativeModules: {},
   Platform: {OS: 'android'},
   NativeEventEmitter: class {
     addListener(event: string, listener: Listener) {
-      mockListeners.set(event, listener);
-      return {remove: jest.fn(() => mockListeners.delete(event))};
+      const eventListeners = mockListeners.get(event) ?? new Set<Listener>();
+      eventListeners.add(listener);
+      mockListeners.set(event, eventListeners);
+      const remove = jest.fn(() => {
+        eventListeners.delete(listener);
+        if (eventListeners.size === 0) mockListeners.delete(event);
+      });
+      mockSubscriptionRemovers.push(remove);
+      return {remove};
     }
   },
 }));
@@ -33,6 +45,7 @@ describe('nativePush', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockListeners.clear();
+    mockSubscriptionRemovers.length = 0;
     (Platform as {OS: string}).OS = 'android';
     NativeModules.PushNotification = mockPushModule;
   });
@@ -88,7 +101,7 @@ describe('nativePush', () => {
     nativePush.onForegroundMessage(foreground);
     nativePush.onSyncAllRequired(syncAll);
 
-    mockListeners.get('notificationOpened')?.({
+    emit('notificationOpened', {
       recipientUserId: 42,
       cid: 'g_100',
       conversationType: 'GROUP',
@@ -96,8 +109,8 @@ describe('nativePush', () => {
       title: '项目群',
       preview: 'must not cross bridge',
     });
-    mockListeners.get('foregroundMessage')?.({cid: 'c_1_2'});
-    mockListeners.get('syncAllRequired')?.({});
+    emit('foregroundMessage', {cid: 'c_1_2'});
+    emit('syncAllRequired', {});
 
     expect(opened).toHaveBeenCalledWith({
       recipientUserId: 42,
@@ -115,19 +128,45 @@ describe('nativePush', () => {
     expect(mockPushModule.listenerRemoved).toHaveBeenCalledWith('notificationOpened');
   });
 
+  test('unsubscribe is idempotent while another listener for the event stays active', () => {
+    const first = jest.fn();
+    const second = jest.fn();
+    const firstOff = nativePush.onForegroundMessage(first);
+    const secondOff = nativePush.onForegroundMessage(second);
+
+    firstOff();
+    firstOff();
+    emit('foregroundMessage', {cid: 'c_1_2'});
+
+    expect(mockPushModule.listenerRemoved).toHaveBeenCalledTimes(1);
+    expect(mockPushModule.listenerRemoved).toHaveBeenCalledWith('foregroundMessage');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith({cid: 'c_1_2'});
+    expect(mockListeners.get('foregroundMessage')).toHaveProperty('size', 1);
+    expect(mockSubscriptionRemovers[0]).toHaveBeenCalledTimes(1);
+    expect(mockSubscriptionRemovers[1]).not.toHaveBeenCalled();
+
+    secondOff();
+    secondOff();
+    expect(mockPushModule.listenerRemoved).toHaveBeenCalledTimes(2);
+    expect(mockSubscriptionRemovers[0]).toHaveBeenCalledTimes(1);
+    expect(mockSubscriptionRemovers[1]).toHaveBeenCalledTimes(1);
+    expect(mockListeners.has('foregroundMessage')).toBe(false);
+  });
+
   test('does not deliver malformed native events', () => {
     const opened = jest.fn();
     const foreground = jest.fn();
     nativePush.onNotificationOpened(opened);
     nativePush.onForegroundMessage(foreground);
 
-    mockListeners.get('notificationOpened')?.({
+    emit('notificationOpened', {
       recipientUserId: 42,
       cid: 'g_100',
       conversationType: 'GROUP',
       title: 'missing group id',
     });
-    mockListeners.get('foregroundMessage')?.({cid: ''});
+    emit('foregroundMessage', {cid: ''});
 
     expect(opened).not.toHaveBeenCalled();
     expect(foreground).not.toHaveBeenCalled();
