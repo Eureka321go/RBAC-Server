@@ -28,12 +28,18 @@ class InboundMentionTriggerTest {
     private final RecallService recallService = mock(RecallService.class);
     private final MentionService mentionService = mock(MentionService.class);
     private final ReadService readService = mock(ReadService.class);
-    private final QuoteService quoteService = mock(QuoteService.class);
+    private final QuoteService quoteService = passthroughQuoteService();
     private final ObjectMapper mapper = new ObjectMapper();
 
     private InboundMessageConsumer consumer() {
         return new InboundMessageConsumer(repo, appender, conversationService, dispatcher,
                 mediaService, linkPreview, recallService, mentionService, readService, quoteService);
+    }
+
+    private QuoteService passthroughQuoteService() {
+        QuoteService quoteService = mock(QuoteService.class);
+        when(quoteService.enrich(anyString(), anyString(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+        return quoteService;
     }
 
     private String groupText(Map<String, Object> body) throws Exception {

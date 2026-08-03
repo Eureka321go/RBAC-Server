@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 class InboundMessageConsumerTest {
@@ -37,7 +38,7 @@ class InboundMessageConsumerTest {
         when(appender.append("c_1_2", 1L, "TEXT", Map.of("text", "hi"), "cli-1")).thenReturn(5L);
         MediaService mediaService = mock(MediaService.class);
         LinkPreviewService linkPreview = mock(LinkPreviewService.class);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, recallService, mock(MentionService.class), mock(ReadService.class), mock(QuoteService.class));
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, recallService, mock(MentionService.class), mock(ReadService.class), passthroughQuoteService());
 
         c.onMessage(json("cli-1"));
 
@@ -48,7 +49,7 @@ class InboundMessageConsumerTest {
     @Test
     void duplicate_clientMsgId_is_skipped() throws Exception {
         when(repo.existsBySenderIdAndClientMsgId(1L, "cli-1")).thenReturn(true);
-        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class), mock(LinkPreviewService.class), recallService, mock(MentionService.class), mock(ReadService.class), mock(QuoteService.class));
+        InboundMessageConsumer c = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mock(MediaService.class), mock(LinkPreviewService.class), recallService, mock(MentionService.class), mock(ReadService.class), passthroughQuoteService());
 
         c.onMessage(json("cli-1"));
 
@@ -67,7 +68,7 @@ class InboundMessageConsumerTest {
         InboundMessageConsumer c = new InboundMessageConsumer(
                 repo, appender, conversationService, dispatcher,
                 mock(MediaService.class), mock(LinkPreviewService.class), recallService, mock(MentionService.class),
-                mock(ReadService.class), mock(QuoteService.class));
+                mock(ReadService.class), passthroughQuoteService());
 
         c.onMessage(json);
 
@@ -75,5 +76,11 @@ class InboundMessageConsumerTest {
                 "RECALL".equals(env.getOp()) && "c_1_2".equals(env.getCid())
                         && env.getSenderId() == 1L));
         verify(appender, never()).append(any(), any(), any(), any(), any());
+    }
+
+    private QuoteService passthroughQuoteService() {
+        QuoteService quoteService = mock(QuoteService.class);
+        when(quoteService.enrich(anyString(), anyString(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+        return quoteService;
     }
 }

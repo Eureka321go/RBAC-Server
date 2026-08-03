@@ -20,10 +20,16 @@ class InboundReadTriggerTest {
     private final RecallService recall = mock(RecallService.class);
     private final MentionService mention = mock(MentionService.class);
     private final ReadService read = mock(ReadService.class);
-    private final QuoteService quote = mock(QuoteService.class);
+    private final QuoteService quote = passthroughQuoteService();
 
     private final InboundMessageConsumer consumer = new InboundMessageConsumer(
             repo, appender, conv, dispatcher, media, link, recall, mention, read, quote);
+
+    private QuoteService passthroughQuoteService() {
+        QuoteService quoteService = mock(QuoteService.class);
+        when(quoteService.enrich(anyString(), anyString(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+        return quoteService;
+    }
 
     @Test
     void read_op_routes_to_readService_and_does_not_append() throws Exception {

@@ -19,6 +19,7 @@ class InboundLinkTriggerTest {
     OutboundDispatcher dispatcher;
     MediaService mediaService;
     LinkPreviewService linkPreview;
+    QuoteService quoteService;
     InboundMessageConsumer consumer;
     ObjectMapper mapper = new ObjectMapper();
 
@@ -30,9 +31,16 @@ class InboundLinkTriggerTest {
         dispatcher = mock(OutboundDispatcher.class);
         mediaService = mock(MediaService.class);
         linkPreview = mock(LinkPreviewService.class);
-        consumer = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, mock(RecallService.class), mock(MentionService.class), mock(ReadService.class), mock(QuoteService.class));
+        quoteService = passthroughQuoteService();
+        consumer = new InboundMessageConsumer(repo, appender, conversationService, dispatcher, mediaService, linkPreview, mock(RecallService.class), mock(MentionService.class), mock(ReadService.class), quoteService);
         when(conversationService.isMember(anyString(), anyLong())).thenReturn(true);
         when(conversationService.isGroupMuted(anyString(), anyLong())).thenReturn(false);
+    }
+
+    private QuoteService passthroughQuoteService() {
+        QuoteService quoteService = mock(QuoteService.class);
+        when(quoteService.enrich(anyString(), anyString(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+        return quoteService;
     }
 
     private String json(String type, Map<String, Object> body) throws Exception {
