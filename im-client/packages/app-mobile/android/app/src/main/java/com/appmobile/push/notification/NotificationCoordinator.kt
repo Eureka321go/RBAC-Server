@@ -16,37 +16,41 @@ import com.appmobile.push.model.PushPayload
 
 class NotificationCoordinator(
     private val context: Context,
-    private val store: ConversationNotificationStore = ConversationNotificationStore.create(context),
+    store: ConversationNotificationStore = ConversationNotificationStore.create(context),
     private val specFactory: NotificationSpecFactory = NotificationSpecFactory(),
+    private val sequencer: ConversationNotificationSequencer =
+        ConversationNotificationSequencer(store),
 ) {
     fun show(payload: PushPayload) {
         val manager = NotificationManagerCompat.from(context)
         if (!notificationsAllowed(manager)) return
 
         val spec = specFactory.create(payload)
-        val conversation = store.append(payload.cid, spec.body)
-        val style = NotificationCompat.InboxStyle()
-        conversation.lines.forEach(style::addLine)
-        style.setSummaryText("${conversation.totalCount} 条新消息")
+        sequencer.update(payload.cid, spec.body) { conversation ->
+            val style = NotificationCompat.InboxStyle()
+            conversation.lines.forEach(style::addLine)
+            style.setSummaryText("${conversation.totalCount} 条新消息")
 
-        val notification = NotificationCompat.Builder(context, spec.channelId)
-            .setSmallIcon(R.drawable.ic_stat_message)
-            .setContentTitle(spec.title)
-            .setContentText(spec.body)
-            .setStyle(style)
-            .setGroup(spec.groupKey)
-            .setNumber(conversation.totalCount)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setAutoCancel(true)
-            .setContentIntent(contentIntent(payload, spec.notificationId))
-            .build()
-        manager.notify(spec.notificationId, notification)
+            val notification = NotificationCompat.Builder(context, spec.channelId)
+                .setSmallIcon(R.drawable.ic_stat_message)
+                .setContentTitle(spec.title)
+                .setContentText(spec.body)
+                .setStyle(style)
+                .setGroup(spec.groupKey)
+                .setNumber(conversation.totalCount)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setAutoCancel(true)
+                .setContentIntent(contentIntent(payload, spec.notificationId))
+                .build()
+            manager.notify(spec.notificationId, notification)
+        }
     }
 
     fun clearConversation(cid: String) {
-        NotificationManagerCompat.from(context).cancel(cid.hashCode() and Int.MAX_VALUE)
-        store.clear(cid)
+        sequencer.clear(cid) {
+            NotificationManagerCompat.from(context).cancel(cid.hashCode() and Int.MAX_VALUE)
+        }
     }
 
     private fun notificationsAllowed(manager: NotificationManagerCompat): Boolean {
