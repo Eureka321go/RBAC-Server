@@ -23,8 +23,8 @@ const manager = {
   refreshIfDue: jest.fn<Promise<void>, []>(async () => undefined),
 };
 const push = {
-  areNotificationsEnabled: jest.fn(async () => false),
-  setActiveUserId: jest.fn(async () => undefined),
+  areNotificationsEnabled: jest.fn<Promise<boolean>, []>(async () => false),
+  setActiveUserId: jest.fn<Promise<void>, [number]>(async () => undefined),
 };
 
 beforeEach(() => {
@@ -67,6 +67,19 @@ test('non-Android platforms never prompt or register', async () => {
   expect(manager.activate).not.toHaveBeenCalled();
 });
 
+test('an already stale direct permission task exits before native queries', async () => {
+  await handlePushPermissionAfterLogin(
+    42,
+    manager,
+    push,
+    storage,
+    Number.MIN_SAFE_INTEGER,
+  );
+
+  expect(push.areNotificationsEnabled).not.toHaveBeenCalled();
+  expect(storage.getItem).not.toHaveBeenCalled();
+});
+
 test('Android 12 activates immediately without an explanation', async () => {
   Object.defineProperty(Platform, 'Version', { configurable: true, value: 32 });
   push.areNotificationsEnabled.mockResolvedValue(true);
@@ -75,6 +88,17 @@ test('Android 12 activates immediately without an explanation', async () => {
   await handlePushPermissionAfterLogin(42, manager, push, storage);
 
   expect(alert).not.toHaveBeenCalled();
+  expect(manager.activate).toHaveBeenCalledWith(42);
+});
+
+test('an unrecognized Android version safely follows the pre-13 path', async () => {
+  Object.defineProperty(Platform, 'Version', {
+    configurable: true,
+    value: 'unknown',
+  });
+
+  await handlePushPermissionAfterLogin(42, manager, push, storage);
+
   expect(manager.activate).toHaveBeenCalledWith(42);
 });
 
@@ -103,6 +127,86 @@ test('prepare binds the native account before a pending remote registration', as
   );
   finishRegistration?.();
   await preparing;
+});
+
+test('cancel while native binding is pending stops all later preparation work', async () => {
+  push.areNotificationsEnabled.mockResolvedValue(true);
+  let finishBinding: (() => void) | undefined;
+  push.setActiveUserId.mockImplementationOnce(
+    () =>
+      new Promise<void>(resolve => {
+        finishBinding = resolve;
+      }),
+  );
+
+  const preparing = preparePushAfterLogin(42, manager, push, storage);
+  for (
+    let index = 0;
+    index < 20 && push.setActiveUserId.mock.calls.length === 0;
+    index += 1
+  ) {
+    await Promise.resolve();
+  }
+  cancelPendingPushPermissionPrompt();
+  finishBinding?.();
+  await preparing;
+
+  expect(push.areNotificationsEnabled).not.toHaveBeenCalled();
+  expect(manager.activate).not.toHaveBeenCalled();
+});
+
+test('cancel while notification state is pending prevents stale activation', async () => {
+  let finishNotificationCheck: ((enabled: boolean) => void) | undefined;
+  push.areNotificationsEnabled.mockImplementationOnce(
+    () =>
+      new Promise<boolean>(resolve => {
+        finishNotificationCheck = resolve;
+      }),
+  );
+
+  const preparing = preparePushAfterLogin(42, manager, push, storage);
+  for (
+    let index = 0;
+    index < 20 && push.areNotificationsEnabled.mock.calls.length === 0;
+    index += 1
+  ) {
+    await Promise.resolve();
+  }
+  cancelPendingPushPermissionPrompt();
+  finishNotificationCheck?.(true);
+  await preparing;
+
+  expect(manager.activate).not.toHaveBeenCalled();
+  expect(push.setActiveUserId).toHaveBeenCalledTimes(1);
+});
+
+test('a newer login supersedes an older pending preparation', async () => {
+  let finishOldBinding: (() => void) | undefined;
+  push.setActiveUserId
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          finishOldBinding = resolve;
+        }),
+    )
+    .mockResolvedValueOnce(undefined);
+  push.areNotificationsEnabled.mockResolvedValue(true);
+
+  const oldPreparation = preparePushAfterLogin(41, manager, push, storage);
+  for (
+    let index = 0;
+    index < 20 && push.setActiveUserId.mock.calls.length === 0;
+    index += 1
+  ) {
+    await Promise.resolve();
+  }
+  const newPreparation = preparePushAfterLogin(42, manager, push, storage);
+  await newPreparation;
+  finishOldBinding?.();
+  await oldPreparation;
+
+  expect(manager.activate).toHaveBeenCalledTimes(1);
+  expect(manager.activate).toHaveBeenCalledWith(42);
 });
 
 test('native binding failure does not block best-effort registration', async () => {
@@ -173,6 +277,24 @@ test('Android 13 requests permission once and activates only when granted', asyn
   );
   expect(storage.setItem).toHaveBeenCalledWith(PERMISSION_PROMPTED_KEY, 'true');
   expect(manager.activate).toHaveBeenCalledWith(42);
+});
+
+test('Android 13 records a system denial without activating push', async () => {
+  jest
+    .spyOn(PermissionsAndroid, 'request')
+    .mockResolvedValue(PermissionsAndroid.RESULTS.DENIED);
+  jest
+    .spyOn(Alert, 'alert')
+    .mockImplementation((_title, _message, buttons) =>
+      buttons?.[1]?.onPress?.(),
+    );
+
+  await handlePushPermissionAfterLogin(42, manager, push, storage);
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(storage.setItem).toHaveBeenCalledWith(PERMISSION_PROMPTED_KEY, 'true');
+  expect(manager.activate).not.toHaveBeenCalled();
 });
 
 test('concurrent login completion never presents duplicate explanations', async () => {
@@ -255,4 +377,27 @@ test('foreground reconciliation refreshes when notifications are enabled', async
   await reconcilePushRegistrationOnForeground(42, manager, push);
 
   expect(manager.activate).toHaveBeenCalledWith(42);
+});
+
+test('foreground reconciliation stops when logout happens during its state query', async () => {
+  let finishNotificationCheck: ((enabled: boolean) => void) | undefined;
+  push.areNotificationsEnabled.mockImplementationOnce(
+    () =>
+      new Promise<boolean>(resolve => {
+        finishNotificationCheck = resolve;
+      }),
+  );
+
+  const reconciliation = reconcilePushRegistrationOnForeground(
+    42,
+    manager,
+    push,
+  );
+  await Promise.resolve();
+  cancelPendingPushPermissionPrompt();
+  finishNotificationCheck?.(true);
+  await reconciliation;
+
+  expect(manager.activate).not.toHaveBeenCalled();
+  expect(manager.deactivate).not.toHaveBeenCalled();
 });

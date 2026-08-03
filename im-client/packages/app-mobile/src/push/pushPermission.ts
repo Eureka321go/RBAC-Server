@@ -32,9 +32,15 @@ interface PermissionStorage {
 
 let permissionPromptVisible = false;
 let permissionPromptGeneration = 0;
+let pushSessionGeneration = 0;
 
 export function cancelPendingPushPermissionPrompt(): void {
   permissionPromptGeneration += 1;
+  pushSessionGeneration += 1;
+}
+
+function isCurrentPushSession(generation: number): boolean {
+  return generation === pushSessionGeneration;
 }
 
 export function shouldPromptForNotifications(input: PromptState): boolean {
@@ -66,13 +72,16 @@ export async function handlePushPermissionAfterLogin(
   manager: RegistrationManager = pushRegistration,
   push: NotificationStateSource = nativePush,
   storage: PermissionStorage = AsyncStorage,
+  sessionGeneration: number = pushSessionGeneration,
 ): Promise<void> {
   if (Platform.OS !== 'android') return;
+  if (!isCurrentPushSession(sessionGeneration)) return;
 
   const [enabled, promptedValue] = await Promise.all([
     push.areNotificationsEnabled(),
     storage.getItem(PERMISSION_PROMPTED_KEY),
   ]);
+  if (!isCurrentPushSession(sessionGeneration)) return;
   const promptState = {
     androidVersion: androidVersion(),
     prompted: promptedValue === 'true',
@@ -80,10 +89,14 @@ export async function handlePushPermissionAfterLogin(
   };
 
   if (enabled || promptState.androidVersion < 33) {
-    await runAutomaticPushAction(() => manager.activate(userId));
+    await runAutomaticPushAction(async () => {
+      if (!isCurrentPushSession(sessionGeneration)) return;
+      await manager.activate(userId);
+    });
     return;
   }
   if (!shouldPromptForNotifications(promptState)) return;
+  if (!isCurrentPushSession(sessionGeneration)) return;
   if (permissionPromptVisible) return;
 
   permissionPromptVisible = true;
@@ -112,6 +125,10 @@ export async function handlePushPermissionAfterLogin(
           onPress: () => {
             void (async () => {
               try {
+                if (!isCurrentPushSession(sessionGeneration)) {
+                  await markPrompted();
+                  return;
+                }
                 let result: string | null = null;
                 try {
                   result = await PermissionsAndroid.request(
@@ -122,6 +139,7 @@ export async function handlePushPermissionAfterLogin(
                 }
                 if (
                   result === PermissionsAndroid.RESULTS.GRANTED &&
+                  isCurrentPushSession(sessionGeneration) &&
                   promptGeneration === permissionPromptGeneration
                 ) {
                   await runAutomaticPushAction(() => manager.activate(userId));
@@ -147,8 +165,16 @@ export async function preparePushAfterLogin(
   push: PushAccountBridge = nativePush,
   storage: PermissionStorage = AsyncStorage,
 ): Promise<void> {
+  const sessionGeneration = ++pushSessionGeneration;
   await runAutomaticPushAction(() => push.setActiveUserId(userId));
-  await handlePushPermissionAfterLogin(userId, manager, push, storage);
+  if (!isCurrentPushSession(sessionGeneration)) return;
+  await handlePushPermissionAfterLogin(
+    userId,
+    manager,
+    push,
+    storage,
+    sessionGeneration,
+  );
 }
 
 export async function reconcilePushRegistrationOnForeground(
@@ -156,8 +182,11 @@ export async function reconcilePushRegistrationOnForeground(
   manager: RegistrationManager = pushRegistration,
   push: NotificationStateSource = nativePush,
 ): Promise<void> {
+  const sessionGeneration = pushSessionGeneration;
   await runAutomaticPushAction(async () => {
-    if (await push.areNotificationsEnabled()) {
+    const enabled = await push.areNotificationsEnabled();
+    if (!isCurrentPushSession(sessionGeneration)) return;
+    if (enabled) {
       await manager.activate(userId);
     } else {
       await manager.deactivate();
