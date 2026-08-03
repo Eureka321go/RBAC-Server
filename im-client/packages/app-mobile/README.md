@@ -168,12 +168,24 @@ npm run lint
 npx tsc --noEmit
 ```
 
-Android 原生测试与编译：
+Android 完整原生聚合验证的目标命令是：
 
 ```sh
 cd im-client/packages/app-mobile/android
 ./gradlew testDebugUnitTest assembleDebug
 ```
+
+当前项目中的 `react-native-keychain` 仍使用 `gradle-test-logger` 2.0，它在 Gradle 9.3.1 配置测试任务时会尝试写入只读的 `consoleType` 属性，因此上述根聚合命令会在配置阶段失败。修复或升级该依赖后，必须恢复执行根聚合命令，不能长期用局部验证替代。
+
+在此已知问题修复前，可执行以下 app 模块验证：
+
+```sh
+cd im-client/packages/app-mobile/android
+./gradlew :app:testDebugUnitTest --tests 'com.appmobile.push.*' --configure-on-demand
+./gradlew :app:assembleDebug --configure-on-demand
+```
+
+第一条替代命令只覆盖 app 模块中的推送原生单元测试，不会运行 `react-native-keychain` 等全部依赖模块的测试；第二条只验证 app Debug APK 可构建。验收记录必须同时保留根聚合命令的已知失败和这两项局部结果，不能把局部成功写成完整 Android 测试通过。
 
 自动化测试不访问真实 FCM，也不要求生产凭证。提交前还应运行 `git diff --check`，并从本功能最早实现前的基线提交扫描新增差异中的服务账号标识字段、PEM 私钥头和 `google-services.json`；扫描结果只能报告匹配文件或“无匹配”，不能打印秘密内容。
 
