@@ -71,6 +71,10 @@ rbac:
     recall-window-seconds: 120
     mention-all-admin-only: true
     group-max-members: 500
+    push:
+      enabled: ${IM_PUSH_ENABLED:false}
+      fresh-days: 30
+      ttl-seconds: 86400
     media:
       # 连接密钥走环境变量，默认值仅供本地/测试；生产由 application-prod.yml 强制注入
       endpoint: ${MEDIA_ENDPOINT:http://localhost:9000}
