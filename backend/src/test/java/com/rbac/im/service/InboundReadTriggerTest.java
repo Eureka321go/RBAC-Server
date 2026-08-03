@@ -2,6 +2,8 @@ package com.rbac.im.service;
 
 import com.rbac.im.doc.ImMessageRepository;
 import com.rbac.im.protocol.Envelope;
+import com.rbac.im.push.candidate.PushCandidatePublisher;
+import com.rbac.im.push.candidate.PushPreviewFactory;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,9 +23,11 @@ class InboundReadTriggerTest {
     private final MentionService mention = mock(MentionService.class);
     private final ReadService read = mock(ReadService.class);
     private final QuoteService quote = passthroughQuoteService();
+    private final PushCandidatePublisher pushPublisher = mock(PushCandidatePublisher.class);
 
     private final InboundMessageConsumer consumer = new InboundMessageConsumer(
-            repo, appender, conv, dispatcher, media, link, recall, mention, read, quote);
+            repo, appender, conv, dispatcher, media, link, recall, mention, read, quote,
+            new PushPreviewFactory(), pushPublisher);
 
     private QuoteService passthroughQuoteService() {
         QuoteService quoteService = mock(QuoteService.class);
@@ -45,5 +49,6 @@ class InboundReadTriggerTest {
                 && "c_1_2".equals(e.getCid()) && e.getSenderId() == 2L));
         verify(appender, never()).append(anyString(), anyLong(), anyString(), any(), any());
         verify(recall, never()).recall(any());
+        verify(pushPublisher, never()).publish(any());
     }
 }

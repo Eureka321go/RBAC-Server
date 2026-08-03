@@ -6,6 +6,7 @@ import com.rbac.im.doc.ImMessageRepository;
 import com.rbac.im.entity.ImConversation;
 import com.rbac.im.mapper.ImConversationMapper;
 import com.rbac.im.protocol.Envelope;
+import com.rbac.im.push.candidate.AppendedMessage;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -33,8 +34,8 @@ public class MessageAppender {
         this.enricher = enricher;                    // 为富媒体 PUSH 附加临时预签名下载 URL
     }
 
-    /** 追加一条消息并扇出，返回定序后的 seq。 */
-    public long append(String cid, Long senderId, String type, Map<String, Object> body, String clientMsgId) {
+    /** 追加一条消息并扇出，返回落库消息的权威标识、序号和时间戳。 */
+    public AppendedMessage append(String cid, Long senderId, String type, Map<String, Object> body, String clientMsgId) {
         long seq = seqService.nextSeq(cid);
         String msgId = UUID.randomUUID().toString().replace("-", "");
         long ts = System.currentTimeMillis();
@@ -64,7 +65,7 @@ public class MessageAppender {
         push.setTs(ts);
         dispatcher.dispatch(cid, push);
 
-        return seq;
+        return new AppendedMessage(msgId, seq, ts);
     }
     // 更新会话摘要
     private void updateSummary(String cid, long seq, String preview, long ts) {
