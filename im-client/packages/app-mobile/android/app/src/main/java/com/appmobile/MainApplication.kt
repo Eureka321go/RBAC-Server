@@ -1,6 +1,8 @@
 package com.appmobile
 
 import android.app.Application
+import com.appmobile.push.AppVisibilityTracker
+import com.appmobile.push.notification.NotificationChannels
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -22,6 +24,8 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    registerActivityLifecycleCallbacks(AppVisibilityTracker)
+    NotificationChannels.create(this)
     loadReactNative(this)
   }
 }
