@@ -9,29 +9,41 @@ data class PendingOpen(val cid: String)
 class PushStateStore(
     private val keyValueStore: KeyValueStore,
 ) {
-    fun activeUserId(): Long? = keyValueStore.getString(KEY_ACTIVE_USER_ID)
-        ?.toLongOrNull()
-        ?.takeIf { it >= 0 }
+    fun activeUserId(): Long? = synchronized(STATE_LOCK) {
+        keyValueStore.getString(KEY_ACTIVE_USER_ID)
+            ?.toLongOrNull()
+            ?.takeIf { it >= 0 }
+    }
 
     fun setActiveUserId(userId: Long) {
-        if (userId >= 0) {
-            keyValueStore.putString(KEY_ACTIVE_USER_ID, userId.toString())
+        synchronized(STATE_LOCK) {
+            if (userId >= 0) {
+                keyValueStore.putString(KEY_ACTIVE_USER_ID, userId.toString())
+            }
         }
     }
 
     fun clearActiveUserId() {
-        keyValueStore.remove(KEY_ACTIVE_USER_ID)
+        synchronized(STATE_LOCK) {
+            keyValueStore.remove(KEY_ACTIVE_USER_ID)
+        }
     }
 
-    fun matchesAccount(userId: Long): Boolean = activeUserId() == userId
+    fun matchesAccount(userId: Long): Boolean = synchronized(STATE_LOCK) {
+        keyValueStore.getString(KEY_ACTIVE_USER_ID)
+            ?.toLongOrNull()
+            ?.takeIf { it >= 0 } == userId
+    }
 
-    fun markIfNew(msgId: String, nowMs: Long): Boolean {
-        if (msgId.isBlank() || msgId.length > MAX_MSG_ID_LENGTH || nowMs < 0) return false
+    fun markIfNew(msgId: String, nowMs: Long): Boolean = synchronized(STATE_LOCK) {
+        if (msgId.isBlank() || msgId.length > MAX_MSG_ID_LENGTH || nowMs < 0) {
+            return@synchronized false
+        }
 
         val retained = readSeen().filterValues { timestamp ->
             nowMs - timestamp <= SEEN_TTL_MS
         }.toMutableMap()
-        if (retained.containsKey(msgId)) return false
+        if (retained.containsKey(msgId)) return@synchronized false
 
         retained[msgId] = nowMs
         writeSeen(retained.entries.sortedByDescending { it.value }.take(MAX_SEEN))
@@ -39,29 +51,39 @@ class PushStateStore(
     }
 
     fun enqueueOpen(cid: String) {
-        if (isValidCid(cid)) {
-            keyValueStore.putString(KEY_PENDING_OPEN_CID, cid)
+        synchronized(STATE_LOCK) {
+            if (isValidCid(cid)) {
+                keyValueStore.putString(KEY_PENDING_OPEN_CID, cid)
+            }
         }
     }
 
-    fun consumeOpen(): PendingOpen? = consumeCid(KEY_PENDING_OPEN_CID)?.let(::PendingOpen)
+    fun consumeOpen(): PendingOpen? = synchronized(STATE_LOCK) {
+        consumeCid(KEY_PENDING_OPEN_CID)?.let(::PendingOpen)
+    }
 
     fun enqueueForegroundMessage(cid: String) {
-        if (isValidCid(cid)) {
-            keyValueStore.putString(KEY_FOREGROUND_CID, cid)
+        synchronized(STATE_LOCK) {
+            if (isValidCid(cid)) {
+                keyValueStore.putString(KEY_FOREGROUND_CID, cid)
+            }
         }
     }
 
-    fun consumeForegroundMessage(): String? = consumeCid(KEY_FOREGROUND_CID)
-
-    fun markSyncAllRequired() {
-        keyValueStore.putString(KEY_SYNC_ALL_REQUIRED, "1")
+    fun consumeForegroundMessage(): String? = synchronized(STATE_LOCK) {
+        consumeCid(KEY_FOREGROUND_CID)
     }
 
-    fun consumeSyncAllRequired(): Boolean {
+    fun markSyncAllRequired() {
+        synchronized(STATE_LOCK) {
+            keyValueStore.putString(KEY_SYNC_ALL_REQUIRED, "1")
+        }
+    }
+
+    fun consumeSyncAllRequired(): Boolean = synchronized(STATE_LOCK) {
         val required = keyValueStore.getString(KEY_SYNC_ALL_REQUIRED) == "1"
         keyValueStore.remove(KEY_SYNC_ALL_REQUIRED)
-        return required
+        required
     }
 
     private fun consumeCid(key: String): String? {
@@ -116,6 +138,7 @@ class PushStateStore(
         private const val KEY_PENDING_OPEN_CID = "pending_open_cid"
         private const val KEY_FOREGROUND_CID = "foreground_cid"
         private const val KEY_SYNC_ALL_REQUIRED = "sync_all_required"
+        private val STATE_LOCK = Any()
 
         fun create(context: Context): PushStateStore = PushStateStore(
             SharedPreferencesKeyValueStore(

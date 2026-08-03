@@ -5,6 +5,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class PushStateStoreTest {
     private val store = PushStateStore(InMemoryKeyValueStore())
@@ -82,6 +87,34 @@ class PushStateStoreTest {
         assertNull(store.consumeForegroundMessage())
     }
 
+    @Test
+    fun sharedStoresAllowOnlyOneConcurrentClaimForTheSameMessage() {
+        val keyValueStore = RacingKeyValueStore()
+        val firstStore = PushStateStore(keyValueStore)
+        val secondStore = PushStateStore(keyValueStore)
+        val executor = Executors.newFixedThreadPool(2)
+        val startBarrier = CyclicBarrier(2)
+
+        try {
+            val results = executor.invokeAll(
+                listOf(
+                    java.util.concurrent.Callable {
+                        startBarrier.await()
+                        firstStore.markIfNew("msg-1", nowMs = 1000L)
+                    },
+                    java.util.concurrent.Callable {
+                        startBarrier.await()
+                        secondStore.markIfNew("msg-1", nowMs = 1000L)
+                    },
+                ),
+            ).map { it.get() }
+
+            assertEquals(1, results.count { it })
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
     private class InMemoryKeyValueStore : KeyValueStore {
         private val values = mutableMapOf<String, String>()
 
@@ -93,6 +126,32 @@ class PushStateStoreTest {
 
         override fun remove(key: String) {
             values.remove(key)
+        }
+    }
+
+    private class RacingKeyValueStore : KeyValueStore {
+        private val values = mutableMapOf<String, String>()
+        private val reads = AtomicInteger(0)
+        private val secondReadArrived = CountDownLatch(1)
+
+        override fun getString(key: String): String? {
+            val value = synchronized(values) { values[key] }
+            when (reads.incrementAndGet()) {
+                1 -> {
+                    secondReadArrived.await(1, TimeUnit.SECONDS)
+                }
+
+                2 -> secondReadArrived.countDown()
+            }
+            return value
+        }
+
+        override fun putString(key: String, value: String) {
+            synchronized(values) { values[key] = value }
+        }
+
+        override fun remove(key: String) {
+            synchronized(values) { values.remove(key) }
         }
     }
 }

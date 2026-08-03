@@ -30,4 +30,11 @@ object AppVisibilityTracker : Application.ActivityLifecycleCallbacks {
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
 
     override fun onActivityDestroyed(activity: Activity) = Unit
+
+    /** Test-only reset for local unit tests that exercise this process-wide tracker. */
+    @Synchronized
+    internal fun resetForTests() {
+        resumedActivities = 0
+        isForeground = false
+    }
 }
