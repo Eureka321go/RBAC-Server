@@ -1,9 +1,9 @@
 package com.rayim.eureka32.app
 
 import android.app.Application
-import com.appmobile.push.AppVisibilityTracker
-import com.appmobile.push.bridge.PushNotificationPackage
-import com.appmobile.push.notification.NotificationChannels
+import com.rayim.eureka32.app.push.AppVisibilityTracker
+import com.rayim.eureka32.app.push.bridge.PushNotificationPackage
+import com.rayim.eureka32.app.push.notification.NotificationChannels
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost

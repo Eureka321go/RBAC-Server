@@ -135,7 +135,7 @@ npm run android-list --workspace app-mobile
 
 #### Firebase 客户端配置
 
-1. 在对应环境的 Firebase 项目中创建 Android 应用，package ID 必须是 `com.appmobile`。
+1. 在对应环境的 Firebase 项目中创建 Android 应用，package ID 必须是 `com.rayim.eureka32.app`。
 2. 下载该环境的 `google-services.json`，放到 `packages/app-mobile/android/app/google-services.json`。仓库根 `.gitignore` 已忽略所有 `google-services.json`，不要强制提交、复制到文档或通过聊天工具传播其内容。
 3. 使用带 Google Play 服务的 Android 模拟器或真机安装应用。没有 `google-services.json` 时工程仍可编译，客户端会把推送视为不可用，登录、WebSocket 和消息同步不受影响。
 4. 后端通过 ADC 或工作负载身份获取 Firebase Admin 凭证，并设置 `IM_PUSH_ENABLED=true`。客户端配置不能代替服务端凭证；服务账号私钥不得进入仓库、APK、配置文件或日志。
@@ -181,7 +181,7 @@ cd im-client/packages/app-mobile/android
 
 ```sh
 cd im-client/packages/app-mobile/android
-./gradlew :app:testDebugUnitTest --tests 'com.appmobile.push.*' --configure-on-demand
+./gradlew :app:testDebugUnitTest --tests 'com.rayim.eureka32.app.push.*' --configure-on-demand
 ./gradlew :app:assembleDebug --configure-on-demand
 ```
 

@@ -2,9 +2,9 @@ package com.rayim.eureka32.app
 
 import android.content.Intent
 import android.os.Bundle
-import com.appmobile.push.bridge.PushEventQueue
-import com.appmobile.push.bridge.PushOpenEvent
-import com.appmobile.push.notification.NotificationCoordinator
+import com.rayim.eureka32.app.push.bridge.PushEventQueue
+import com.rayim.eureka32.app.push.bridge.PushOpenEvent
+import com.rayim.eureka32.app.push.notification.NotificationCoordinator
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
