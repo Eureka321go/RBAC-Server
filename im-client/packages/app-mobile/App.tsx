@@ -4,8 +4,8 @@
  * @format
  */
 
-import React, { useEffect, useMemo } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AppState, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   DarkTheme,
@@ -25,13 +25,20 @@ import type { RootStackParamList } from './src/navigation/types';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
 import { RootTabs } from './src/navigation/RootTabs';
 import { BrandedLoadingState } from './src/components/BrandedLoadingState';
+import { reconcilePushRegistrationOnForeground } from './src/push/pushPermission';
+import { pushRegistration } from './src/push/pushRegistration';
+import { nativePush } from './src/push/nativePush';
+import { navigationRef } from './src/navigation/navigationRef';
+import { PushCoordinator } from './src/push/PushCoordinator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AppContent() {
+  const [navigationRevision, setNavigationRevision] = useState(0);
   const booted = useAppStore(x => x.booted);
   const boot = useAppStore(x => x.boot);
   const loggedIn = useAppStore(x => x.loggedIn);
+  const myId = useAppStore(x => x.myId);
   const error = useAppStore(x => x.error);
   const { theme } = useAppTheme();
   const navigationTheme = useMemo(() => {
@@ -53,18 +60,42 @@ function AppContent() {
     void boot();
   }, [boot]);
 
+  useEffect(() => {
+    if (!loggedIn || myId == null) return undefined;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        void reconcilePushRegistrationOnForeground(
+          myId,
+          pushRegistration,
+          nativePush,
+        );
+      }
+    });
+    return () => subscription.remove();
+  }, [loggedIn, myId]);
+
   if (!booted) {
-    return <BrandedLoadingState error={error} />;
+    return (
+      <>
+        <PushCoordinator navigationRevision={navigationRevision} />
+        <BrandedLoadingState error={error} />
+      </>
+    );
   }
 
   return (
     <>
+      <PushCoordinator navigationRevision={navigationRevision} />
       <StatusBar
         barStyle={theme.statusBarStyle}
         backgroundColor={theme.colors.surface}
       />
       {loggedIn ? <ConnectionStatusBar /> : null}
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={navigationTheme}
+        onReady={() => setNavigationRevision(revision => revision + 1)}
+        onStateChange={() => setNavigationRevision(revision => revision + 1)}>
         <Stack.Navigator>
           {!loggedIn ? (
             <Stack.Screen

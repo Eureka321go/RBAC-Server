@@ -3,9 +3,11 @@ package com.rbac.common.web;
 import com.rbac.common.Result;
 import com.rbac.common.exception.BusinessException;
 import com.rbac.common.util.MessageUtils;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -30,6 +32,24 @@ public class GlobalExceptionHandler {
     public Result<Void> handleValidation(MethodArgumentNotValidException e) {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : MessageUtils.get("error.validation");
+        return Result.error(400, message);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public Result<Void> handleMethodValidation(HandlerMethodValidationException e) {
+        String message = e.getAllErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElseGet(() -> MessageUtils.get("error.validation"));
+        return Result.error(400, message);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public Result<Void> handleConstraintViolation(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+                .findFirst()
+                .map(violation -> violation.getMessage())
+                .orElseGet(() -> MessageUtils.get("error.validation"));
         return Result.error(400, message);
     }
 

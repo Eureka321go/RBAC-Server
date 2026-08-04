@@ -1,0 +1,20 @@
+CREATE TABLE `im_push_registration` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL,
+    `device_id` VARCHAR(64) NOT NULL,
+    `platform` VARCHAR(16) NOT NULL,
+    `provider` VARCHAR(16) NOT NULL,
+    `target_type` VARCHAR(16) NOT NULL,
+    `target_value` TEXT NOT NULL,
+    `target_hash` CHAR(64) NOT NULL,
+    `app_version` VARCHAR(32) NULL,
+    `enabled` TINYINT NOT NULL DEFAULT 1,
+    `last_seen_at` DATETIME NOT NULL,
+    `created_by` BIGINT NULL, `created_at` DATETIME NULL,
+    `updated_by` BIGINT NULL, `updated_at` DATETIME NULL,
+    `deleted` TINYINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_push_user_device_provider` (`user_id`, `device_id`, `provider`),
+    UNIQUE KEY `uk_push_provider_target_hash` (`provider`, `target_hash`),
+    KEY `idx_push_user_enabled_seen` (`user_id`, `enabled`, `last_seen_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 推送设备登记';

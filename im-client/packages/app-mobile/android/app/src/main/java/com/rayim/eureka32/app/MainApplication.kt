@@ -1,6 +1,9 @@
 package com.rayim.eureka32.app
 
 import android.app.Application
+import com.appmobile.push.AppVisibilityTracker
+import com.appmobile.push.bridge.PushNotificationPackage
+import com.appmobile.push.notification.NotificationChannels
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
@@ -15,13 +18,15 @@ class MainApplication : Application(), ReactApplication {
       packageList =
         PackageList(this).packages.apply {
           // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          add(PushNotificationPackage())
         },
     )
   }
 
   override fun onCreate() {
     super.onCreate()
+    registerActivityLifecycleCallbacks(AppVisibilityTracker)
+    NotificationChannels.create(this)
     loadReactNative(this)
   }
 }

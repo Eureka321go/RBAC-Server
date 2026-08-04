@@ -56,6 +56,25 @@ React Native 客户端
 
 HTTP API 负责认证、会话同步、群组、通讯录和媒体凭证；WebSocket 负责实时消息、回执与连接状态。网关只处理连接、鉴权和路由，成员权限、禁言、消息落库等业务规则由后端统一校验。
 
+## 🔔 Android 消息推送
+
+Android 客户端使用 Firebase Cloud Messaging（FCM）补充后台消息提醒；在线消息仍走既有 WebSocket。消息落库和提及状态更新后，后端通过独立的 `im-push` Kafka 消费链异步发送 FCM，推送故障不会回滚消息主链。前台只触发权威同步，不显示系统通知；后台通知显示发送人和经过裁剪的安全摘要。
+
+### 服务端启用
+
+推送默认关闭。Firebase Admin 必须通过 Application Default Credentials（ADC）或云平台工作负载身份取得凭证，生产环境也可以挂载受管 Secret 并让 ADC 读取。禁止把服务账号 JSON、私钥或凭证内容写入仓库、APK、`application.yml`、环境变量示例和日志。
+
+```bash
+export IM_PUSH_ENABLED=true
+mvn -f backend/pom.xml spring-boot:run
+```
+
+配置位于 `rbac.im.push`：`enabled` 是总开关，`fresh-days` 控制有效登记的最近活跃天数，`ttl-seconds` 控制 FCM 数据消息 TTL（默认 86400 秒）。消费者最多尝试 4 次，采用 1 秒起步、最大 30 秒的随机指数退避；耗尽后进入 `im-push.DLT`。永久无效目标会被禁用。
+
+运维应监控 `im.push.candidates`、`im.push.targets`、`im.push.delivery`、`im.push.latency` 和 `im.push.dlt`。指标标签和日志只能使用 `msgId` 与枚举化粗粒度错误码；不得记录 FCM 目标、消息摘要、发送人、原始 Payload、访问令牌或 Firebase 凭证。Firebase 接受发送任务不等于设备已经展示通知。
+
+Android Firebase 客户端配置、自动验证命令和待执行真机矩阵见[移动端 FCM 配置与验收](im-client/packages/app-mobile/README.md#5-android-fcm-推送配置与验收)。部署环境示例保持 `IM_PUSH_ENABLED=false`，完成非生产环境验收后再分批开启。
+
 ## 📁 目录结构
 
 ```text
@@ -161,6 +180,7 @@ iOS、真机和服务地址配置详见 [移动端开发说明](im-client/packag
 - WebSocket 握手必须校验 JWT；发送消息前必须校验会话成员身份、群角色和禁言状态。
 - 媒体上传、下载必须使用受限凭证或签名地址，不向客户端暴露存储服务凭证。
 - 日志和参数返回不得出现密码、Token、完整身份证等敏感信息；操作日志参数需要限长。
+- 推送日志、异常、链路追踪和指标不得出现 FCM 目标、原始 Payload 或消息摘要；Firebase Admin 凭证只能由 ADC、工作负载身份或受管 Secret 提供。
 - `application.yml`、`deploy/.env` 中的本地密码不得直接用于生产，JWT 密钥必须通过环境变量覆盖。
 
 ## 📚 文档

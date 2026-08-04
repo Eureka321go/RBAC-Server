@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rbac.im.config.ImKafkaTopics;
 import com.rbac.im.doc.ImMessageRepository;
 import com.rbac.im.protocol.Envelope;
+import com.rbac.im.push.candidate.AppendedMessage;
+import com.rbac.im.push.candidate.PushCandidate;
+import com.rbac.im.push.candidate.PushCandidatePublisher;
+import com.rbac.im.push.candidate.PushPreviewFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -27,6 +31,8 @@ public class InboundMessageConsumer {
     private final MentionService mentionService;
     private final ReadService readService;
     private final QuoteService quoteService;
+    private final PushPreviewFactory previewFactory;
+    private final PushCandidatePublisher pushPublisher;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public InboundMessageConsumer(ImMessageRepository repo,
@@ -38,7 +44,9 @@ public class InboundMessageConsumer {
                                   RecallService recallService,
                                   MentionService mentionService,
                                   ReadService readService,
-                                  QuoteService quoteService) {
+                                  QuoteService quoteService,
+                                  PushPreviewFactory previewFactory,
+                                  PushCandidatePublisher pushPublisher) {
         this.repo = repo;                                // SEND 前置：按 clientMsgId 做幂等校验
         this.appender = appender;                        // SEND 主流程：定序、落库、更新摘要并扇出
         this.conversationService = conversationService;  // SEND 前置：校验会话成员身份和群禁言状态
@@ -49,6 +57,8 @@ public class InboundMessageConsumer {
         this.mentionService = mentionService;            // SEND 前置校验提及目标，落库后更新 mention_seq
         this.readService = readService;                  // READ 独立分支，不走 appender.append
         this.quoteService = quoteService;                // SEND 前置：校验引用目标并生成权威快照
+        this.previewFactory = previewFactory;            // 提醒旁路：仅生成不含完整正文的安全摘要
+        this.pushPublisher = pushPublisher;              // 提醒旁路：发布候选事件，失败不影响消息主链
     }
 
     @KafkaListener(topics = ImKafkaTopics.IN, groupId = "im-logic")
@@ -118,15 +128,30 @@ public class InboundMessageConsumer {
         }
 
         // SEND 通过幂等、成员/禁言、媒体和 @提及校验后，才进入统一的定序、落库与扇出流程。
-        long seq = appender.append(env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
+        AppendedMessage appended = appender.append(
+                env.getCid(), env.getSenderId(), env.getType(), env.getBody(), env.getClientMsgId());
 
         // 里程碑9：定序后把命中成员 mention_seq 推进到本消息 seq（空目标 no-op）
-        mentionService.apply(env.getCid(), seq, mentionTargets);
+        mentionService.apply(env.getCid(), appended.seq(), mentionTargets);
+
+        // 提醒候选是已接受消息的隔离旁路：仅允许安全类型，且必须晚于落库和 mention 状态推进。
+        if ("SEND".equals(env.getOp())) {
+            try {
+                String preview = previewFactory.create(env.getType(), env.getBody());
+                if (preview != null) {
+                    pushPublisher.publish(new PushCandidate(
+                            1, appended.msgId(), env.getCid(), appended.seq(), env.getSenderId(),
+                            env.getType(), preview, List.copyOf(mentionTargets), appended.ts()));
+                }
+            } catch (RuntimeException ex) {
+                log.warn("推送候选发布失败 msgId={}", appended.msgId());
+            }
+        }
 
         // 里程碑7：TEXT 消息异步补链接卡片（不阻塞消费线程；无 URL / 失败自然降级纯文本）
         if ("TEXT".equals(env.getType()) && env.getBody() != null
                 && env.getBody().get("text") instanceof String text) {
-            linkPreview.tryEnrich(env.getCid(), seq, text);
+            linkPreview.tryEnrich(env.getCid(), appended.seq(), text);
         }
     }
 

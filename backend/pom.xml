@@ -127,6 +127,13 @@
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
+        <!-- Android 离线推送；凭证只从运行环境 ADC 获取 -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.10.0</version>
+        </dependency>
+
         <!-- IM 富媒体：S3 兼容对象存储（MinIO/阿里云 OSS）预签名直传 -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
