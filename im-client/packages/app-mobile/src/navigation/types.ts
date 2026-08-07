@@ -26,6 +26,7 @@ export type RootStackParamList = {
   Login: undefined;
   Home: undefined;
   AppearanceSettings: undefined;
+  LanguageSettings: undefined;
   CreateGroup: undefined;
   Chat: ChatRouteParams;
   ConversationSettings: { cid: string; title: string };

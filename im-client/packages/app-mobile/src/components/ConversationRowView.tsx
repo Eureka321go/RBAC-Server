@@ -55,7 +55,7 @@ export function ConversationRowView({
               style={[
                 styles.badge,
                 {
-                  backgroundColor: theme.colors.primary,
+                  backgroundColor: theme.colors.danger,
                   borderColor: theme.colors.surface,
                 },
               ]}

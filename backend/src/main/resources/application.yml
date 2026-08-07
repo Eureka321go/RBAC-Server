@@ -72,7 +72,7 @@ rbac:
     mention-all-admin-only: true
     group-max-members: 500
     push:
-      enabled: ${IM_PUSH_ENABLED:false}
+      enabled: ${IM_PUSH_ENABLED:true}
       fresh-days: 30
       ttl-seconds: 86400
     media:

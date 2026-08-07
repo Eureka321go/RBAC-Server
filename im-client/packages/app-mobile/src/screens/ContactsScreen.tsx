@@ -16,6 +16,7 @@ import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { useLanguage } from '../ui/LanguageProvider';
 
 type Props = RootTabScreenProps<'ContactsTab'>;
 
@@ -28,6 +29,7 @@ export function ContactsScreen({ navigation }: Props) {
   const [openingPeerId, setOpeningPeerId] = useState<number | null>(null);
   const mountedRef = useRef(true);
   const { theme } = useAppTheme();
+  const { t } = useLanguage();
 
   const openChat = useCallback(
     async (peerId: number, peerName: string) => {
@@ -89,17 +91,17 @@ export function ContactsScreen({ navigation }: Props) {
       <View style={styles.content}>
         <AnimatedEntrance style={styles.heading}>
           <Text style={[styles.eyebrow, { color: theme.colors.textMuted }]}>
-            快速找到团队里的每个人
+            {t('contactsEyebrow')}
           </Text>
           <Text style={[styles.title, { color: theme.colors.text }]}>
-            通讯录
+            {t('contacts')}
           </Text>
         </AnimatedEntrance>
 
         <AnimatedEntrance index={1} style={styles.shortcuts}>
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="浏览组织架构"
+            accessibilityLabel={t('organization')}
             style={[
               styles.shortcut,
               {
@@ -121,17 +123,17 @@ export function ContactsScreen({ navigation }: Props) {
               />
             </View>
             <Text style={[styles.shortcutTitle, { color: theme.colors.text }]}>
-              组织架构
+              {t('organization')}
             </Text>
             <Text
               style={[styles.shortcutHint, { color: theme.colors.textMuted }]}
             >
-              按部门查找
+              {t('findByDepartment')}
             </Text>
           </PressableScale>
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="发起群聊"
+            accessibilityLabel={t('groupChat')}
             onPress={() => navigation.navigate('CreateGroup')}
             style={[
               styles.shortcut,
@@ -154,12 +156,12 @@ export function ContactsScreen({ navigation }: Props) {
               />
             </View>
             <Text style={[styles.shortcutTitle, { color: theme.colors.text }]}>
-              发起群聊
+              {t('groupChat')}
             </Text>
             <Text
               style={[styles.shortcutHint, { color: theme.colors.textMuted }]}
             >
-              多人协作
+              {t('collaboration')}
             </Text>
           </PressableScale>
         </AnimatedEntrance>
@@ -175,12 +177,12 @@ export function ContactsScreen({ navigation }: Props) {
           <View style={styles.directorySection}>
             <View style={styles.sectionHeading}>
               <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                组织成员
+                {t('members')}
               </Text>
               <Text
                 style={[styles.sectionMeta, { color: theme.colors.textMuted }]}
               >
-                选择联系人开始聊天
+                {t('selectContactToChat')}
               </Text>
             </View>
             {directory ? (
@@ -203,7 +205,7 @@ export function ContactsScreen({ navigation }: Props) {
                     { color: theme.colors.textSecondary },
                   ]}
                 >
-                  正在加载组织成员…
+                  {t('loadingMembers')}
                 </Text>
               </Surface>
             )}

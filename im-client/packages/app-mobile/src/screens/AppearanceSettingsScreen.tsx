@@ -9,22 +9,24 @@ import { Surface } from '../components/Surface';
 import type { RootStackParamList } from '../navigation/types';
 import { SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
+import { useLanguage } from '../ui/LanguageProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AppearanceSettings'>;
 
 export function AppearanceSettingsScreen({ navigation }: Props) {
   const { theme } = useAppTheme();
+  const { t } = useLanguage();
 
   return (
     <RootScreenBackground>
-      <CompactScreenHeader title="外观" onBack={() => navigation.goBack()} />
+      <CompactScreenHeader title={t('appearance')} onBack={() => navigation.goBack()} />
       <AnimatedEntrance style={styles.content}>
         <View>
           <Text style={[styles.title, { color: theme.colors.text }]}>
-            选择界面模式
+            {t('appearanceTitle')}
           </Text>
           <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-            设置会立即生效并自动保存
+            {t('appearanceHint')}
           </Text>
         </View>
         <Surface style={styles.card}>
