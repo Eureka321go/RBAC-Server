@@ -4,17 +4,49 @@
 
 ## 1. 最终可工作的链路
 
-```text
-test 发送 IM 消息
-  -> Kafka: im-inbound
-  -> 后端消息消费者：落 MongoDB、发布 im-push 候选
-  -> PushCandidateConsumer（Kafka: im-push）
-  -> Firebase Admin SDK
-  -> FCM
-  -> Android FirebaseMessagingService
-  -> NotificationCoordinator
-  -> Android 系统通知
+```mermaid
+flowchart TB
+    subgraph Android[Android 模拟器或真机]
+        Sender[发送方 App：test]
+        Recipient[接收方 App：admin]
+        NativeBridge[PushNotificationModule\n获取 FCM TOKEN]
+        FcmService[ImFirebaseMessagingService]
+        Notice[NotificationCoordinator\n系统通知]
+        Recipient --> NativeBridge
+        FcmService --> Notice
+    end
+
+    subgraph Host[开发机宿主网络]
+        Api[10.0.2.2:8080/api]
+        Credential[服务账号 JSON\n~/.config/rbac-server/]
+    end
+
+    subgraph Runtime[Docker / 后端运行环境]
+        Gateway[IM Gateway]
+        Backend[Spring Boot backend]
+        Inbound[(Kafka: im-inbound)]
+        PushTopic[(Kafka: im-push)]
+        Logic[InboundMessageConsumer\n落库并发布候选]
+        Delivery[PushCandidateConsumer\nFirebaseAdminFcmGateway]
+        Store[(MySQL：im_push_registration)]
+
+        Gateway --> Inbound
+        Inbound --> Logic
+        Logic --> PushTopic
+        PushTopic --> Delivery
+        Backend <--> Store
+    end
+
+    FCM[Firebase Cloud Messaging]
+
+    Sender -->|WebSocket IM 消息| Gateway
+    Recipient -->|登记 TOKEN| Api --> Backend
+    Credential -.只读挂载 / ADC.-> Delivery
+    Delivery -->|data payload| FCM
+    FCM -->|后台消息| FcmService
 ```
+
+图中有两条独立但关联的路径：接收方登录后先把 TOKEN 登记到 `im_push_registration`；发送方消息经过 Kafka 后，由投递消费者查登记记录并向 FCM 发起单设备推送。
 
 设备登记使用 FCM registration token（`TOKEN`）。服务端保留 `FID` 兼容分支，用于已有的历史登记；新 Android 客户端默认上传 TOKEN。
 
@@ -30,7 +62,23 @@ test 发送 IM 消息
    im-client/packages/app-mobile/android/app/google-services.json
    ```
 
-4. 在 Google Cloud IAM 中创建服务账号并下载 JSON 密钥。该文件只保存在本机安全位置，绝不提交 Git、绝不贴到日志或文档中。
+4. 在 Google Cloud IAM 中创建服务账号并下载 JSON 密钥。推荐将文件放在**仓库外**的固定目录：
+
+   ```text
+   ~/.config/rbac-server/firebase-service-account.json
+   ```
+
+   不要放在 `RBAC-Server/` 仓库内，也不要放在 Android `app/` 目录；该文件包含私钥，绝不提交 Git、绝不贴到日志或文档中。
+
+5. 收紧本机文件权限，并在 `deploy/.env` 配置其绝对路径：
+
+   ```bash
+   chmod 600 ~/.config/rbac-server/firebase-service-account.json
+   ```
+
+   ```dotenv
+   FIREBASE_CREDENTIALS_FILE=/Users/<你的用户名>/.config/rbac-server/firebase-service-account.json
+   ```
 
 服务账号应具有发送 FCM 所需权限；本项目使用 Firebase Admin SDK 的 Application Default Credentials（ADC）读取该 JSON 文件。
 
@@ -66,6 +114,8 @@ Android App 模块通过 Firebase BOM 引入 `firebase-messaging`。消息接收
 - 前台：向 React Native 发送同步事件，不额外弹系统通知。
 - 后台：调用 `NotificationCoordinator` 创建 Android 通知。
 - 收件账号不匹配、重复消息：直接丢弃。
+
+普通消息使用 `messages_high` 通知渠道，重要性为 `IMPORTANCE_HIGH`，可显示横幅；`@` 提醒也使用高优先级渠道。普通消息使用新渠道 ID 是为了避免 Android 8+ 忽略对旧 `messages` 渠道重要性的升级。用户仍可在系统设置中关闭横幅、声音或整个渠道。
 
 ### 3.2 获取并上传 registration token
 
@@ -183,7 +233,7 @@ builder.setFid(targetValue);   // 历史兼容
 
 ### 5.1 配置凭据路径
 
-在 `deploy/.env`（该文件已忽略）设置本机文件路径：
+服务账号 JSON 的推荐位置是仓库外的 `~/.config/rbac-server/firebase-service-account.json`。在 `deploy/.env`（该文件已忽略）设置它的本机绝对路径：
 
 ```dotenv
 FIREBASE_CREDENTIALS_FILE=/absolute/path/to/firebase-service-account.json
