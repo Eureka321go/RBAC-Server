@@ -1,0 +1,9 @@
+# FCM 可选覆盖层：仅在已通过宿主机 Secret 文件提供 Firebase ADC 时启用。
+# 用法：docker compose -f docker-compose.yml -f docker-compose.fcm.yml up -d --build
+services:
+  backend:
+    environment:
+      IM_PUSH_ENABLED: "true"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+    volumes:
+      - "${FIREBASE_CREDENTIALS_FILE:?Set FIREBASE_CREDENTIALS_FILE in deploy/.env}:/run/secrets/firebase-service-account.json:ro"

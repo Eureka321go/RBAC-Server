@@ -9,7 +9,7 @@ export interface PushOpenEvent {
 }
 
 export interface RegistrationTarget {
-  targetType: 'FID';
+  targetType: 'FID' | 'TOKEN';
   targetValue: string;
   targetFingerprint: string;
   appVersion: string;
@@ -60,7 +60,7 @@ function normalizeRegistrationTarget(value: unknown): RegistrationTarget | null 
   if (typeof value !== 'object' || value === null) return null;
   const candidate = value as Record<string, unknown>;
   if (
-    candidate.targetType !== 'FID' ||
+    (candidate.targetType !== 'FID' && candidate.targetType !== 'TOKEN') ||
     !isBoundedText(candidate.targetValue, 4096) ||
     !isBoundedText(candidate.targetFingerprint, 128) ||
     !isBoundedText(candidate.appVersion, 128)
@@ -68,7 +68,7 @@ function normalizeRegistrationTarget(value: unknown): RegistrationTarget | null 
     return null;
   }
   return {
-    targetType: 'FID',
+    targetType: candidate.targetType,
     targetValue: candidate.targetValue,
     targetFingerprint: candidate.targetFingerprint,
     appVersion: candidate.appVersion,

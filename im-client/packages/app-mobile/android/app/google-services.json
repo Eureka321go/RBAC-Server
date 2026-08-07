@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "319543703576",
+    "project_id": "rayim-e105a",
+    "storage_bucket": "rayim-e105a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:319543703576:android:f98eeb1ba530501de82b6d",
+        "android_client_info": {
+          "package_name": "com.rayim.eureka32.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1iHKm4p9Ukl2KfcR18vC6AYNVqeGG4KQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

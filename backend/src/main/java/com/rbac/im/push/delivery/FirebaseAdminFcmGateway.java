@@ -7,6 +7,8 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.SendResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import java.util.List;
 @ConditionalOnProperty(prefix = "rbac.im.push", name = "enabled", havingValue = "true")
 public class FirebaseAdminFcmGateway implements FcmGateway {
 
+    private static final Logger log = LoggerFactory.getLogger(FirebaseAdminFcmGateway.class);
     private static final int MAX_BATCH_SIZE = 500;
 
     private final ObjectProvider<FirebaseMessaging> messagingProvider;
@@ -36,11 +39,20 @@ public class FirebaseAdminFcmGateway implements FcmGateway {
         List<Message> messages = requests.stream().map(this::message).toList();
         try {
             BatchResponse response = messagingProvider.getObject().sendEach(messages);
-            return response.getResponses().stream().map(this::result).toList();
+            List<FcmSendResult> results = response.getResponses().stream().map(this::result).toList();
+            long delivered = results.stream().filter(FcmSendResult::success).count();
+            if (delivered != results.size()) {
+                log.warn("FCM batch completed delivered={} failed={}", delivered, results.size() - delivered);
+            } else {
+                log.info("FCM batch delivered count={}", delivered);
+            }
+            return results;
         } catch (FirebaseMessagingException exception) {
             FcmSendResult result = failure(exception.getMessagingErrorCode());
+            log.warn("FCM batch request failed reason={}", result.reason());
             return new ArrayList<>(java.util.Collections.nCopies(requests.size(), result));
         } catch (RuntimeException exception) {
+            log.warn("FCM batch request failed reason=INTERNAL");
             return failures(requests.size(), "INTERNAL");
         }
     }

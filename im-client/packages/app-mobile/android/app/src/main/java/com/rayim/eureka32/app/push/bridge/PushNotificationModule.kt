@@ -3,6 +3,7 @@ package com.rayim.eureka32.app.push.bridge
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.rayim.eureka32.app.push.notification.NotificationCoordinator
@@ -15,7 +16,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.firebase.FirebaseApp
-import com.google.firebase.installations.FirebaseInstallations
+import com.google.firebase.messaging.FirebaseMessaging
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
@@ -70,16 +71,18 @@ class PushNotificationModule(
                 result.resolve(null)
                 return
             }
-            FirebaseInstallations.getInstance().id
-                .addOnSuccessListener { fid ->
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
                     result.resolve(
                         runCatching {
-                            fid.takeIf { it.isNotBlank() && it.length <= MAX_FID_LENGTH }
-                                ?.let(::registrationMap)
+                            FcmInstallationRegistration.targetValue(token)?.let(::registrationMap)
                         }.getOrNull(),
                     )
                 }
-                .addOnFailureListener { result.resolve(null) }
+                .addOnFailureListener { cause ->
+                    Log.w(TAG, "FCM registration token lookup failed", cause)
+                    result.resolve(null)
+                }
         } catch (_: RuntimeException) {
             result.resolve(null)
         }
@@ -173,10 +176,10 @@ class PushNotificationModule(
         }
     }
 
-    private fun registrationMap(fid: String): WritableMap = Arguments.createMap().apply {
-        putString("targetType", "FID")
-        putString("targetValue", fid)
-        putString("targetFingerprint", sha256Hex(fid))
+    private fun registrationMap(token: String): WritableMap = Arguments.createMap().apply {
+        putString("targetType", "TOKEN")
+        putString("targetValue", token)
+        putString("targetFingerprint", sha256Hex(token))
         putString("appVersion", appVersion())
     }
 
@@ -209,7 +212,7 @@ class PushNotificationModule(
 
     companion object {
         const val NAME = "PushNotification"
-        private const val MAX_FID_LENGTH = 4096
+        private const val TAG = "PushNotification"
         private val SUPPORTED_EVENTS = setOf(
             PushEventQueue.EVENT_FOREGROUND,
             PushEventQueue.EVENT_OPENED,

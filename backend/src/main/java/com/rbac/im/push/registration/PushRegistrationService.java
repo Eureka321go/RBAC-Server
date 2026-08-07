@@ -1,5 +1,6 @@
 package com.rbac.im.push.registration;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ public class PushRegistrationService {
     private final ImPushRegistrationMapper mapper;
     private final Clock clock;
 
+    @Autowired
     public PushRegistrationService(ImPushRegistrationMapper mapper) {
         this(mapper, Clock.systemDefaultZone());
     }

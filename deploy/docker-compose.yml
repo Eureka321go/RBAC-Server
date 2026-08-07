@@ -64,7 +64,8 @@ services: #定义需要运行的服务
   # 后端 Spring Boot：本地代码构建成 jar，连容器内的 mysql / redis
   backend:
     build:
-      context: ../backend
+      context: ..
+      dockerfile: backend/Dockerfile
     image: rbac-backend
     container_name: rbac-backend
     restart: unless-stopped
@@ -76,6 +77,10 @@ services: #定义需要运行的服务
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-rbac_redis_123}"
+      # IM 基础设施运行在同一 Compose 网络中，不能使用容器自身 localhost。
+      MONGODB_URI: "mongodb://rbac:rbac123456@mongodb:27017/rbac_im?authSource=admin"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      MEDIA_ENDPOINT: http://minio:9000
       RBAC_JWT_SECRET: "${RBAC_JWT_SECRET:-rbac-server-default-secret-key-please-change-in-production-0123456789}"
       IM_PUSH_ENABLED: "${IM_PUSH_ENABLED:-false}"
       TZ: Asia/Shanghai
@@ -85,7 +90,9 @@ services: #定义需要运行的服务
       redis:
         condition: service_healthy
     networks: [rbac-net]
-    # 不映射 8080 到宿主机，只让 frontend 容器走内网反代
+    # Android 模拟器通过 10.0.2.2 访问宿主机；本地开发需直连 API。
+    ports:
+      - "8080:8080"
 
   # 前端 nginx：发 dist 静态文件 + 把 /api 反代给 backend
   # 不再直接对外，改由前面的 caddy 走 HTTPS 反代（只留内网 expose）
@@ -162,11 +169,13 @@ services: #定义需要运行的服务
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # 容器内与宿主机使用不同 listener，避免 broker 向容器客户端通告 localhost。
+      KAFKA_LISTENERS: INTERNAL://:19092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1

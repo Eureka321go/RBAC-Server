@@ -1,16 +1,17 @@
 # ---- 构建阶段：用 Maven 打出可执行 jar ----
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
-# 把项目里的 settings.xml（配了阿里云 Maven 镜像源）拷进 Maven 的配置位置，这样下依赖走国内源，快得多
-# 阿里云 Maven 镜像，加速依赖下载
-COPY settings.xml /root/.m2/settings.xml
+# Docker 构建使用 Maven Central。Firebase Admin 的 Google BOM 依赖树较大，
+# 在部分镜像站会出现大量小文件的高延迟下载。
 COPY pom.xml .
-COPY src ./src
-RUN mvn -B clean package -DskipTests
+COPY backend/pom.xml backend/pom.xml
+COPY im-gateway/pom.xml im-gateway/pom.xml
+COPY backend/src backend/src
+RUN mvn -B -pl backend -am clean package -DskipTests
 
 # ---- 运行阶段：精简 JRE 跑 jar ----
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/rbac-server-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /app/backend/target/rbac-server-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

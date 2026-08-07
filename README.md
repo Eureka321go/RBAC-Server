@@ -114,6 +114,15 @@ mvn -f backend/pom.xml spring-boot:run
 
 HTTP API：`http://localhost:8080/api`。首次启动会自动执行幂等的 `schema.sql` 和 `data.sql`。
 
+### 启用 Android FCM 推送（Docker）
+
+在 `deploy/.env` 填写本机服务账号 JSON 的绝对路径后，以 FCM 覆盖层启动；凭证只读挂载到容器，绝不提交 JSON 文件：
+
+```bash
+cd deploy
+docker compose --profile im --profile full -f docker-compose.yml -f docker-compose.fcm.yml up -d --build
+```
+
 ### 3. 启动 IM 网关
 
 ```bash

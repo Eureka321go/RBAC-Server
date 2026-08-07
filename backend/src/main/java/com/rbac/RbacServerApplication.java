@@ -17,7 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableScheduling
-@MapperScan("com.rbac.**.mapper") //告诉框架"数据层类在哪"
+@MapperScan({"com.rbac.**.mapper", "com.rbac.im.push.registration"}) //告诉框架"数据层类在哪"
 public class RbacServerApplication {
 
     public static void main(String[] args) {
