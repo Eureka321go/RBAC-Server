@@ -12,7 +12,6 @@ import { ConversationsScreen } from '../screens/ConversationsScreen';
 import { ContactsScreen } from '../screens/ContactsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { useLanguage } from '../ui/LanguageProvider';
 import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -76,7 +75,6 @@ function tabOptions(
 
 export function RootTabs() {
   const { theme } = useAppTheme();
-  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
   return (
@@ -103,17 +101,17 @@ export function RootTabs() {
       <Tab.Screen
         name="ChatsTab"
         component={ConversationsScreen}
-        options={tabOptions(t('chats'), 'chatbubbles-outline', 'chatbubbles')}
+        options={tabOptions('聊天', 'chatbubbles-outline', 'chatbubbles')}
       />
       <Tab.Screen
         name="ContactsTab"
         component={ContactsScreen}
-        options={tabOptions(t('contacts'), 'people-outline', 'people')}
+        options={tabOptions('通讯录', 'people-outline', 'people')}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}
-        options={tabOptions(t('profile'), 'person-circle-outline', 'person-circle')}
+        options={tabOptions('我的', 'person-circle-outline', 'person-circle')}
       />
     </Tab.Navigator>
   );

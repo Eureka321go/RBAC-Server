@@ -24,7 +24,19 @@ import { SPACING, TYPE } from '../ui/theme';
 import type { ThemeMode } from '../ui/themePreference';
 import { useAppTheme } from '../ui/ThemeProvider';
 import { nativePush } from '../push/nativePush';
-import { useLanguage } from '../ui/LanguageProvider';
+
+const CONNECTION_LABELS: Record<string, string> = {
+  connected: '在线',
+  connecting: '连接中',
+  reconnecting: '重连中',
+  closed: '离线',
+};
+
+const APPEARANCE_LABELS: Record<ThemeMode, string> = {
+  system: '跟随系统',
+  light: '浅色',
+  dark: '深色',
+};
 
 interface PreferenceRowProps {
   icon: IoniconsIconName;
@@ -91,14 +103,6 @@ export function ProfileScreen({ navigation }: Props) {
   const connState = useAppStore(state => state.connState);
   const logout = useAppStore(state => state.logout);
   const { theme, mode } = useAppTheme();
-  const { language, t } = useLanguage();
-  const appearanceLabels: Record<ThemeMode, string> = {
-    system: t('followSystem'), light: t('light'), dark: t('dark'),
-  };
-  const connectionLabels: Record<string, string> = {
-    connected: t('online'), connecting: t('connecting'),
-    reconnecting: t('reconnecting'), closed: t('offline'),
-  };
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   useEffect(() => {
     let mounted = true;
@@ -131,9 +135,9 @@ export function ProfileScreen({ navigation }: Props) {
       >
         <AnimatedEntrance style={styles.heading}>
           <Text style={[styles.eyebrow, { color: theme.colors.textMuted }]}>
-            {t('workspaceAndPreferences')}
+            工作空间与个人偏好
           </Text>
-          <Text style={[styles.title, { color: theme.colors.text }]}>{t('profile')}</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>我的</Text>
         </AnimatedEntrance>
 
         <AnimatedEntrance index={1}>
@@ -141,7 +145,7 @@ export function ProfileScreen({ navigation }: Props) {
             <InitialAvatar name={displayName} userId={myId} size={56} />
             <View style={styles.identityText}>
               <Text style={[styles.name, { color: theme.colors.text }]}>
-                {displayName || `${t('user')} #${myId ?? ''}`}
+                {displayName || `用户 #${myId ?? ''}`}
               </Text>
               <Text style={[styles.id, { color: theme.colors.textSecondary }]}>
                 IM ID · {myId ?? '—'}
@@ -154,7 +158,7 @@ export function ProfileScreen({ navigation }: Props) {
                   }
                 />
                 <Text style={[styles.status, { color: statusColor }]}>
-                  {connectionLabels[connState] ?? connState}
+                  {CONNECTION_LABELS[connState] ?? connState}
                 </Text>
               </View>
             </View>
@@ -164,29 +168,29 @@ export function ProfileScreen({ navigation }: Props) {
         <AnimatedEntrance index={2}>
           <Surface style={styles.preferences}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              {t('preferences')}
+              偏好设置
             </Text>
             <PreferenceRow
               icon="color-palette-outline"
-              label={t('appearance')}
-              value={appearanceLabels[mode]}
-              accessibilityLabel={t('appearance')}
+              label="外观"
+              value={APPEARANCE_LABELS[mode]}
+              accessibilityLabel="打开外观设置"
               onPress={() => navigation.navigate('AppearanceSettings')}
             />
             <PreferenceRow
               icon="notifications-outline"
-              label={t('notification')}
-              value={notificationsEnabled ? t('enabled') : t('disabled')}
-              accessibilityLabel={t('notification')}
+              label="通知"
+              value={notificationsEnabled ? '已开启' : '已关闭'}
+              accessibilityLabel="打开系统通知设置"
               onPress={() => void Linking.openSettings().catch(() => {})}
               showDivider
             />
             <PreferenceRow
               icon="language-outline"
-              label={t('language')}
-              value={language === 'zh-CN' ? t('simplifiedChinese') : t('english')}
-              accessibilityLabel={t('language')}
-              onPress={() => navigation.navigate('LanguageSettings')}
+              label="语言"
+              value="简体中文"
+              accessibilityLabel="语言，简体中文"
+              onPress={() => undefined}
               showDivider
             />
           </Surface>
@@ -194,7 +198,7 @@ export function ProfileScreen({ navigation }: Props) {
 
         <AnimatedEntrance index={3}>
           <AppButton
-            label={t('logout')}
+            label="退出登录"
             icon="log-out-outline"
             variant="danger"
             onPress={() => void logout()}

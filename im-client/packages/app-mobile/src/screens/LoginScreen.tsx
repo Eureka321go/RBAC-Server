@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { AnimatedEntrance } from '../components/AnimatedEntrance';
+import { GroupAvatar } from '../components/Avatar';
 import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
-import { BrandMark } from '../components/BrandMark';
 import { StatusNotice } from '../components/StatusNotice';
 import { Surface } from '../components/Surface';
 import { useAppStore } from '../store';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { useLanguage } from '../ui/LanguageProvider';
 
 export function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -19,7 +18,6 @@ export function LoginScreen() {
   const login = useAppStore((state) => state.login);
   const error = useAppStore((state) => state.error);
   const { theme } = useAppTheme();
-  const { t } = useLanguage();
 
   const submit = async () => {
     if (username.trim() === '' || password === '' || submitting) return;
@@ -44,17 +42,17 @@ export function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <AnimatedEntrance style={styles.hero}>
-            <BrandMark size={86} />
-            <Text style={[styles.kicker, { color: theme.colors.primary }]}>RAYIM · SECURE WORKSPACE</Text>
-            <Text style={[styles.title, { color: theme.colors.text }]}>{t('welcomeBack')}</Text>
-            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>{t('loginSubtitle')}</Text>
+            <GroupAvatar size={78} />
+            <Text style={[styles.kicker, { color: theme.colors.primary }]}>SECURE WORKSPACE</Text>
+            <Text style={[styles.title, { color: theme.colors.text }]}>欢迎回来</Text>
+            <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>登录后继续处理消息和群聊</Text>
           </AnimatedEntrance>
 
           <AnimatedEntrance index={1}>
             <Surface style={styles.form}>
               <AppTextField
-                label={t('username')}
-                placeholder={t('enterUsername')}
+                label="用户名"
+                placeholder="请输入用户名"
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!submitting}
@@ -62,8 +60,8 @@ export function LoginScreen() {
                 onChangeText={setUsername}
               />
               <AppTextField
-                label={t('password')}
-                placeholder={t('enterPassword')}
+                label="密码"
+                placeholder="请输入密码"
                 secureTextEntry
                 editable={!submitting}
                 value={password}
@@ -72,14 +70,14 @@ export function LoginScreen() {
               />
               {error ? <StatusNotice message={error} tone="error" /> : null}
               <AppButton
-                label={submitting ? t('loggingIn') : t('login')}
+                label={submitting ? '正在登录…' : '登录'}
                 loading={submitting}
                 disabled={username.trim() === '' || password === ''}
                 onPress={() => void submit()}
               />
             </Surface>
           </AnimatedEntrance>
-          <Text style={[styles.footnote, { color: theme.colors.textMuted }]}>{t('secureConnection')}</Text>
+          <Text style={[styles.footnote, { color: theme.colors.textMuted }]}>端到端安全连接 · 多端消息同步</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>

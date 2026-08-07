@@ -20,11 +20,9 @@ import { CreateGroupScreen } from './src/screens/CreateGroupScreen';
 import { ConversationSettingsScreen } from './src/screens/ConversationSettingsScreen';
 import { GroupDetailsScreen } from './src/screens/GroupDetailsScreen';
 import { AppearanceSettingsScreen } from './src/screens/AppearanceSettingsScreen';
-import { LanguageSettingsScreen } from './src/screens/LanguageSettingsScreen';
 import { ConnectionStatusBar } from './src/components/ConnectionStatusBar';
 import type { RootStackParamList } from './src/navigation/types';
 import { ThemeProvider, useAppTheme } from './src/ui/ThemeProvider';
-import { LanguageProvider } from './src/ui/LanguageProvider';
 import { RootTabs } from './src/navigation/RootTabs';
 import { BrandedLoadingState } from './src/components/BrandedLoadingState';
 import { reconcilePushRegistrationOnForeground } from './src/push/pushPermission';
@@ -117,7 +115,6 @@ function AppContent() {
                 component={AppearanceSettingsScreen}
                 options={{ headerShown: false }}
               />
-              <Stack.Screen name="LanguageSettings" component={LanguageSettingsScreen} options={{ headerShown: false }} />
               <Stack.Screen
                 name="CreateGroup"
                 component={CreateGroupScreen}
@@ -150,7 +147,7 @@ function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <LanguageProvider><AppContent /></LanguageProvider>
+        <AppContent />
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -6,28 +6,31 @@ import {
 } from '@react-native-vector-icons/ionicons/static';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { useLanguage } from '../ui/LanguageProvider';
 import type { ThemeMode } from '../ui/themePreference';
 import { PressableScale } from './PressableScale';
 
+const APPEARANCE_OPTIONS: ReadonlyArray<{
+  mode: ThemeMode;
+  label: string;
+  icon: IoniconsIconName;
+}> = [
+  { mode: 'system', label: '跟随系统', icon: 'phone-portrait-outline' },
+  { mode: 'light', label: '浅色', icon: 'sunny-outline' },
+  { mode: 'dark', label: '深色', icon: 'moon-outline' },
+];
+
 export function AppearanceSelector() {
   const { theme, mode, setMode } = useAppTheme();
-  const { t } = useLanguage();
-  const appearanceOptions: ReadonlyArray<{ mode: ThemeMode; label: string; icon: IoniconsIconName }> = [
-    { mode: 'system', label: t('followSystem'), icon: 'phone-portrait-outline' },
-    { mode: 'light', label: t('light'), icon: 'sunny-outline' },
-    { mode: 'dark', label: t('dark'), icon: 'moon-outline' },
-  ];
 
   return (
     <View accessibilityRole="radiogroup" style={styles.list}>
-      {appearanceOptions.map(option => {
+      {APPEARANCE_OPTIONS.map(option => {
         const selected = mode === option.mode;
         return (
           <PressableScale
             key={option.mode}
             accessibilityRole="radio"
-            accessibilityLabel={`${t('appearance')}: ${option.label}`}
+            accessibilityLabel={`外观：${option.label}`}
             accessibilityState={{ selected }}
             onPress={() => void setMode(option.mode)}
             style={[

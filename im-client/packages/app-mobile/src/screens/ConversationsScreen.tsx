@@ -14,36 +14,29 @@ import { sdk } from '../sdk';
 import { useAppStore } from '../store';
 import { RADIUS, SPACING, TYPE } from '../ui/theme';
 import { useAppTheme } from '../ui/ThemeProvider';
-import { useLanguage } from '../ui/LanguageProvider';
 
 type Props = RootTabScreenProps<'ChatsTab'>;
 
-function titleOf(row: ConversationRow, myId: number | null, userLabel: string, groupLabel: string): string {
+function titleOf(row: ConversationRow, myId: number | null): string {
   const displayName = row.displayName?.trim();
   if (displayName) return displayName;
-  if (row.type === 'GROUP') return `${groupLabel} #${row.groupId ?? row.cid.slice(2)}`;
+  if (row.type === 'GROUP') return `群聊 #${row.groupId ?? row.cid.slice(2)}`;
   const peerName = row.peerName?.trim();
   if (peerName) return peerName;
-  if (row.peerId != null) return `${userLabel} #${row.peerId}`;
+  if (row.peerId != null) return `用户 #${row.peerId}`;
   const matched = /^c_(\d+)_(\d+)$/.exec(row.cid);
   if (matched == null) return row.cid;
   const left = Number(matched[1]);
   const right = Number(matched[2]);
-  return `${userLabel} #${left === myId ? right : left}`;
+  return `用户 #${left === myId ? right : left}`;
 }
 
-function headerDateParts(language: string): { weekday: string; date: string } {
-  const date = new Date();
-  if (language === 'zh-CN') {
-    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-    return {
-      weekday: weekdays[date.getDay()],
-      date: `${date.getMonth() + 1}月${date.getDate()}日`,
-    };
-  }
-  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  return { weekday: weekdays[date.getDay()], date: `${months[date.getMonth()]} ${date.getDate()}` };
+function currentDateLabel(): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  }).format(new Date());
 }
 
 export function ConversationsScreen({ navigation }: Props) {
@@ -55,8 +48,6 @@ export function ConversationsScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const { theme } = useAppTheme();
-  const { language, t } = useLanguage();
-  const dateParts = headerDateParts(language);
 
   const reload = useCallback(async () => {
     const rows = await sdk.sync.getConversations();
@@ -104,10 +95,10 @@ export function ConversationsScreen({ navigation }: Props) {
       : theme.colors.warning;
   const statusLabel =
     connState === 'connected'
-      ? t('online')
+      ? '在线'
       : connState === 'closed'
-      ? t('offline')
-      : t('connecting');
+      ? '离线'
+      : '连接中';
 
   return (
     <RootScreenBackground>
@@ -127,7 +118,7 @@ export function ConversationsScreen({ navigation }: Props) {
                 style={[styles.accountName, { color: theme.colors.text }]}
                 numberOfLines={1}
               >
-                {displayName || `${t('user')} #${myId ?? ''}`}
+                {displayName || `用户 #${myId ?? ''}`}
               </Text>
               <Text style={[styles.accountStatus, { color: statusColor }]}>
                 {statusLabel}
@@ -137,31 +128,27 @@ export function ConversationsScreen({ navigation }: Props) {
           <View style={styles.actions}>
             <IconButton
               name="person-add-outline"
-              accessibilityLabel={t('startDirectChat')}
+              accessibilityLabel="发起单聊"
               backgroundColor={theme.colors.primarySoft}
               color={theme.colors.primary}
               onPress={() => navigation.navigate('ContactsTab')}
             />
             <IconButton
               name="people-outline"
-              accessibilityLabel={t('createGroup')}
+              accessibilityLabel="创建群聊"
               backgroundColor={theme.colors.primarySoft}
               color={theme.colors.primary}
               onPress={() => navigation.navigate('CreateGroup')}
             />
           </View>
         </View>
-        <View style={styles.inboxHeading}>
-          <View style={styles.inboxTitleGroup}>
-            <Text style={[styles.inboxLabel, { color: theme.colors.primary }]}>RAYIM INBOX</Text>
-            <Text style={[styles.title, { color: theme.colors.text }]}>{t('chats')}</Text>
-          </View>
-          <View style={[styles.datePanel, { borderRightColor: theme.colors.borderStrong }]}>
-            <Text style={[styles.weekday, { color: theme.colors.textSecondary }]}>{dateParts.weekday}</Text>
-            <Text style={[styles.calendarDate, { color: theme.colors.textMuted }]}>{dateParts.date}</Text>
-          </View>
-        </View>
-        <View style={[styles.headerDivider, { backgroundColor: theme.colors.border }]} />
+        <Text style={[styles.date, { color: theme.colors.textMuted }]}>
+          {currentDateLabel()}
+        </Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>聊天</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+          保持专注，也保持连接
+        </Text>
         <View
           style={[
             styles.search,
@@ -177,7 +164,7 @@ export function ConversationsScreen({ navigation }: Props) {
             color={theme.colors.textMuted}
           />
           <Text style={[styles.searchText, { color: theme.colors.textMuted }]}>
-            {t('searchPlaceholder')}
+            搜索会话、消息与联系人
           </Text>
         </View>
       </View>
@@ -221,7 +208,7 @@ export function ConversationsScreen({ navigation }: Props) {
               />
             </View>
             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
-              {refreshing ? t('syncingConversations') : t('noMessages')}
+              {refreshing ? '正在同步会话' : '还没有消息'}
             </Text>
             <Text
               style={[
@@ -230,13 +217,13 @@ export function ConversationsScreen({ navigation }: Props) {
               ]}
             >
               {refreshing
-                ? t('syncingHint')
-                : t('noMessagesHint')}
+                ? '请稍候，正在获取最新内容…'
+                : '前往通讯录找到同事，或创建一个群聊'}
             </Text>
           </View>
         }
         renderItem={({ item, index }) => {
-          const title = titleOf(item, myId, t('user'), t('group'));
+          const title = titleOf(item, myId);
           return (
             <ConversationRowView
               row={item}
@@ -290,34 +277,18 @@ const styles = StyleSheet.create({
   accountName: { fontSize: 14, fontWeight: '800' },
   accountStatus: { marginTop: 2, fontSize: 10, fontWeight: '700' },
   actions: { flexDirection: 'row', gap: SPACING.xs },
-  inboxHeading: {
-    marginTop: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  inboxTitleGroup: { flex: 1, minWidth: 0 },
-  inboxLabel: { fontSize: 10, lineHeight: 14, fontWeight: '900', letterSpacing: 2.2 },
+  date: { marginTop: SPACING.lg, fontSize: TYPE.caption, fontWeight: '600' },
   title: {
-    marginTop: SPACING.xxs,
+    marginTop: 2,
     fontSize: 30,
     lineHeight: 38,
     fontWeight: '900',
     letterSpacing: -0.8,
   },
-  datePanel: {
-    minWidth: 78,
-    marginBottom: 2,
-    paddingRight: SPACING.sm,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    alignItems: 'flex-end',
-  },
-  weekday: { fontSize: 14, fontWeight: '800' },
-  calendarDate: { marginTop: 2, fontSize: TYPE.caption, fontWeight: '600' },
-  headerDivider: { height: StyleSheet.hairlineWidth, marginTop: SPACING.md },
+  subtitle: { marginTop: 2, fontSize: TYPE.caption },
   search: {
-    height: 46,
-    marginTop: SPACING.sm,
+    height: 44,
+    marginTop: SPACING.md,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.md,
     borderWidth: StyleSheet.hairlineWidth,
